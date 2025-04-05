@@ -31,9 +31,6 @@ const GameSettings = ({ settings, onUpdateSettings }) => {
   
   return (
     <div className="card game-settings">
-      <div className="card-header">
-        <i className="bi bi-sliders"></i> Game Settings
-      </div>
       <div className="settings-container">
         <div className="settings-row">
           <label htmlFor="subject">
