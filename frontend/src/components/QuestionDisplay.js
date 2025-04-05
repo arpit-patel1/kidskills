@@ -6,7 +6,10 @@ const QuestionDisplay = ({
   loading, 
   submitted = false, 
   feedback = null,
-  selectedChoice: parentSelectedChoice = null
+  selectedChoice: parentSelectedChoice = null,
+  score = 0,
+  questionCount = 0,
+  streak = 0
 }) => {
   const [localSelectedChoice, setLocalSelectedChoice] = useState(null);
   const [localSubmitted, setLocalSubmitted] = useState(false);
@@ -123,7 +126,7 @@ const QuestionDisplay = ({
     if (question.subject === 'Math') {
       if (question.sub_activity === 'Addition/Subtraction') return '➕➖';
       if (question.sub_activity === 'Multiplication/Division') return '✖️➗';
-      if (question.sub_activity === 'Word Problems') return '🧮📝';
+      if (question.sub_activity === 'Word Problems') return '��📝';
       return '🧮';
     } else if (question.subject === 'English') {
       if (question.sub_activity === 'Opposites/Antonyms') return '⬆️⬇️';
@@ -133,10 +136,43 @@ const QuestionDisplay = ({
     }
     return '🎓';
   };
+
+  // Generate star emojis based on streak
+  const renderStars = () => {
+    if (streak === 0) return null;
+    const stars = Array(Math.min(streak, 5)).fill('⭐').join(' ');
+    return <span className="emoji">{stars}</span>;
+  };
   
   return (
     <div className="question-display">
       <div className="question-card">
+        {questionCount > 0 && (
+          <div className="score-bar">
+            <div className="score-item">
+              <span>Score: </span>
+              <strong>{score} / {questionCount}</strong>
+            </div>
+            
+            {streak > 0 && (
+              <div className="score-item">
+                <span>Streak: </span>
+                <strong>
+                  {renderStars()} ({streak})
+                </strong>
+                
+                {streak >= 3 && (
+                  <span className="streak-badge">
+                    {streak >= 10 ? '🏆 Champion!' : 
+                     streak >= 5 ? '🥇 Expert!' : 
+                     '🎖️ Great job!'}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="question-header">
           <span className="question-emoji">{getEmoji()}</span>
           <div className="question-info">

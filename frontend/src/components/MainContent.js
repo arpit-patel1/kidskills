@@ -58,24 +58,17 @@ const MainContent = ({
     <div className="main-content">
       {currentQuestion ? (
         <div className="game-content">
-          <div className="game-header">
-            <ScoreDisplay 
-              score={score} 
-              questionCount={questionCount} 
-              streak={streak} 
-            />
-          </div>
-          
-          <div className="game-body">
-            <QuestionDisplay 
-              question={currentQuestion} 
-              onAnswer={handleAnswer} 
-              loading={loading} 
-              submitted={feedback !== null}
-              feedback={feedback}
-              selectedChoice={selectedAnswer}
-            />
-          </div>
+          <QuestionDisplay 
+            question={currentQuestion} 
+            onAnswer={handleAnswer} 
+            loading={loading} 
+            submitted={feedback !== null}
+            feedback={feedback}
+            selectedChoice={selectedAnswer}
+            score={score}
+            questionCount={questionCount}
+            streak={streak}
+          />
         </div>
       ) : (
         <div className="start-screen">
