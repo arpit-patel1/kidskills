@@ -19,7 +19,7 @@ const ActivitySidebar = ({
             <div className="current-player-info">
               <div className="avatar-wrapper">
                 <div className="player-avatar">
-                  <div className="default-avatar"></div>
+                  <div className="emoji-avatar">😊</div>
                 </div>
                 <h3>{selectedPlayer.name}</h3>
               </div>

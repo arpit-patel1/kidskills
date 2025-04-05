@@ -83,6 +83,7 @@ class Player(Base):
     
     # Default settings
     preferred_subject = Column(String, default="Math")  # "Math" or "English"
+    preferred_sub_activity = Column(String, default="Addition/Subtraction")  # Changes based on subject
     preferred_difficulty = Column(String, default="Easy")  # "Easy", "Medium", "Hard"
     
     # Relationship
@@ -99,6 +100,7 @@ class Progress(Base):
     question_text = Column(Text)
     question_type = Column(String)  # "multiple-choice", "direct-answer", "reading-comprehension"
     subject = Column(String)  # "Math" or "English"
+    sub_activity = Column(String)  # e.g., "Addition/Subtraction", "Opposites/Antonyms"
     difficulty = Column(String)  # "Easy", "Medium", "Hard"
     
     # Answer details
@@ -126,6 +128,9 @@ class Progress(Base):
 Settings a user can configure (on the main page):
 - Player: Kid 1 (Grade 3) / Kid 2 (Grade 2)
 - Subject: Math / English
+- Sub-Activity: 
+  - For Math: Addition/Subtraction, Multiplication/Division, Word Problems
+  - For English: Opposites/Antonyms, Reading Comprehension, Nouns/Pronouns
 - Difficulty: Easy, Medium, Hard
 
 Note: All activities are continuous by design, with questions automatically advancing after each answer.
@@ -135,15 +140,32 @@ Note: All activities are continuous by design, with questions automatically adva
 ## 📚 Challenge Types & Subjects (Focus for MVP)
 
 ### Math (Grade 2 & 3 Focus)
-- Addition/Subtraction
-- Basic Multiplication/Division
-- Simple Word problems
+Sub-activities available:
+1. **Addition/Subtraction** (Multiple Choice)
+   - Basic operations with numbers appropriate for grade level
+   - Visual representation questions (e.g., "How many apples are left?")
+
+2. **Multiplication/Division** (Multiple Choice)
+   - Basic operations with numbers appropriate for grade level
+   - Visual representation questions with groups
+
+3. **Word Problems** (Reading Comprehension + Multiple Choice)
+   - Simple real-world scenarios requiring mathematical operations
+   - Problems involving money, time, or measurement appropriate to grade level
 
 ### English (Grade 2 & 3 Focus)
-- Basic Vocabulary (synonyms, antonyms)
-- Spelling
-- Simple Grammar (nouns, verbs)
-- Fill-in-the-blank sentences
+Sub-activities available:
+1. **Opposites/Antonyms** (Multiple Choice)
+   - Word pairs with opposite meanings
+   - Grade-appropriate vocabulary challenges
+
+2. **Reading Comprehension** (Reading Passage + Multiple Choice Questions)
+   - Short passages appropriate for grade level
+   - Questions about the main idea, details, and inferences
+
+3. **Nouns/Pronouns** (Fill-in-the-blank Multiple Choice)
+   - Sentences with missing words to be filled with the correct noun or pronoun
+   - Identifying parts of speech in sentences
 
 ---
 
@@ -153,6 +175,7 @@ Note: All activities are continuous by design, with questions automatically adva
 - Prompts constructed dynamically based on:
   - Selected Player's Grade (2 or 3)
   - Subject (Math/English)
+  - Sub-Activity (e.g., Addition/Subtraction, Opposites/Antonyms, etc.)
   - Difficulty (Easy/Medium/Hard)
 - Returned format (Example):
 ```json
@@ -175,15 +198,21 @@ Focus on basic prompt randomization and inherent AI variety.
 Prompts are dynamically constructed with:
 - **Fixed Parameters** (from user selection):
   - Subject (Math / English)
+  - Sub-Activity (e.g., Addition/Subtraction, Reading Comprehension)
   - Grade level (2 or 3)
   - Difficulty
 - **Randomized Elements** (implicitly via AI or basic prompt structure):
   - Numbers (math)
   - Word choices / names (English)
 
-**Sample Prompt (Math - Grade 2 Easy)**:
+**Sample Prompt (Math - Addition/Subtraction - Grade 2 Easy)**:
 ```
-Generate an easy 2nd-grade level math question involving two-digit addition where no carrying is required. Provide only the question text and the numerical answer.
+Generate an easy 2nd-grade level math question about addition/subtraction involving two-digit addition where no carrying is required. Provide the question text and 4 multiple choice options with the correct answer.
+```
+
+**Sample Prompt (English - Opposites/Antonyms - Grade 3 Medium)**:
+```
+Generate a medium difficulty 3rd-grade level English question about opposites/antonyms. Provide a word and ask for its opposite with 4 multiple choice options.
 ```
 
 ---
@@ -204,7 +233,7 @@ These help keep questions reasonably diverse yet appropriate.
 
 ```
 +----------------------------+
-|     Player Settings        | (Grade, Subject, Diff)
+|     Player Settings        | (Grade, Subject, Sub-Activity, Diff)
 +-------------+-------------+
               |
               v
@@ -339,6 +368,7 @@ This approach allows for variety in question formats while maintaining a consist
   "player": "Kid 1",
   "grade": 3,
   "subject": "Math",
+  "sub_activity": "Addition/Subtraction",
   "difficulty": "Easy",
   "type": "multiple-choice"
 }
@@ -350,7 +380,10 @@ This approach allows for variety in question formats while maintaining a consist
   "question": "What is 7 + 8?",
   "choices": ["13", "14", "15", "16"],
   "answer": "15",
-  "type": "multiple-choice"
+  "type": "multiple-choice",
+  "subject": "Math",
+  "sub_activity": "Addition/Subtraction",
+  "difficulty": "Easy"
 }
 ```
 
@@ -483,7 +516,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load API key from .env file
 
-async def generate_question(grade, subject, difficulty, question_type):
+async def generate_question(grade, subject, sub_activity, difficulty, question_type):
     """Generate a question using OpenRouter API."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     
@@ -493,7 +526,7 @@ async def generate_question(grade, subject, difficulty, question_type):
     }
     
     # Construct the prompt based on settings
-    prompt = f"Generate a {difficulty} {grade}-grade level {subject} question of type {question_type}."
+    prompt = f"Generate a {difficulty} {grade}-grade level {subject} question about {sub_activity} of type {question_type}."
     
     # Example API call to Claude or similar model via OpenRouter
     payload = {
@@ -525,8 +558,36 @@ For the sidebar implementation, use React Bootstrap's offcanvas component in lar
 ```jsx
 // Example sidebar component structure
 import { Offcanvas, Form } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
 
-function Sidebar({ show, handleClose, ...props }) {
+function Sidebar({ show, handleClose, settings, onSettingsChange, ...props }) {
+  const [subActivities, setSubActivities] = useState([]);
+  
+  // Update sub-activities when subject changes
+  useEffect(() => {
+    if (settings.subject === 'Math') {
+      setSubActivities([
+        'Addition/Subtraction',
+        'Multiplication/Division',
+        'Word Problems'
+      ]);
+    } else if (settings.subject === 'English') {
+      setSubActivities([
+        'Opposites/Antonyms',
+        'Reading Comprehension',
+        'Nouns/Pronouns'
+      ]);
+    }
+    
+    // Update sub-activity to first option when subject changes
+    if (subActivities.length > 0) {
+      onSettingsChange({
+        ...settings,
+        sub_activity: subActivities[0]
+      });
+    }
+  }, [settings.subject]);
+
   return (
     <Offcanvas show={show} onHide={handleClose} responsive="lg" className="sidebar-container">
       <Offcanvas.Header closeButton>
@@ -542,15 +603,36 @@ function Sidebar({ show, handleClose, ...props }) {
         <Form className="sidebar-form">
           <Form.Group className="mb-3 sidebar-form-group">
             <Form.Label>Subject</Form.Label>
-            <Form.Select className="sidebar-select">
+            <Form.Select 
+              className="sidebar-select" 
+              value={settings.subject}
+              onChange={(e) => onSettingsChange({...settings, subject: e.target.value})}
+            >
               <option>Math</option>
               <option>English</option>
             </Form.Select>
           </Form.Group>
           
           <Form.Group className="mb-3 sidebar-form-group">
+            <Form.Label>Sub-Activity</Form.Label>
+            <Form.Select 
+              className="sidebar-select"
+              value={settings.sub_activity}
+              onChange={(e) => onSettingsChange({...settings, sub_activity: e.target.value})}
+            >
+              {subActivities.map(activity => (
+                <option key={activity}>{activity}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          
+          <Form.Group className="mb-3 sidebar-form-group">
             <Form.Label>Difficulty</Form.Label>
-            <Form.Select className="sidebar-select">
+            <Form.Select
+              className="sidebar-select"
+              value={settings.difficulty}
+              onChange={(e) => onSettingsChange({...settings, difficulty: e.target.value})}
+            >
               <option>Easy</option>
               <option>Medium</option>
               <option>Hard</option>
@@ -619,7 +701,7 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
   - [x] Implement question generation function
   - [x] Add error handling and fallback logic
 - [x] Implement `/challenge/get` endpoint
-  - [x] Accept player settings
+  - [x] Accept player settings (including sub-activity)
   - [x] Call OpenRouter API
   - [x] Parse and validate AI response
   - [x] Return formatted question
@@ -639,7 +721,8 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
   - [x] Add error handling
 - [x] Create main components:
   - [x] Player selection
-  - [x] Game settings (subject, difficulty)
+  - [x] Game settings (subject, sub-activity, difficulty)
+  - [x] Dynamic sub-activity options based on selected subject
   - [x] Question display
   - [x] Answer input (multiple choice for MVP)
   - [x] Score display

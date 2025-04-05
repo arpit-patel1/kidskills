@@ -1,6 +1,5 @@
 import React from 'react';
 import QuestionDisplay from './QuestionDisplay';
-import FeedbackDisplay from './FeedbackDisplay';
 import ScoreDisplay from './ScoreDisplay';
 
 const MainContent = ({
@@ -23,8 +22,8 @@ const MainContent = ({
         <div className="welcome-screen">
           <h2>Welcome to AI Kids Challenge Game!</h2>
           <p>Please select a player from the sidebar to start.</p>
-          <div className="welcome-image">
-            <img src="/assets/welcome-graphic.png" alt="Welcome" className="img-fluid" />
+          <div className="welcome-emoji">
+            <span role="img" aria-label="Welcome" className="welcome-emoji-icon">👋 🎮 🧠 🎯</span>
           </div>
         </div>
       </div>
@@ -82,8 +81,8 @@ const MainContent = ({
         <div className="start-screen">
           <h2>Ready to Play, {selectedPlayer.name}?</h2>
           <p>Select your subject and difficulty level in the sidebar, then click "Start Game".</p>
-          <div className="start-image">
-            <img src="/assets/start-graphic.png" alt="Start Game" className="img-fluid" />
+          <div className="start-emoji">
+            <span role="img" aria-label="Start Game" className="welcome-emoji-icon">🎮 🚀 ✨ 🎯</span>
           </div>
         </div>
       )}

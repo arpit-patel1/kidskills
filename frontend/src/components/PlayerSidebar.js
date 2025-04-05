@@ -37,18 +37,7 @@ const PlayerSidebar = ({
                     onClick={() => onSelectPlayer(player)}
                   >
                     <div className="player-avatar">
-                      {player.avatar ? (
-                        <img 
-                          src={`/avatars/${player.avatar}`} 
-                          alt={player.name}
-                          onError={(e) => {
-                            e.target.onerror = null; 
-                            e.target.src = '/avatars/default.png';
-                          }}
-                        />
-                      ) : (
-                        <div className="default-avatar small"></div>
-                      )}
+                      <div className="emoji-avatar small">😊</div>
                     </div>
                     <div className="player-info">
                       <h3>{player.name}</h3>

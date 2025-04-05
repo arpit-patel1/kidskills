@@ -1457,6 +1457,27 @@ select.form-control:hover, select.form-control:focus {
   border-radius: 50% 50% 0 0;
 }
 
+/* Emoji avatar styling */
+.emoji-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  font-size: 30px;
+  overflow: hidden;
+}
+
+.default-avatar.small ~ .emoji-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+}
+
 /* Animation for bouncing elements */
 @keyframes bounce {
   0%, 100% {
@@ -1547,6 +1568,13 @@ select.form-control:hover, select.form-control:focus {
 .default-avatar.small::after {
   width: 50%;
   height: 25%;
+}
+
+/* Small emoji avatar */
+.emoji-avatar.small {
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
 }
 
 /* Player selection adjustments */
@@ -1879,4 +1907,18 @@ select.form-control:hover, select.form-control:focus {
   to {
     transform: rotate(360deg);
   }
+}
+
+.welcome-emoji {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0;
+  animation: bounce 2s infinite alternate ease-in-out;
+}
+
+.welcome-emoji-icon {
+  font-size: 4rem;
+  letter-spacing: 0.5rem;
+  text-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 } 
