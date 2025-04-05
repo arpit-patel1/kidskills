@@ -2,10 +2,13 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+.cursor
 # C extensions
 *.so
-
+backend/logs/.DS_Store
+backend/logs/backend.log
+frontend/logs/.DS_Store
+frontend/logs/frontend.log
 # Distribution / packaging
 .Python
 build/

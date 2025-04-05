@@ -1,0 +1,19 @@
+<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Confetti pieces -->
+  <rect x="10" y="10" width="5" height="15" fill="#FF6B81" transform="rotate(15)" />
+  <rect x="30" y="20" width="4" height="10" fill="#3498DB" transform="rotate(45)" />
+  <rect x="50" y="30" width="6" height="12" fill="#F39C12" transform="rotate(-20)" />
+  <rect x="70" y="15" width="3" height="8" fill="#2ECC71" transform="rotate(60)" />
+  <rect x="20" y="50" width="4" height="9" fill="#9B59B6" transform="rotate(-45)" />
+  <rect x="40" y="60" width="5" height="11" fill="#5DADE2" transform="rotate(30)" />
+  <rect x="65" y="70" width="3" height="7" fill="#FF6B81" transform="rotate(-60)" />
+  <rect x="85" y="40" width="4" height="10" fill="#48C9B0" transform="rotate(75)" />
+  
+  <!-- Circular confetti -->
+  <circle cx="15" cy="80" r="3" fill="#F39C12" />
+  <circle cx="35" cy="45" r="2" fill="#3498DB" />
+  <circle cx="55" cy="85" r="2.5" fill="#2ECC71" />
+  <circle cx="80" cy="25" r="2" fill="#9B59B6" />
+  <circle cx="90" cy="60" r="3" fill="#5DADE2" />
+  <circle cx="25" cy="30" r="2.5" fill="#FF6B81" />
+</svg> 
