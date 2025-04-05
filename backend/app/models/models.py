@@ -17,6 +17,7 @@ class Player(Base):
     
     # Default settings
     preferred_subject = Column(String, default="Math")  # "Math" or "English"
+    preferred_sub_activity = Column(String, default="Addition/Subtraction")  # Changes based on subject
     preferred_difficulty = Column(String, default="Easy")  # "Easy", "Medium", "Hard"
     
     # Relationship
@@ -33,6 +34,7 @@ class Progress(Base):
     question_text = Column(Text)
     question_type = Column(String)  # "multiple-choice", "direct-answer", "reading-comprehension"
     subject = Column(String)  # "Math" or "English"
+    sub_activity = Column(String)  # e.g., "Addition/Subtraction", "Opposites/Antonyms"
     difficulty = Column(String)  # "Easy", "Medium", "Hard"
     
     # Answer details

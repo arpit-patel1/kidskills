@@ -51,13 +51,14 @@ export const getPlayers = async () => {
 };
 
 // Get a challenge question
-export const getQuestion = async (playerId, subject, difficulty) => {
+export const getQuestion = async (playerId, subject, sub_activity, difficulty) => {
   try {
-    console.log("Getting question for player:", playerId, "Subject:", subject, "Difficulty:", difficulty);
+    console.log("Getting question for player:", playerId, "Subject:", subject, "Sub-activity:", sub_activity, "Difficulty:", difficulty);
     
     const response = await api.post('/challenges/generate', {
       player_id: playerId,
       subject,
+      sub_activity,
       difficulty,
       question_type: 'multiple-choice'
     });

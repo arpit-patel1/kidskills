@@ -6,6 +6,7 @@ class GetQuestionRequest(BaseModel):
     """Request schema for getting a question."""
     player_id: int = Field(..., description="Player ID")
     subject: str = Field(..., description="Subject (math or english)")
+    sub_activity: str = Field(..., description="Sub-activity (e.g., Addition/Subtraction, Opposites/Antonyms)")
     difficulty: str = Field(..., description="Difficulty level (easy, medium, hard)")
     question_type: str = Field("multiple-choice", description="Question type (multiple-choice, direct-answer, reading-comprehension)")
 
@@ -32,6 +33,9 @@ class QuestionResponse(BaseModel):
     choices: Optional[List[str]] = Field(None, description="Multiple choice options")
     passage: Optional[str] = Field(None, description="Reading passage for comprehension questions")
     type: str = Field(..., description="Question type")
+    subject: str = Field(..., description="Subject")
+    sub_activity: str = Field(..., description="Sub-activity")
+    difficulty: str = Field(..., description="Difficulty level")
     
     class Config:
         orm_mode = True
@@ -52,6 +56,7 @@ class PlayerResponse(BaseModel):
     age: int = Field(..., description="Player age")
     avatar: Optional[str] = Field(None, description="Avatar image filename")
     preferred_subject: Optional[str] = Field("Math", description="Preferred subject")
+    preferred_sub_activity: Optional[str] = Field("Addition/Subtraction", description="Preferred sub-activity")
     preferred_difficulty: Optional[str] = Field("Easy", description="Preferred difficulty level")
     
     class Config:

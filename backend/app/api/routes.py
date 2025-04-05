@@ -38,12 +38,23 @@ async def get_challenge(
     question_data = await generate_question(
         grade=player.grade,
         subject=request.subject,
+        sub_activity=request.sub_activity,
         difficulty=request.difficulty,
         question_type=request.question_type
     )
     
     # Add a unique ID to the question
     question_data["id"] = str(uuid.uuid4())
+    
+    # Ensure sub_activity is included in the response
+    if "sub_activity" not in question_data:
+        question_data["sub_activity"] = request.sub_activity
+    
+    # Ensure subject and difficulty are included in the response
+    if "subject" not in question_data:
+        question_data["subject"] = request.subject
+    if "difficulty" not in question_data:
+        question_data["difficulty"] = request.difficulty
     
     # Store the question for this player
     ACTIVE_QUESTIONS[f"player_{request.player_id}_{question_data['id']}"] = question_data
@@ -134,6 +145,9 @@ async def create_player(
             detail=f"Player with name '{request.name}' already exists"
         )
     
+    # Default sub-activity based on subject
+    default_sub_activity = "Addition/Subtraction"  # Default for Math
+    
     # Create new player
     player = Player(
         name=request.name,
@@ -141,6 +155,7 @@ async def create_player(
         grade=request.grade,
         avatar=request.avatar,
         preferred_subject="Math",
+        preferred_sub_activity=default_sub_activity,
         preferred_difficulty="Easy"
     )
     

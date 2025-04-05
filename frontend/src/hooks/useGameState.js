@@ -3,6 +3,18 @@ import * as api from '../services/api';
 
 const QUESTIONS_PER_GAME = 5;
 
+// Define mapping of subjects to sub-activities
+const SUB_ACTIVITIES = {
+  Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
+  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns']
+};
+
+// Get default sub-activity for a subject
+const getDefaultSubActivity = (subject) => {
+  const subjectKey = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
+  return SUB_ACTIVITIES[subjectKey]?.[0] || 'Addition/Subtraction';
+};
+
 const useGameState = () => {
   // Player state
   const [players, setPlayers] = useState([]);
@@ -10,9 +22,24 @@ const useGameState = () => {
   
   // Game settings
   const [settings, setSettings] = useState({
-    subject: 'math',
-    difficulty: 'easy'
+    subject: 'Math',
+    sub_activity: 'Addition/Subtraction',
+    difficulty: 'Easy'
   });
+
+  // Update sub-activity when subject changes
+  useEffect(() => {
+    if (settings.subject) {
+      const defaultSubActivity = getDefaultSubActivity(settings.subject);
+      if (settings.sub_activity !== defaultSubActivity && 
+          !SUB_ACTIVITIES[settings.subject]?.includes(settings.sub_activity)) {
+        setSettings(prev => ({
+          ...prev,
+          sub_activity: defaultSubActivity
+        }));
+      }
+    }
+  }, [settings.subject]);
   
   // Game state
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -74,6 +101,7 @@ const useGameState = () => {
       const question = await api.getQuestion(
         selectedPlayer.id,
         settings.subject,
+        settings.sub_activity,
         settings.difficulty
       );
       
@@ -140,6 +168,7 @@ const useGameState = () => {
         nextQuestion = await api.getQuestion(
           selectedPlayer.id,
           settings.subject,
+          settings.sub_activity,
           settings.difficulty
         );
         console.log("Next question loaded:", nextQuestion);

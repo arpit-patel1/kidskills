@@ -108,42 +108,104 @@ FALLBACK_QUESTIONS = {
                     "question": "What is 5 + 3?",
                     "choices": ["7", "8", "9", "10"],
                     "answer": "8",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
                 {
                     "question": "What is 10 - 4?",
                     "choices": ["4", "5", "6", "7"],
                     "answer": "6",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
+                {
+                    "question": "What is 2 × 3?",
+                    "choices": ["4", "5", "6", "7"],
+                    "answer": "6",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
+                },
+                {
+                    "question": "How many groups of 2 make 6?",
+                    "choices": ["2", "3", "4", "5"],
+                    "answer": "3",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
+                },
+                {
+                    "question": "Tom has 3 apples. Sarah has 4 apples. How many apples do they have together?",
+                    "choices": ["5", "6", "7", "8"],
+                    "answer": "7",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ],
             "Medium": [
                 {
                     "question": "What is 12 + 9?",
                     "choices": ["19", "21", "23", "25"],
                     "answer": "21",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
                 {
                     "question": "What is 15 - 7?",
                     "choices": ["5", "6", "7", "8"],
                     "answer": "8",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
+                {
+                    "question": "What is 4 × 5?",
+                    "choices": ["16", "18", "20", "22"],
+                    "answer": "20",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
+                },
+                {
+                    "question": "How many groups of 4 make 16?",
+                    "choices": ["2", "3", "4", "5"],
+                    "answer": "4",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
+                },
+                {
+                    "question": "Emma has 15 stickers. She gives 6 to her friend. How many stickers does she have left?",
+                    "choices": ["7", "8", "9", "10"],
+                    "answer": "9",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ],
             "Hard": [
                 {
                     "question": "If you have 3 groups of 5 apples, how many apples do you have in total?",
                     "choices": ["8", "10", "15", "20"],
                     "answer": "15",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
                 {
                     "question": "What is 25 - 8?",
                     "choices": ["15", "16", "17", "18"],
                     "answer": "17",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
+                {
+                    "question": "What is 6 × 3?",
+                    "choices": ["15", "16", "17", "18"],
+                    "answer": "18",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
+                },
+                {
+                    "question": "Noah has 24 crayons. He divides them equally among 4 friends. How many crayons does each friend get?",
+                    "choices": ["4", "6", "8", "10"],
+                    "answer": "6",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ]
         },
         "English": {
@@ -152,42 +214,79 @@ FALLBACK_QUESTIONS = {
                     "question": "Which word means the opposite of 'big'?",
                     "choices": ["large", "huge", "small", "tall"],
                     "answer": "small",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "What is the correct spelling?",
-                    "choices": ["frend", "friend", "freind", "frened"],
-                    "answer": "friend",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'hot'?",
+                    "choices": ["warm", "cool", "cold", "nice"],
+                    "answer": "cold",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
+                {
+                    "passage": "Tom has a red ball. He likes to play with it in the park. The ball is round and bouncy.",
+                    "question": "What color is Tom's ball?",
+                    "choices": ["blue", "green", "red", "yellow"],
+                    "answer": "red",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                },
+                {
+                    "question": "Which word is a noun in the sentence: 'The dog ran fast.'?",
+                    "choices": ["The", "dog", "ran", "fast"],
+                    "answer": "dog",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
+                }
             ],
             "Medium": [
                 {
                     "question": "Which word is a noun?",
                     "choices": ["run", "happy", "book", "fast"],
                     "answer": "book",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 },
                 {
-                    "question": "What is the plural of 'child'?",
-                    "choices": ["childs", "childes", "childen", "children"],
-                    "answer": "children",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'happy'?",
+                    "choices": ["sad", "glad", "mad", "bad"],
+                    "answer": "sad",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
+                {
+                    "passage": "Sarah went to the store. She bought apples and oranges. She wanted to make a fruit salad for her friends.",
+                    "question": "Why did Sarah buy fruit?",
+                    "choices": ["To eat alone", "To make a fruit salad", "To give away", "To plant trees"],
+                    "answer": "To make a fruit salad",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                }
             ],
             "Hard": [
                 {
                     "question": "Complete the sentence: 'She ____ to the store yesterday.'",
                     "choices": ["go", "goes", "going", "went"],
                     "answer": "went",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 },
                 {
-                    "question": "What is a sentence that ends with a question mark called?",
-                    "choices": ["statement", "question", "exclamation", "command"],
-                    "answer": "question",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'ancient'?",
+                    "choices": ["old", "antique", "modern", "historic"],
+                    "answer": "modern",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
+                {
+                    "passage": "Lisa had a problem. Her bike was broken and she needed to get to school. She decided to ask her neighbor for help. Her neighbor drove her to school in his car.",
+                    "question": "How did Lisa get to school?",
+                    "choices": ["She walked", "She rode her bike", "She took the bus", "She rode in a car"],
+                    "answer": "She rode in a car",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                }
             ]
         }
     },
@@ -198,96 +297,164 @@ FALLBACK_QUESTIONS = {
                     "question": "What is 7 × 3?",
                     "choices": ["18", "20", "21", "24"],
                     "answer": "21",
-                    "type": "multiple-choice"
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
                 {
-                    "question": "What is 16 ÷ 4?",
-                    "choices": ["2", "3", "4", "5"],
-                    "answer": "4",
-                    "type": "multiple-choice"
+                    "question": "What is 16 + 8?",
+                    "choices": ["22", "24", "26", "28"],
+                    "answer": "24",
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
                 },
+                {
+                    "question": "What is 20 - 12?",
+                    "choices": ["6", "7", "8", "9"],
+                    "answer": "8",
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
+                },
+                {
+                    "question": "Emma has 4 boxes with 6 markers in each box. How many markers does she have in total?",
+                    "choices": ["18", "20", "22", "24"],
+                    "answer": "24",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ],
             "Medium": [
                 {
-                    "question": "What is 9 × 6?",
-                    "choices": ["48", "54", "56", "60"],
-                    "answer": "54",
-                    "type": "multiple-choice"
+                    "question": "What is 8 × 6?",
+                    "choices": ["42", "46", "48", "54"],
+                    "answer": "48",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
                 {
-                    "question": "What is 27 ÷ 3?",
-                    "choices": ["7", "8", "9", "10"],
-                    "answer": "9",
-                    "type": "multiple-choice"
+                    "question": "What is 45 ÷ 9?",
+                    "choices": ["4", "5", "6", "7"],
+                    "answer": "5",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
+                {
+                    "question": "What is 37 + 25?",
+                    "choices": ["52", "62", "72", "82"],
+                    "answer": "62",
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
+                },
+                {
+                    "question": "Noah has 32 stickers. He gives 17 to his friends. How many stickers does he have left?",
+                    "choices": ["13", "14", "15", "16"],
+                    "answer": "15",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ],
             "Hard": [
                 {
-                    "question": "If a rectangle has a length of 8 cm and a width of 5 cm, what is its area?",
-                    "choices": ["13 cm²", "26 cm²", "40 cm²", "64 cm²"],
-                    "answer": "40 cm²",
-                    "type": "multiple-choice"
+                    "question": "What is 12 × 9?",
+                    "choices": ["98", "108", "118", "128"],
+                    "answer": "108",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
                 {
-                    "question": "What is 156 + 287?",
-                    "choices": ["343", "423", "443", "453"],
-                    "answer": "443",
-                    "type": "multiple-choice"
+                    "question": "What is 144 ÷ 12?",
+                    "choices": ["10", "11", "12", "13"],
+                    "answer": "12",
+                    "type": "multiple-choice",
+                    "sub_activity": "Multiplication/Division"
                 },
+                {
+                    "question": "What is 156 - 78?",
+                    "choices": ["68", "78", "86", "88"],
+                    "answer": "78",
+                    "type": "multiple-choice",
+                    "sub_activity": "Addition/Subtraction"
+                },
+                {
+                    "question": "A bakery made 96 cupcakes. They sold 3/4 of them. How many cupcakes are left?",
+                    "choices": ["18", "24", "32", "36"],
+                    "answer": "24",
+                    "type": "multiple-choice",
+                    "sub_activity": "Word Problems"
+                }
             ]
         },
         "English": {
             "Easy": [
                 {
-                    "question": "Which word is a synonym for 'happy'?",
-                    "choices": ["sad", "angry", "joyful", "tired"],
-                    "answer": "joyful",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'empty'?",
+                    "choices": ["half", "full", "some", "none"],
+                    "answer": "full",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "Which sentence is written correctly?",
-                    "choices": [
-                        "The dog is running fast.",
-                        "The dog is running fastly.",
-                        "The dog is run fast.",
-                        "The dog running fast."
-                    ],
-                    "answer": "The dog is running fast.",
-                    "type": "multiple-choice"
+                    "question": "Which word is a pronoun in the sentence: 'She went to the store.'?",
+                    "choices": ["She", "went", "to", "store"],
+                    "answer": "She",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 },
+                {
+                    "passage": "Max has a new puppy. The puppy likes to play and run. Max takes his puppy to the park every day.",
+                    "question": "Where does Max take his puppy?",
+                    "choices": ["home", "school", "park", "store"],
+                    "answer": "park",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                }
             ],
             "Medium": [
                 {
-                    "question": "What is the main idea in a paragraph called?",
-                    "choices": ["title", "heading", "topic sentence", "conclusion"],
-                    "answer": "topic sentence",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'brave'?",
+                    "choices": ["scared", "happy", "strong", "kind"],
+                    "answer": "scared",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "Which word is a verb?",
-                    "choices": ["beautiful", "quickly", "jump", "happy"],
-                    "answer": "jump",
-                    "type": "multiple-choice"
+                    "question": "Which word is a possessive pronoun?",
+                    "choices": ["they", "them", "their", "those"],
+                    "answer": "their",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 },
+                {
+                    "passage": "Lily planted a garden. She planted carrots, tomatoes, and peppers. After six weeks, she was able to pick some vegetables for dinner.",
+                    "question": "How long did it take before Lily could pick vegetables?",
+                    "choices": ["two weeks", "four weeks", "six weeks", "eight weeks"],
+                    "answer": "six weeks",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                }
             ],
             "Hard": [
                 {
-                    "question": "Which of these is a compound sentence?",
-                    "choices": [
-                        "She ran to the store.",
-                        "She ran to the store and bought milk.",
-                        "Running to the store quickly.",
-                        "After running to the store."
-                    ],
-                    "answer": "She ran to the store and bought milk.",
-                    "type": "multiple-choice"
+                    "question": "Which word means the opposite of 'generous'?",
+                    "choices": ["giving", "selfish", "kind", "helpful"],
+                    "answer": "selfish",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "What is the past tense of 'bring'?",
-                    "choices": ["bringed", "brang", "brought", "bringing"],
-                    "answer": "brought",
-                    "type": "multiple-choice"
+                    "question": "Choose the correct pronoun: '___ are going to the museum tomorrow.'",
+                    "choices": ["I", "He", "She", "We"],
+                    "answer": "We",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 },
+                {
+                    "passage": "The science fair was on Friday. Jake worked on his project all week. He built a model of the solar system. Jake won first prize for his excellent work.",
+                    "question": "What did Jake build for the science fair?",
+                    "choices": ["a robot", "a model of the solar system", "a volcano", "a plant experiment"],
+                    "answer": "a model of the solar system",
+                    "type": "reading-comprehension",
+                    "sub_activity": "Reading Comprehension"
+                }
             ]
         }
     }
@@ -435,13 +602,14 @@ def clean_markdown_json(text: str) -> str:
     # If no clear JSON markers, return the original (stripped)
     return text
 
-async def generate_question(grade: int, subject: str, difficulty: str, question_type: str = "multiple-choice") -> Dict[str, Any]:
+async def generate_question(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str = "multiple-choice") -> Dict[str, Any]:
     """
     Generate a question using OpenRouter API with Pydantic for structured output.
     
     Args:
         grade: Student grade level (2 or 3)
         subject: Subject area ("math" or "english", will be capitalized)
+        sub_activity: Sub-activity type (e.g., "Addition/Subtraction", "Opposites/Antonyms")
         difficulty: Difficulty level ("easy", "medium", "hard", will be capitalized)
         question_type: Type of question ("multiple-choice", "direct-answer", "reading-comprehension")
         
@@ -449,11 +617,12 @@ async def generate_question(grade: int, subject: str, difficulty: str, question_
         Dictionary containing question data
     """
     request_id = f"{time.time():.0f}"
-    logger.info(f"[{request_id}] Generating question: grade={grade}, subject={subject}, difficulty={difficulty}, type={question_type}")
+    logger.info(f"[{request_id}] Generating question: grade={grade}, subject={subject}, sub_activity={sub_activity}, difficulty={difficulty}, type={question_type}")
     
     # Validate inputs and normalize case
     grade_str = str(grade)
     subject_norm = subject.capitalize()  # Convert "math" to "Math"
+    sub_activity_norm = sub_activity  # Keep as is, will be validated in construct_prompt
     difficulty_norm = difficulty.capitalize()  # Convert "easy" to "Easy"
     
     if grade_str not in ["1", "2", "3", "4", "5"]:
@@ -473,8 +642,8 @@ async def generate_question(grade: int, subject: str, difficulty: str, question_
         question_type = "multiple-choice"
     
     try:
-        # Construct the prompt based on settings
-        prompt = construct_prompt(int(grade_str), subject_norm, difficulty_norm, question_type)
+        # Construct the prompt based on settings, including sub_activity
+        prompt = construct_prompt(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, question_type)
         logger.info(f"[{request_id}] Prompt: {prompt}")
         
         # Select appropriate schema class
@@ -544,12 +713,12 @@ Here's an example of a valid response for a {grade_str}-grade {subject_norm.lowe
         # Extract and validate response
         if not completion or not hasattr(completion, 'choices') or not completion.choices:
             logger.error(f"[{request_id}] No valid response from API")
-            return get_fallback_question(grade_str, subject_norm, difficulty_norm)
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
         
         response_message = completion.choices[0].message
         if not hasattr(response_message, 'content') or not response_message.content:
             logger.error(f"[{request_id}] No content in response message")
-            return get_fallback_question(grade_str, subject_norm, difficulty_norm)
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
         
         content = response_message.content.strip()
         logger.info(f"[{request_id}] Raw response content: {content[:200]}...")
@@ -573,29 +742,34 @@ Here's an example of a valid response for a {grade_str}-grade {subject_norm.lowe
             
             # Convert to dictionary
             result = validated_data.to_dict()  # Use to_dict() helper method
+            
+            # Add the sub_activity to the result
+            result["sub_activity"] = sub_activity_norm
+            
             logger.info(f"[{request_id}] Returning validated question")
             return result
         
         except json.JSONDecodeError as e:
             logger.error(f"[{request_id}] Failed to parse JSON: {str(e)}")
             logger.error(f"[{request_id}] Content: {cleaned_content}")
-            return get_fallback_question(grade_str, subject_norm, difficulty_norm)
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
             
         except ValidationError as e:
             logger.error(f"[{request_id}] Failed to validate with Pydantic: {str(e)}")
-            return get_fallback_question(grade_str, subject_norm, difficulty_norm)
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
             
     except Exception as e:
         logger.error(f"[{request_id}] Error generating question: {str(e)}")
-        return get_fallback_question(grade_str, subject_norm, difficulty_norm)
+        return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
 
-def construct_prompt(grade: int, subject: str, difficulty: str, question_type: str) -> str:
+def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
     """
     Construct a prompt for the AI model based on the settings.
     
     Args:
         grade: Student grade level
         subject: Subject area
+        sub_activity: Sub-activity type
         difficulty: Difficulty level
         question_type: Type of question
         
@@ -604,7 +778,7 @@ def construct_prompt(grade: int, subject: str, difficulty: str, question_type: s
     """
     import random
     
-    base_prompt = f"Generate a {difficulty.lower()} {grade}-grade level {subject.lower()} question for elementary school students."
+    base_prompt = f"Generate a {difficulty.lower()} {grade}-grade level {subject.lower()} question about {sub_activity} for elementary school students."
     
     if subject.lower() == "math":
         # Randomly select elements to include in the prompt
@@ -614,38 +788,43 @@ def construct_prompt(grade: int, subject: str, difficulty: str, question_type: s
         random_location = random.choice(MATH_LOCATIONS)
         random_activity = random.choice(MATH_ACTIVITIES)
         
-        # Add randomization elements to the prompt
-        if difficulty.lower() == "easy":
-            if question_type == "multiple-choice":
-                prompt = f"{base_prompt} The question should involve basic {difficulty.lower()} arithmetic (addition/subtraction with small numbers)."
+        # Add specific context based on sub_activity
+        if sub_activity == "Addition/Subtraction":
+            if difficulty.lower() == "easy":
+                prompt = f"{base_prompt} The question should involve basic {difficulty.lower()} arithmetic with addition or subtraction with small numbers."
                 prompt += f" Consider using the name {random_name} and {random_objects} in your question."
-                prompt += " The question should be multiple choice with exactly 4 options. The correct answer must be one of the options."
-            else:
-                prompt = f"{base_prompt} Create a simple word problem using {random_name} and {random_objects}."
-                prompt += " The question should require a direct numerical answer."
+            elif difficulty.lower() == "medium":
+                prompt = f"{base_prompt} The question should involve addition or subtraction with larger numbers, possibly requiring carrying or borrowing."
+                prompt += f" For example, a question about {random_name} having some {random_objects} and {random_activity} more or giving some away."
+            else:  # Hard
+                prompt = f"{base_prompt} The question should involve multi-step addition and subtraction problems or mental math strategies."
+                prompt += f" For example, a question involving {random_name} and {random_name2} with different amounts of {random_objects}."
+        
+        elif sub_activity == "Multiplication/Division":
+            if difficulty.lower() == "easy":
+                prompt = f"{base_prompt} The question should involve basic multiplication or division with small numbers (up to 5)."
+                prompt += f" Consider using the name {random_name} and groups of {random_objects} in your question."
+            elif difficulty.lower() == "medium":
+                prompt = f"{base_prompt} The question should involve multiplication or division with larger numbers (up to 10)."
+                prompt += f" For example, a question about {random_name} arranging {random_objects} into equal groups."
+            else:  # Hard
+                prompt = f"{base_prompt} The question should involve more complex multiplication or division problems with larger numbers or remainders."
+                prompt += f" For example, a multi-step problem where {random_name} needs to divide {random_objects} among friends."
+        
+        elif sub_activity == "Word Problems":
+            if difficulty.lower() == "easy":
+                prompt = f"{base_prompt} Create a simple word problem using {random_name} and {random_objects} that involves a single operation."
+                prompt += f" The problem should be set at a {random_location}."
+            elif difficulty.lower() == "medium":
+                prompt = f"{base_prompt} Create a word problem using {random_name} and {random_objects} that requires two operations to solve."
+                prompt += f" The problem could involve {random_name} {random_activity} at a {random_location}."
+            else:  # Hard
+                prompt = f"{base_prompt} Create a multi-step word problem that requires at least three operations or logical steps."
+                prompt += f" The problem should involve {random_name} and {random_name2} with different amounts of {random_objects}."
         else:
-            # For medium/hard difficulty, ensure we use the same successful format as easy questions
-            if question_type == "multiple-choice":
-                # Use the same structure as easy questions but with more complex arithmetic
-                if difficulty.lower() == "medium":
-                    operations = "addition/subtraction with larger numbers, or basic multiplication/division"
-                else:  # Hard
-                    operations = "multiplication, division, or multi-step problems"
-                
-                prompt = f"{base_prompt} The question should involve {operations}."
-                prompt += f" Consider using the name {random_name} and {random_objects} in your question."
-                prompt += " The question should be multiple choice with exactly 4 options. The correct answer must be one of the options."
-                
-                # Add a specific example based on difficulty
-                if difficulty.lower() == "medium":
-                    prompt += f" For example, a question about {random_name} having some {random_objects} and {random_activity} more."
-                else:  # Hard
-                    prompt += f" For example, a question about {random_name} arranging {random_objects} into equal groups."
-            else:
-                # For direct answer questions
-                prompt = f"{base_prompt} Create a word problem involving {random_name} and {random_objects}."
-                prompt += " The question should require a direct numerical answer."
-    
+            # Default math prompt if sub_activity is not recognized
+            return construct_prompt(grade, subject, "Addition/Subtraction", difficulty, question_type)
+            
     elif subject.lower() == "english":
         # Randomly select elements to include in the prompt
         random_topic = random.choice(ENGLISH_TOPICS)
@@ -653,78 +832,60 @@ def construct_prompt(grade: int, subject: str, difficulty: str, question_type: s
         random_adjective = random.choice(ENGLISH_ADJECTIVES)
         random_noun = random.choice(ENGLISH_NOUNS)
         
-        if question_type == "multiple-choice":
-            # For variety, choose different types of English questions
+        if sub_activity == "Opposites/Antonyms":
             if difficulty.lower() == "easy":
-                # Simple vocabulary or grammar questions
-                question_type_options = [
-                    f"Create a question about identifying which picture shows a '{random_noun}'.",
-                    f"Create a question about matching the word '{random_noun}' to its picture.",
-                    f"Create a question about the letter that '{random_noun}' starts with.",
-                    f"Create a simple '{random_adjective}' vs '{random.choice([a for a in ENGLISH_ADJECTIVES if a != random_adjective])}' comparison question."
-                ]
-                prompt = f"{base_prompt} {random.choice(question_type_options)}"
-            
+                prompt = f"{base_prompt} Create a question about identifying the opposite of a simple word like '{random_adjective}'."
+                prompt += " Give 4 options with only one being the correct opposite."
             elif difficulty.lower() == "medium":
-                # Medium vocabulary, spelling, or basic grammar
-                word_pattern = random.choice(ENGLISH_WORD_PATTERNS).format(word=random.choice([random_noun, random_verb, random_adjective]))
-                prompt = f"{base_prompt} Create a question about {word_pattern}."
-            
+                prompt = f"{base_prompt} Create a question about finding the antonym of '{random_adjective}' or '{random_verb}'."
+                prompt += " Provide 4 options with only one being the correct antonym."
             else:  # Hard
-                # More complex grammar or reading comprehension
-                grammar_template = random.choice(ENGLISH_GRAMMAR_TEMPLATES)
-                part_of_speech = random.choice(["noun", "verb", "adjective", "adverb"])
-                sentence_start = f"{random.choice(MATH_NAMES)} {random.choice(ENGLISH_VERBS)}s"
-                sentence_end = f"the {random.choice(ENGLISH_ADJECTIVES)} {random.choice(ENGLISH_NOUNS)}"
-                
-                # Format the grammar template with substitutions
-                formatted_template = grammar_template.format(
-                    verb=random_verb,
-                    part_of_speech=part_of_speech,
-                    sentence_start=sentence_start,
-                    sentence_end=sentence_end,
-                    sentence=f"{sentence_start} {sentence_end}",
-                    noun=random_noun,
-                    word=random.choice([random_noun, random_verb, random_adjective]),
-                    meaning="opposite meaning",
-                    desired_form="past tense"
-                )
-                
-                prompt = f"{base_prompt} {formatted_template}"
-            
-            prompt += " The question should be multiple choice with exactly 4 options. The correct answer must be one of the options."
+                prompt = f"{base_prompt} Create a question asking for the antonym of a more challenging word."
+                prompt += " Ensure the options include words that might be confusing for students."
         
-        elif question_type == "direct-answer":
-            question_types = [
-                f"Create a spelling question for the word '{random.choice(ENGLISH_NOUNS)}'.",
-                f"Create a question asking for a synonym of '{random_adjective}'.",
-                f"Create a question asking for an antonym of '{random_adjective}'.",
-                f"Create a question asking for the definition of '{random_noun}'.",
-                f"Create a question asking for a rhyming word for '{random_noun}'."
-            ]
-            prompt = f"{base_prompt} {random.choice(question_types)} The question should require a short text answer."
+        elif sub_activity == "Reading Comprehension":
+            if difficulty.lower() == "easy":
+                prompt = f"{base_prompt} Create a very short reading passage (2-3 sentences) about {random_topic} that uses simple vocabulary, followed by a question about the main idea or a specific detail."
+                prompt += f" Include a character named {random.choice(MATH_NAMES)}."
+            elif difficulty.lower() == "medium":
+                prompt = f"{base_prompt} Create a short reading passage (3-4 sentences) about {random_topic} set at a {random.choice(MATH_LOCATIONS)}, followed by a question that requires understanding the sequence of events or making a simple inference."
+            else:  # Hard
+                prompt = f"{base_prompt} Create a reading passage (4-5 sentences) about {random_topic} with slightly more complex vocabulary, followed by a question that requires deeper comprehension or inference."
+                prompt += f" Include a problem that the character {random.choice(MATH_NAMES)} has to solve."
         
-        else:  # reading-comprehension
-            prompt = f"{base_prompt} Create a very short reading passage (2-3 sentences) about {random_topic} that uses the word '{random_verb}' and '{random_adjective}', followed by a question about it with 4 multiple choice options."
-            # Add specific instructions for the passage content
-            passage_elements = [
-                f"Include a character named {random.choice(MATH_NAMES)}.",
-                f"Set the story at a {random.choice(MATH_LOCATIONS)}.",
-                f"Involve the character doing something with {random.choice(MATH_OBJECTS)}.",
-                f"Include a problem that the character has to solve."
-            ]
-            prompt += f" {random.choice(passage_elements)}"
+        elif sub_activity == "Nouns/Pronouns":
+            if difficulty.lower() == "easy":
+                prompt = f"{base_prompt} Create a question about identifying which word in a sentence is a noun."
+                prompt += f" For example, a simple sentence about {random_topic} or {random.choice(MATH_NAMES)}."
+            elif difficulty.lower() == "medium":
+                prompt = f"{base_prompt} Create a question about choosing the correct pronoun to replace a noun in a sentence."
+                prompt += f" For example, a sentence about {random.choice(MATH_NAMES)} and their {random_noun}."
+            else:  # Hard
+                prompt = f"{base_prompt} Create a question about selecting the correct pronoun in a more complex sentence or identifying a specific type of pronoun."
+                prompt += f" The sentence could involve multiple characters like {random.choice(MATH_NAMES)} and {random.choice(MATH_NAMES)}."
+        else:
+            # Default english prompt if sub_activity is not recognized
+            return construct_prompt(grade, subject, "Opposites/Antonyms", difficulty, question_type)
     
-    logger.info(f"Generated randomized prompt: {prompt}")
+    # Add the standard format instructions for the chosen question type
+    if question_type == "multiple-choice":
+        prompt += " The question should be multiple choice with exactly 4 options. The correct answer must be one of the options."
+    elif question_type == "direct-answer":
+        prompt += " The question should require a short direct answer."
+    else:  # reading-comprehension
+        prompt += " The passage should be followed by a multiple-choice question with 4 options. The correct answer must be one of the options."
+    
+    logger.info(f"Generated prompt with sub-activity ({sub_activity}): {prompt}")
     return prompt
 
-def get_fallback_question(grade: str, subject: str, difficulty: str) -> Dict[str, Any]:
+def get_fallback_question(grade: str, subject: str, sub_activity: str, difficulty: str) -> Dict[str, Any]:
     """
     Get a fallback question when the API fails.
     
     Args:
         grade: Student grade level
         subject: Subject area
+        sub_activity: Sub-activity type
         difficulty: Difficulty level
         
     Returns:
@@ -747,7 +908,12 @@ def get_fallback_question(grade: str, subject: str, difficulty: str) -> Dict[str
         questions = FALLBACK_QUESTIONS[grade][subject][difficulty]
         
         # Randomly select a question from the available options
-        return random.choice(questions)
+        fallback_question = random.choice(questions)
+        
+        # Add the sub_activity to the fallback question
+        fallback_question["sub_activity"] = sub_activity
+        
+        return fallback_question
         
     except Exception as e:
         logger.error(f"Error getting fallback question: {str(e)}")
@@ -757,7 +923,8 @@ def get_fallback_question(grade: str, subject: str, difficulty: str) -> Dict[str
             "question": "What is 2 + 2?",
             "choices": ["3", "4", "5", "6"],
             "answer": "4",
-            "type": "multiple-choice"
+            "type": "multiple-choice",
+            "sub_activity": sub_activity
         }
 
 def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:

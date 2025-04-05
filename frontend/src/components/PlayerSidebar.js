@@ -14,9 +14,11 @@ const PlayerSidebar = ({
       
       {selectedPlayer ? (
         <div className="sidebar-content">
-          <div className="player-info">
-            <h3>{selectedPlayer.name}</h3>
-            <p>Grade {selectedPlayer.grade}</p>
+          <div>
+            <h4>Current Player</h4>
+            <div className="player-pill selected">
+              {selectedPlayer.name} (Grade {selectedPlayer.grade})
+            </div>
             <button 
               className="btn btn-sm btn-outline-secondary mt-2" 
               onClick={() => onSelectPlayer(null)}
@@ -25,28 +27,24 @@ const PlayerSidebar = ({
             </button>
           </div>
           
-          <div className="player-selection-container mt-4">
-            <h4>Other Players</h4>
-            <div className="players-grid">
-              {players
-                .filter(player => player.id !== selectedPlayer.id)
-                .map(player => (
-                  <div 
-                    key={player.id} 
-                    className="player-card compact"
-                    onClick={() => onSelectPlayer(player)}
-                  >
-                    <div className="player-avatar">
-                      <div className="emoji-avatar small">😊</div>
+          {players.filter(player => player.id !== selectedPlayer.id).length > 0 && (
+            <div className="mt-4">
+              <h4>Other Players</h4>
+              <div className="player-pills-container">
+                {players
+                  .filter(player => player.id !== selectedPlayer.id)
+                  .map(player => (
+                    <div 
+                      key={player.id} 
+                      className="player-pill"
+                      onClick={() => onSelectPlayer(player)}
+                    >
+                      {player.name} (Grade {player.grade})
                     </div>
-                    <div className="player-info">
-                      <h3>{player.name}</h3>
-                      <p>Grade {player.grade}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         <PlayerSelection 

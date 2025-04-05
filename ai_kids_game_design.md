@@ -726,12 +726,12 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
   - [x] Question display
   - [x] Answer input (multiple choice for MVP)
   - [x] Score display
-- [ ] Implement responsive sidebar layout
-  - [ ] Create sidebar component with Bootstrap Offcanvas
-  - [ ] Add constrained form controls within sidebar
-  - [ ] Implement player selection cards in sidebar
-  - [ ] Add toggle button in header
-  - [ ] Ensure proper responsive behavior
+- [x] Implement responsive sidebar layout
+  - [x] Create sidebar component with Bootstrap Offcanvas
+  - [x] Add constrained form controls within sidebar
+  - [x] Implement player selection cards in sidebar
+  - [x] Add toggle button in header
+  - [x] Ensure proper responsive behavior
 
 #### 5. Frontend - Game Logic (2 hours)
 - [x] Implement game state management
@@ -764,13 +764,59 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
   - [x] Question fetching
   - [x] Answer submission
   - [x] Score tracking
-- [ ] Fix any integration issues
-- [ ] Test fallback questions
+- [x] Fix any integration issues
+- [x] Test fallback questions
 
 #### 8. Deployment (30 mins)
 - [x] Create start/stop shell script
 - [x] Test on home network
 - [x] Document any manual steps
+
+### Sub-Activity Implementation Tasks
+
+#### Backend Tasks
+1. **Database Model Updates**
+   - [x] Add `preferred_sub_activity` column to `Player` model in `models.py`
+   - [x] Add `sub_activity` column to `Progress` model in `models.py`
+   - [x] Create a database migration script to update existing tables
+
+2. **API Schema Updates**
+   - [x] Update `GetQuestionRequest` schema to include `sub_activity` field
+   - [x] Update `QuestionResponse` schema to include `sub_activity` field
+   - [x] Update `PlayerResponse` schema to include `preferred_sub_activity` field
+
+3. **API Routes Updates**
+   - [x] Modify `/challenges/generate` endpoint to accept and pass the sub_activity parameter
+   - [x] Update player creation to include default sub_activity
+
+4. **OpenRouter Service Updates**
+   - [x] Update `generate_question()` function to accept `sub_activity` parameter
+   - [x] Enhance prompt construction to include sub-activity context
+   - [x] Create sub-activity-specific fallback questions
+
+#### Frontend Tasks
+1. **State Management Updates**
+   - [x] Update `settings` state in `useGameState.js` to include `sub_activity` field
+   - [x] Implement logic to update available sub-activities when subject changes
+
+2. **API Service Updates**
+   - [x] Update `getQuestion()` function in `api.js` to pass `sub_activity` to the backend
+
+3. **Component Updates**
+   - [x] Update `GameSettings.js` to add a new dropdown for sub-activity selection
+   - [x] Implement dynamic options based on selected subject
+   - [x] Update `ActivitySidebar.js` to display the current sub-activity
+   - [x] Add event handlers for sub-activity changes
+
+4. **UI Updates**
+   - [x] Add styling for the new sub-activity dropdown in CSS files
+   - [x] Update activity badges to include sub-activity information
+
+5. **Testing**
+   - [x] Test database migrations
+   - [x] Test API functionality with the new parameter
+   - [x] Test UI flows for selecting different sub-activities
+   - [x] Verify questions match the selected sub-activity
 
 ### Stretch Goals (if time permits)
 - [ ] Implement Direct Answer questions

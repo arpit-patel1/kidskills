@@ -118,11 +118,17 @@ const QuestionDisplay = ({
     return 'choice-btn';
   };
   
-  // Get emoji based on subject
-  const getSubjectEmoji = () => {
+  // Get emoji based on subject and sub-activity
+  const getEmoji = () => {
     if (question.subject === 'Math') {
+      if (question.sub_activity === 'Addition/Subtraction') return '➕➖';
+      if (question.sub_activity === 'Multiplication/Division') return '✖️➗';
+      if (question.sub_activity === 'Word Problems') return '🧮📝';
       return '🧮';
     } else if (question.subject === 'English') {
+      if (question.sub_activity === 'Opposites/Antonyms') return '⬆️⬇️';
+      if (question.sub_activity === 'Reading Comprehension') return '📚🔍';
+      if (question.sub_activity === 'Nouns/Pronouns') return '📝👤';
       return '📚';
     }
     return '🎓';
@@ -132,8 +138,11 @@ const QuestionDisplay = ({
     <div className="question-display">
       <div className="question-card">
         <div className="question-header">
-          <span className="question-emoji">{getSubjectEmoji()}</span>
-          <span className="question-subject">{question.subject || 'Challenge'}</span>
+          <span className="question-emoji">{getEmoji()}</span>
+          <div className="question-info">
+            <span className="question-subject">{question.subject || 'Challenge'}</span>
+            <span className="question-sub-activity">{question.sub_activity}</span>
+          </div>
         </div>
         
         <div className="question-text">{question.question}</div>

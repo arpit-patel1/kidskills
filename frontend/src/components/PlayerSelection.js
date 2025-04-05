@@ -9,7 +9,7 @@ const PlayerSelection = ({ players, onSelectPlayer }) => {
 
   return (
     <div className="player-selection">
-      <h3>Select a Player</h3>
+      <h4>Select a Player</h4>
       
       {players.length === 0 ? (
         <div className="no-players">
@@ -18,20 +18,14 @@ const PlayerSelection = ({ players, onSelectPlayer }) => {
         </div>
       ) : (
         <>
-          <div className="players-grid">
+          <div className="player-pills-container">
             {players.map(player => (
               <div 
                 key={player.id} 
-                className="player-card compact"
+                className="player-pill"
                 onClick={() => onSelectPlayer(player)}
               >
-                <div className="player-avatar">
-                  <div className="emoji-avatar small">😊</div>
-                </div>
-                <div className="player-info">
-                  <h3>{player.name}</h3>
-                  <p>Grade {player.grade}</p>
-                </div>
+                {player.name} (G{player.grade})
               </div>
             ))}
           </div>
