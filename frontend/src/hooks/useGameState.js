@@ -57,18 +57,19 @@ const useGameState = () => {
   
   // Fetch players on component mount
   useEffect(() => {
-    const fetchPlayers = async () => {
-      try {
-        const data = await api.getPlayers();
-        setPlayers(data);
-      } catch (err) {
-        setError('Failed to load players. Please try again.');
-        console.error(err);
-      }
-    };
-    
     fetchPlayers();
   }, []);
+  
+  // Fetch players function
+  const fetchPlayers = async () => {
+    try {
+      const data = await api.getPlayers();
+      setPlayers(data);
+    } catch (err) {
+      setError('Failed to load players. Please try again.');
+      console.error(err);
+    }
+  };
   
   // Player selection
   const selectPlayer = (player) => {
@@ -256,7 +257,9 @@ const useGameState = () => {
     handleAnswer,
     nextQuestion,
     toggleContinuousMode,
-    resetGame
+    resetGameState,
+    resetGame,
+    fetchPlayers,
   };
 };
 

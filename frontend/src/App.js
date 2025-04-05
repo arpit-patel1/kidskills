@@ -28,7 +28,8 @@ function App() {
     startGame,
     handleAnswer,
     nextQuestion,
-    resetGame
+    resetGame,
+    fetchPlayers
   } = useGameState();
 
   return (
@@ -73,6 +74,7 @@ function App() {
           players={players}
           selectedPlayer={selectedPlayer}
           onSelectPlayer={selectPlayer}
+          onPlayersUpdated={fetchPlayers}
         />
       </div>
       

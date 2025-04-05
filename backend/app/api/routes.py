@@ -163,4 +163,33 @@ async def create_player(
     db.commit()
     db.refresh(player)
     
-    return player 
+    return player
+
+@router.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_player(
+    player_id: int,
+    db: Session = Depends(get_db)
+):
+    """Delete a player and all their progress records."""
+    # Verify player exists
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Player with ID {player_id} not found"
+        )
+    
+    # Delete associated progress records first
+    db.query(Progress).filter(Progress.player_id == player_id).delete()
+    
+    # Delete the player
+    db.delete(player)
+    db.commit()
+    
+    # Also remove any active questions for this player from memory
+    active_keys = list(ACTIVE_QUESTIONS.keys())
+    for key in active_keys:
+        if key.startswith(f"player_{player_id}_"):
+            del ACTIVE_QUESTIONS[key]
+    
+    return None 

@@ -4,7 +4,8 @@ import PlayerSelection from './PlayerSelection';
 const PlayerSidebar = ({ 
   players, 
   selectedPlayer, 
-  onSelectPlayer
+  onSelectPlayer,
+  onPlayersUpdated
 }) => {
   return (
     <div className="sidebar player-sidebar">
@@ -50,6 +51,7 @@ const PlayerSidebar = ({
         <PlayerSelection 
           players={players} 
           onSelectPlayer={onSelectPlayer} 
+          onPlayersUpdated={onPlayersUpdated}
         />
       )}
     </div>

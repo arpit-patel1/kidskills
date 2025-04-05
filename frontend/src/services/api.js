@@ -129,4 +129,14 @@ export const getPlayerStats = async (playerId) => {
   }
 };
 
+// Delete a player
+export const deletePlayer = async (playerId) => {
+  try {
+    await api.delete(`/players/${playerId}`);
+    return true; // Successfully deleted
+  } catch (error) {
+    return handleError(error);
+  }
+};
+
 export default api; 
