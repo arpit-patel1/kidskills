@@ -856,6 +856,9 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
             json_data = json.loads(cleaned_content)
             logger.info(f"[{request_id}] Successfully parsed JSON: {json.dumps(json_data)[:200]}...")
             
+            # Add sub_activity to the JSON data before repair/validation
+            json_data["sub_activity"] = sub_activity_norm
+            
             # Attempt to repair malformed JSON before validation
             repaired_json = repair_malformed_json(json_data)
             
@@ -866,8 +869,20 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
             # Convert to dictionary
             result = validated_data.to_dict()  # Use to_dict() helper method
             
-            # Add the sub_activity to the result
+            # Always ensure sub_activity is in the result
             result["sub_activity"] = sub_activity_norm
+            
+            # For grammar correction, double-check that type is direct-answer
+            if sub_activity_norm == "Grammar Correction" and result.get("type") != "direct-answer":
+                logger.info(f"[{request_id}] Forcing direct-answer type for Grammar Correction after validation")
+                result["type"] = "direct-answer"
+                # Remove choices if they somehow got through
+                if "choices" in result:
+                    del result["choices"]
+            
+            # Add the subject and difficulty to the result
+            result["subject"] = subject_norm
+            result["difficulty"] = difficulty_norm
             
             logger.info(f"[{request_id}] Returning validated question")
             return result
@@ -1136,6 +1151,17 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
             Make sure the sentence sounds natural and uses age-appropriate vocabulary.
             Do not use the same pattern as these examples: "She don't like ice cream", "The cats is playing", "He walk to school".
+            
+            IMPORTANT: This is a direct-answer question type, NOT multiple-choice. Return a JSON object with 'question', 'answer' and 'type' fields. 
+            The 'type' field MUST be 'direct-answer', NOT 'multiple-choice'.
+            Do NOT include 'choices' field in the response.
+            
+            Example JSON format:
+            {{
+                "question": "The boy play with toys.",
+                "answer": "The boy plays with toys.",
+                "type": "direct-answer"
+            }}
             """
             
             # Log the enhanced prompt details
@@ -1229,6 +1255,20 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
         A corrected JSON structure that should match our expected schema
     """
     logger.info(f"Checking and repairing malformed JSON if needed: {str(json_data)[:100]}...")
+    
+    # Handle Grammar Correction questions - these must be direct-answer type
+    if "question" in json_data and "answer" in json_data and "sub_activity" in json_data:
+        if json_data["sub_activity"] == "Grammar Correction":
+            # Grammar correction questions must be direct-answer type
+            logger.info(f"Grammar Correction activity detected in JSON, forcing direct-answer question type")
+            json_data["type"] = "direct-answer"
+            
+            # Remove any 'choices' property if it exists for Grammar Correction
+            if "choices" in json_data:
+                logger.info(f"Removing unexpected 'choices' from Grammar Correction question")
+                del json_data["choices"]
+                
+            return json_data
     
     # Case 1: Response has a "properties" wrapper (common with some models)
     if "properties" in json_data and isinstance(json_data["properties"], dict):

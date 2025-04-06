@@ -37,7 +37,7 @@ function App() {
       <ConfettiEffect show={showConfetti} />
       
       <header className="app-header">
-        <h1><i className="bi bi-stars"></i> AI Kids Challenge Game</h1>
+        <h1>KidSkills <i className="bi bi-stars"></i></h1>
         <p className="subtitle">Fun learning for young minds <i className="bi bi-emoji-smile"></i></p>
       </header>
       
@@ -79,7 +79,7 @@ function App() {
       </div>
       
       <footer className="app-footer">
-        <p><i className="bi bi-controller"></i> AI Kids Challenge Game • Powered by OpenRouter <i className="bi bi-rocket-takeoff"></i></p>
+        <p><i className="bi bi-controller"></i> KidSkills • Powered by AI <i className="bi bi-rocket-takeoff"></i></p>
       </footer>
     </div>
   );

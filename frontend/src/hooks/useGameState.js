@@ -161,37 +161,19 @@ const useGameState = () => {
       // Set feedback but keep the current question displayed
       setFeedback(result);
       
-      // Pre-fetch the next question while the user is seeing the feedback
-      // This avoids a flash of the "Ready to Play" screen
-      let nextQuestion = null;
+      // Pre-fetch the next question in the background
       try {
         console.log("Pre-fetching next question...");
-        nextQuestion = await api.getQuestion(
+        await api.getQuestion(
           selectedPlayer.id,
           settings.subject,
           settings.sub_activity,
           settings.difficulty
         );
-        console.log("Next question loaded:", nextQuestion);
+        console.log("Next question pre-fetched");
       } catch (err) {
         console.error("Failed to pre-fetch next question:", err);
       }
-      
-      // After 6 seconds, transition to the next question
-      setTimeout(() => {
-        // Only clear the current question when we have a new one ready
-        setFeedback(null);
-        setSelectedAnswer(null);
-        
-        if (nextQuestion) {
-          // Smooth transition - immediately set the new question
-          setCurrentQuestion(nextQuestion);
-        } else {
-          // Fallback if pre-fetching failed
-          setCurrentQuestion(null);
-          fetchQuestion();
-        }
-      }, 6000);
       
     } catch (err) {
       setError('Failed to submit answer. Please try again.');
@@ -204,8 +186,9 @@ const useGameState = () => {
   // Move to next question
   const nextQuestion = () => {
     setFeedback(null);
-    fetchQuestion();
-    // Always fetch the next question as we're always in continuous mode
+    setSelectedAnswer(null);
+    setCurrentQuestion(null); // Clear current question first
+    fetchQuestion(); // Then fetch a new one
   };
   
   // Toggle continuous mode - keeping function signature for compatibility

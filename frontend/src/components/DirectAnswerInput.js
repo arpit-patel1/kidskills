@@ -6,7 +6,8 @@ const DirectAnswerInput = ({
   onAnswer,
   loading,
   submitted,
-  feedback
+  feedback,
+  onNextQuestion
 }) => {
   const [answer, setAnswer] = useState('');
   const [detailedFeedback, setDetailedFeedback] = useState('');
@@ -47,12 +48,24 @@ const DirectAnswerInput = ({
     onAnswer(answer);
   };
   
+  const handleNextQuestion = () => {
+    if (onNextQuestion) {
+      onNextQuestion();
+    }
+  };
+  
   const getInputClass = () => {
     if (!submitted) return 'direct-answer-input';
     return feedback?.is_correct ? 'direct-answer-input correct' : 'direct-answer-input incorrect';
   };
   
   const isGrammarCorrection = question.sub_activity === 'Grammar Correction';
+  
+  const inputStyle = {
+    fontSize: '1rem',
+    color: '#212529',
+    fontWeight: 'normal'
+  };
   
   return (
     <div className="direct-answer-container">
@@ -63,16 +76,27 @@ const DirectAnswerInput = ({
         placeholder={isGrammarCorrection ? "Type the corrected sentence here..." : "Type your answer here..."}
         disabled={loading || submitted}
         rows={3}
+        style={inputStyle}
       />
       
       <div className="action-container">
-        <button 
-          className="btn btn-primary btn-lg submit-btn"
-          onClick={handleSubmit}
-          disabled={!answer.trim() || loading || submitted}
-        >
-          <i className="bi bi-check-circle"></i> Submit Answer
-        </button>
+        {!submitted ? (
+          <button 
+            className="btn btn-primary btn-lg submit-btn"
+            onClick={handleSubmit}
+            disabled={!answer.trim() || loading || submitted}
+          >
+            <i className="bi bi-check-circle"></i> Submit Answer
+          </button>
+        ) : (
+          <button 
+            className="btn btn-success btn-lg submit-btn"
+            onClick={handleNextQuestion}
+            disabled={loading}
+          >
+            <i className="bi bi-arrow-right-circle"></i> Next Question
+          </button>
+        )}
       </div>
       
       {submitted && feedback && (
@@ -85,12 +109,35 @@ const DirectAnswerInput = ({
           )}
           
           {isGrammarCorrection && (
+            <div className="user-answer-display" style={{ marginBottom: '15px', fontSize: '0.9rem' }}>
+              <span style={{ fontWeight: 'bold', color: '#495057' }}>Your answer:</span>
+              <div style={{ 
+                padding: '5px 8px', 
+                backgroundColor: 'rgba(255,255,255,0.7)', 
+                borderRadius: '4px', 
+                marginTop: '3px', 
+                color: '#212529'
+              }}>
+                {answer}
+              </div>
+            </div>
+          )}
+          
+          {isGrammarCorrection && (
             <div className="detailed-feedback">
-              <h4>Feedback:</h4>
+              <h4>
+                <i className={`bi ${feedback.is_correct ? 'bi-lightbulb' : 'bi-info-circle'}`}></i> 
+                Grammar Explanation:
+              </h4>
               {loadingFeedback ? (
-                <div className="loading-feedback">Loading feedback...</div>
+                <div className="loading-feedback">
+                  <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div> 
+                  <span>Loading feedback...</span>
+                </div>
               ) : (
-                <div className="feedback-text">{detailedFeedback}</div>
+                <div className="feedback-text">
+                  {detailedFeedback}
+                </div>
               )}
             </div>
           )}

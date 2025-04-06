@@ -68,6 +68,7 @@ const MainContent = ({
             score={score}
             questionCount={questionCount}
             streak={streak}
+            onNextQuestion={nextQuestion}
           />
         </div>
       ) : (

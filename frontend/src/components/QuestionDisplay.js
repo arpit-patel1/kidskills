@@ -10,12 +10,11 @@ const QuestionDisplay = ({
   selectedChoice: parentSelectedChoice = null,
   score = 0,
   questionCount = 0,
-  streak = 0
+  streak = 0,
+  onNextQuestion
 }) => {
   const [localSelectedChoice, setLocalSelectedChoice] = useState(null);
   const [localSubmitted, setLocalSubmitted] = useState(false);
-  const [nextQuestionTimer, setNextQuestionTimer] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(6);
   
   // Use either local submission state or the prop passed from parent
   const isSubmitted = submitted || localSubmitted;
@@ -27,36 +26,7 @@ const QuestionDisplay = ({
   useEffect(() => {
     setLocalSelectedChoice(null);
     setLocalSubmitted(false);
-    setTimeLeft(6);
-    
-    // Clear any existing timer when question changes
-    if (nextQuestionTimer) {
-      clearTimeout(nextQuestionTimer);
-    }
-    
-    return () => {
-      if (nextQuestionTimer) {
-        clearTimeout(nextQuestionTimer);
-      }
-    };
-  }, [question, nextQuestionTimer]);
-  
-  // Countdown timer for next question
-  useEffect(() => {
-    let countdownInterval;
-    
-    if (isSubmitted && feedback) {
-      countdownInterval = setInterval(() => {
-        setTimeLeft((prevTime) => Math.max(0, prevTime - 1));
-      }, 1000);
-    }
-    
-    return () => {
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-      }
-    };
-  }, [isSubmitted, feedback]);
+  }, [question]);
   
   if (!question) {
     return null;
@@ -76,14 +46,12 @@ const QuestionDisplay = ({
     // Send the answer to the parent component (useGameState hook)
     // which will call the API and get the result
     onAnswer(selectedChoice);
-    
-    // Set timer for auto-advancing to next question after 6 seconds
-    const timer = setTimeout(() => {
-      // This will be handled by the useGameState hook
-      // We don't need to do anything here as the component will unmount
-    }, 6000);
-    
-    setNextQuestionTimer(timer);
+  };
+  
+  const handleNextQuestion = () => {
+    if (onNextQuestion) {
+      onNextQuestion();
+    }
   };
   
   const getChoiceClass = (choice) => {
@@ -122,23 +90,6 @@ const QuestionDisplay = ({
     return 'choice-btn';
   };
   
-  // Get emoji based on subject and sub-activity
-  const getEmoji = () => {
-    if (question.subject === 'Math') {
-      if (question.sub_activity === 'Addition/Subtraction') return '➕➖';
-      if (question.sub_activity === 'Multiplication/Division') return '✖️➗';
-      if (question.sub_activity === 'Word Problems') return '📝📝';
-      return '🧮';
-    } else if (question.subject === 'English') {
-      if (question.sub_activity === 'Opposites/Antonyms') return '⬆️⬇️';
-      if (question.sub_activity === 'Reading Comprehension') return '📚🔍';
-      if (question.sub_activity === 'Nouns/Pronouns') return '📝👤';
-      if (question.sub_activity === 'Grammar Correction') return '📝✏️';
-      return '📚';
-    }
-    return '🎓';
-  };
-
   // Generate star emojis based on streak
   const renderStars = () => {
     if (streak === 0) return null;
@@ -156,36 +107,21 @@ const QuestionDisplay = ({
   
   return (
     <div className="question-display">
-      {/* Fixed Score Display */}
-      {questionCount > 0 && (
-        <div className="fixed-score-display">
-          Score: {score}/{questionCount}
-        </div>
-      )}
-      
-      {/* Fixed Streak Display */}
-      {streak > 0 && (
-        <div className="fixed-streak-display">
-          <span>Streak: {streak}</span>
-          <span className="fixed-streak-stars">{renderStars()}</span>
-          {streak >= 3 && (
-            <span className="streak-badge">
-              {streak >= 10 ? '🏆' : streak >= 5 ? '🥇' : '🎖️'}
-            </span>
-          )}
-        </div>
-      )}
-      
       <div className="question-card">
-        <div className="question-header">
-          <span className="question-emoji">{getEmoji()}</span>
-          <div className="question-info">
-            <span className="question-subject">{question.subject || 'Challenge'}</span>
-            <span className="question-sub-activity">{question.sub_activity}</span>
-          </div>
+        <div className="fixed-score-display">
+          Score: {score} / {questionCount}
         </div>
         
-        <div className="question-text">{question.question}</div>
+        {streak > 0 && (
+          <div className="fixed-streak-display">
+            <i className="bi bi-lightning-fill"></i>
+            <span className="fixed-streak-stars">{renderStars()}</span>
+          </div>
+        )}
+        
+        <div className="question-text">
+          {question.question}
+        </div>
         
         {isDirectAnswer ? (
           <DirectAnswerInput
@@ -194,6 +130,7 @@ const QuestionDisplay = ({
             loading={loading}
             submitted={isSubmitted}
             feedback={feedback}
+            onNextQuestion={onNextQuestion}
           />
         ) : (
           <>
@@ -212,14 +149,25 @@ const QuestionDisplay = ({
             </div>
             
             <div className="action-container">
-              <button 
-                className="btn btn-primary btn-lg submit-btn"
-                onClick={handleSubmit}
-                disabled={!selectedChoice || loading || isSubmitted}
-                style={{ marginTop: '10px' }}
-              >
-                <i className="bi bi-check-circle"></i> Submit Answer
-              </button>
+              {!isSubmitted ? (
+                <button 
+                  className="btn btn-primary btn-lg submit-btn"
+                  onClick={handleSubmit}
+                  disabled={!selectedChoice || loading || isSubmitted}
+                  style={{ marginTop: '10px' }}
+                >
+                  <i className="bi bi-check-circle"></i> Submit Answer
+                </button>
+              ) : (
+                <button 
+                  className="btn btn-success btn-lg submit-btn"
+                  onClick={handleNextQuestion}
+                  disabled={loading}
+                  style={{ marginTop: '10px' }}
+                >
+                  <i className="bi bi-arrow-right-circle"></i> Next Question
+                </button>
+              )}
             </div>
           </>
         )}
@@ -231,15 +179,6 @@ const QuestionDisplay = ({
           <div className="status-item loading-status">
             <div className="spinner"></div>
             <p>Checking your answer...</p>
-          </div>
-        )}
-        
-        {isSubmitted && feedback && (
-          <div className="status-item timer-status">
-            <div className="timer-circle">
-              <div className="timer-number">{timeLeft}</div>
-            </div>
-            <p className="next-question-text">Next question soon!</p>
           </div>
         )}
       </div>
