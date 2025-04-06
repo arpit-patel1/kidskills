@@ -3,11 +3,11 @@ import json
 import time
 import re
 from typing import Dict, Any, Optional, List, Literal
-from openai import OpenAI
 from dotenv import load_dotenv
 import logging
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 import random
+from ollama import chat as ollama_chat
 
 # Configure enhanced logging with file output
 # Create logs directory at the project root
@@ -32,24 +32,9 @@ logger.info(f"Logging to {log_file}")
 # Load environment variables
 load_dotenv()
 
-# Get OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    logger.warning("OpenRouter API key not found. AI question generation will not work.")
-else:
-    # Log masked API key for debugging
-    masked_key = OPENROUTER_API_KEY[:4] + "****" + OPENROUTER_API_KEY[-4:]
-    logger.info(f"Using OpenRouter API key: {masked_key}")
-
-# Get OpenRouter model from env or use default
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3-haiku-20240307")
-logger.info(f"Using OpenRouter model: {OPENROUTER_MODEL}")
-
-# Initialize OpenAI client for OpenRouter
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-)
+# Get Ollama model from env or use default
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
 
 # Constants for question randomization
 NAMES = [
@@ -91,74 +76,47 @@ class MultipleChoiceQuestion(BaseModel):
     question: str = Field(..., description="The question text")
     choices: List[str] = Field(..., min_items=2, max_items=4, description="An array of possible answers")
     answer: str = Field(..., description="The correct answer, must be one of the choices")
-    type: Literal["multiple-choice"] = Field("multiple-choice", description="The question type")
+    type: str = Field("multiple-choice", description="The type of question")
     
-    @validator('answer')
-    def answer_must_be_in_choices(cls, v, values):
-        if 'choices' in values and v not in values['choices']:
-            raise ValueError(f'Answer "{v}" must be one of the choices: {values["choices"]}')
-        return v
-    
-    @root_validator(pre=True)
-    def check_correct_answer(cls, values):
-        # If 'correct_answer' is provided instead of 'answer', use that
-        if 'correct_answer' in values and 'answer' not in values:
-            values['answer'] = values['correct_answer']
-            logger.info("Using 'correct_answer' field as 'answer'")
-        return values
-    
-    def to_dict(self):
-        # Handle both Pydantic v1 and v2 methods
-        if hasattr(self, "model_dump"):
-            return self.model_dump()
-        return self.dict()  # Fallback for older Pydantic versions
-
 class DirectAnswerQuestion(BaseModel):
     question: str = Field(..., description="The question text")
     answer: str = Field(..., description="The correct answer")
-    type: Literal["direct-answer"] = Field("direct-answer", description="The question type")
+    type: str = Field("direct-answer", description="The type of question")
+    # @root_validator(pre=True)
+    # def check_correct_answer(cls, values):
+    #     # If 'correct_answer' is provided instead of 'answer', use that
+    #     if 'correct_answer' in values and 'answer' not in values:
+    #         values['answer'] = values['correct_answer']
+    #         logger.info("Using 'correct_answer' field as 'answer'")
+    #     return values
     
-    @root_validator(pre=True)
-    def check_correct_answer(cls, values):
-        # If 'correct_answer' is provided instead of 'answer', use that
-        if 'correct_answer' in values and 'answer' not in values:
-            values['answer'] = values['correct_answer']
-            logger.info("Using 'correct_answer' field as 'answer'")
-        return values
-    
-    def to_dict(self):
-        # Handle both Pydantic v1 and v2 methods
-        if hasattr(self, "model_dump"):
-            return self.model_dump()
-        return self.dict()  # Fallback for older Pydantic versions
+       
+    # def normalize_answer(self, user_answer: str) -> bool:
+    #     """
+    #     Normalize and compare a user answer with the correct answer.
+    #     This is useful for grammar correction where slight differences
+    #     in spacing or capitalization should be ignored.
+    #     """
+    #     # Clean up both answers by removing extra spaces and converting to lowercase
+    #     correct = self.answer.strip().lower()
+    #     user = user_answer.strip().lower()
         
-    def normalize_answer(self, user_answer: str) -> bool:
-        """
-        Normalize and compare a user answer with the correct answer.
-        This is useful for grammar correction where slight differences
-        in spacing or capitalization should be ignored.
-        """
-        # Clean up both answers by removing extra spaces and converting to lowercase
-        correct = self.answer.strip().lower()
-        user = user_answer.strip().lower()
-        
-        # Basic exact match after normalization
-        if correct == user:
-            return True
+    #     # Basic exact match after normalization
+    #     if correct == user:
+    #         return True
             
-        # TODO: Add more sophisticated comparison if needed:
-        # - Remove punctuation for comparison
-        # - Allow for alternative phrasings
-        # - Use word-by-word comparison
+    #     # TODO: Add more sophisticated comparison if needed:
+    #     # - Remove punctuation for comparison
+    #     # - Allow for alternative phrasings
+    #     # - Use word-by-word comparison
         
-        return False
+    #     return False
 
 class ReadingComprehensionQuestion(BaseModel):
     passage: str = Field(..., description="The reading text")
     question: str = Field(..., description="The question about the passage")
     choices: List[str] = Field(..., min_items=2, max_items=4, description="An array of possible answers")
     answer: str = Field(..., description="The correct answer, must be one of the choices")
-    type: Literal["reading-comprehension"] = Field("reading-comprehension", description="The question type")
     
     @validator('answer')
     def answer_must_be_in_choices(cls, v, values):
@@ -761,7 +719,7 @@ def clean_markdown_json(text: str) -> str:
 
 async def generate_question(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str = "multiple-choice") -> Dict[str, Any]:
     """
-    Generate a question using OpenRouter API with Pydantic for structured output.
+    Dispatcher function that routes to specialized question generators based on type.
     
     Args:
         grade: Student grade level (2 or 3)
@@ -794,147 +752,224 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         logger.warning(f"[{request_id}] Invalid difficulty: {difficulty}, defaulting to Easy")
         difficulty_norm = "Easy"
     
-    # For MVP, we mostly support multiple-choice, but handle special cases
-    if question_type != "multiple-choice" and question_type != "direct-answer" and question_type != "reading-comprehension":
-        question_type = "multiple-choice"
-    
-    # Special handling for Grammar Correction
+    # For Grammar Correction, always use direct-answer
     if sub_activity_norm == "Grammar Correction":
-        if question_type != "direct-answer":
-            logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
-            question_type = "direct-answer"
+        logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
+        question_type = "direct-answer"
     
-    # Determine temperature: standard or higher for some question types
-    temperature = 0.5  # default temperature
+    # Dispatch to the appropriate specialized generator
+    try:
+        if question_type == "multiple-choice":
+            return await generate_multiple_choice_question(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, request_id)
+        elif question_type == "direct-answer":
+            return await generate_direct_answer_question(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, request_id)
+        elif question_type == "reading-comprehension":
+            return await generate_reading_comprehension_question(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, request_id)
+        else:
+            # Default to multiple-choice if type is unrecognized
+            logger.warning(f"[{request_id}] Unrecognized question type: {question_type}, defaulting to multiple-choice")
+            return await generate_multiple_choice_question(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, request_id)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error in question generation: {str(e)}")
+        return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
+
+async def generate_multiple_choice_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """Generate a multiple choice question."""
+    logger.info(f"[{request_id}] Generating multiple-choice question")
     
-    # Use higher temperature for some question types to get more variety
-    if subject_norm == "English":
-        if sub_activity_norm == "Grammar Correction":
-            temperature = 0.7
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for grammar correction")
-        elif sub_activity_norm == "Reading Comprehension": 
-            temperature = 0.8
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
-        elif sub_activity_norm == "Opposites/Antonyms":
+    # Determine temperature based on subject/activity
+    temperature = 0.5  # default
+    if subject == "English":
+        if sub_activity == "Opposites/Antonyms":
             temperature = 0.9
             logger.info(f"[{request_id}] Using higher temperature of {temperature} for Opposites/Antonyms")
         else:
-            # For all other English activities
             temperature = 0.7
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for {sub_activity_norm}")
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for {sub_activity}")
+    
+    # Construct prompt specifically for multiple choice
+    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "multiple-choice")
+    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
+    
+    # Create system message with explicit format requirements
+    system_message = """You are an AI that generates educational multiple-choice questions for elementary school students.
+Your responses MUST be in valid JSON format with the following fields:
+1. 'question': The question text
+2. 'choices': An array of 3-4 possible answers
+3. 'answer': The correct answer (which must be one of the choices)
+4. 'type': Must be exactly "multiple-choice"
+
+Example format:
+{
+  "question": "What is 2 + 2?",
+  "choices": ["3", "4", "5", "6"],
+  "answer": "4",
+  "type": "multiple-choice"
+}
+
+IMPORTANT: Always include all these fields exactly as shown."""
+    
+    if subject == "English" and sub_activity == "Opposites/Antonyms":
+        system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
     
     try:
-        # Construct a prompt for the OpenRouter model
-        prompt = construct_prompt(grade=int(grade_str), subject=subject_norm, sub_activity=sub_activity_norm, difficulty=difficulty_norm, question_type=question_type)
-        
-        logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
-        
-        # If API key is not available, use fallback questions
-        if not OPENROUTER_API_KEY:
-            logger.warning(f"[{request_id}] No API key available, using fallback question")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-        
-        # Determine which model class to use based on question_type
-        if question_type == "multiple-choice":
-            schema_class = MultipleChoiceQuestion
-        elif question_type == "direct-answer":
-            schema_class = DirectAnswerQuestion
-        else:  # reading-comprehension
-            schema_class = ReadingComprehensionQuestion
-        
-        # Make API call to OpenRouter
+        # Make API call
         start_time = time.time()
         
-        # Create system message that's appropriate for the subject/activity
-        system_message = "You are an AI that generates educational questions for elementary school students. Your responses should be in JSON format with a question, choices (for multiple choice), and the correct answer. Always use the field name 'answer' (not 'correct_answer') for the correct answer field."
-        
-        # Enhance system message for Opposites/Antonyms to avoid repetitive questions
-        if subject_norm == "English" and sub_activity_norm == "Opposites/Antonyms":
-            system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
-        
-        completion = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
+
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            temperature=temperature,
-            top_p=0.8
+            format=MultipleChoiceQuestion.model_json_schema()
         )
+
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        json_data = json.loads(ollama_response.message.content)
+        return json_data
         
-        # Extract and clean the response content
-        if not completion.choices or not hasattr(completion.choices[0], 'message'):
-            logger.error(f"[{request_id}] No valid response from API")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-            
-        response_message = completion.choices[0].message
-        if not hasattr(response_message, 'content') or not response_message.content:
-            logger.error(f"[{request_id}] No content in response message")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-            
-        content = response_message.content.strip()
-        
-        # Clean up the response to extract JSON
-        cleaned_content = clean_markdown_json(content)
-        if not cleaned_content:
-            logger.error(f"[{request_id}] Failed to extract JSON from response")
-            logger.error(f"[{request_id}] Original content: {content[:200]}...")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-        
-        try:
-            # Parse JSON content
-            json_data = json.loads(cleaned_content)
-            logger.info(f"[{request_id}] Successfully parsed JSON: {json.dumps(json_data)[:200]}...")
-            
-            # Add sub_activity to the JSON data before repair/validation
-            json_data["sub_activity"] = sub_activity_norm
-            
-            # Attempt to repair malformed JSON before validation
-            repaired_json = repair_malformed_json(json_data)
-            
-            # Validate with Pydantic
-            validated_data = schema_class(**repaired_json)
-            logger.info(f"[{request_id}] Successfully validated with Pydantic")
-            
-            # Convert to dictionary
-            result = validated_data.to_dict()  # Use to_dict() helper method
-            
-            # Always ensure sub_activity is in the result
-            result["sub_activity"] = sub_activity_norm
-            
-            # For grammar correction, double-check that type is direct-answer
-            if sub_activity_norm == "Grammar Correction" and result.get("type") != "direct-answer":
-                logger.info(f"[{request_id}] Forcing direct-answer type for Grammar Correction after validation")
-                result["type"] = "direct-answer"
-                # Remove choices if they somehow got through
-                if "choices" in result:
-                    del result["choices"]
-            
-            # Add the subject and difficulty to the result
-            result["subject"] = subject_norm
-            result["difficulty"] = difficulty_norm
-            
-            logger.info(f"[{request_id}] Returning validated question")
-            return result
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"[{request_id}] Failed to parse JSON: {str(e)}")
-            logger.error(f"[{request_id}] Content: {cleaned_content}")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-            
-        except ValidationError as e:
-            logger.error(f"[{request_id}] Failed to validate with Pydantic: {str(e)}")
-            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-            
     except Exception as e:
-        logger.error(f"[{request_id}] Error generating question: {str(e)}")
-        return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
+        logger.error(f"[{request_id}] Error generating multiple-choice question: {str(e)}")
+        logger.exception(e)  # Log the full stack trace
+        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+
+async def generate_direct_answer_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """Generate a direct answer question."""
+    logger.info(f"[{request_id}] Generating direct-answer question")
+    
+    # Grammar correction uses higher temperature
+    temperature = 0.7 if sub_activity == "Grammar Correction" else 0.5
+    logger.info(f"[{request_id}] Using temperature of {temperature} for direct answer")
+    
+    # Construct prompt specifically for direct answer
+    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "direct-answer")
+    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
+    
+   
+    # Create system message with explicit format requirements
+    system_message = """You are an AI that generates educational direct-answer questions for elementary school students.
+Your responses MUST be in valid JSON format with the following fields:
+1. 'question': The question text
+2. 'answer': The correct answer
+3. 'type': Must be exactly "direct-answer"
+
+Example format:
+{
+  "question": "What is the capital of France?",
+  "answer": "Paris",
+  "type": "direct-answer"
+}
+
+IMPORTANT: Always include all these fields exactly as shown."""
+    
+    if sub_activity == "Grammar Correction":
+        system_message += """ For Grammar Correction, provide a sentence with a grammatical error that the student needs to correct.
+
+Example for Grammar Correction:
+{
+  "question": "The dog run very fast.",
+  "answer": "The dog runs very fast.",
+  "type": "direct-answer"
+}
+"""
+    
+    try:
+
+        # Make API call
+        start_time = time.time()
+        
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            format=DirectAnswerQuestion.model_json_schema()
+        )
+
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
+        api_time = time.time() - start_time
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        json_data = json.loads(ollama_response.message.content)
+        return json_data
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error generating direct-answer question: {str(e)}")
+        logger.exception(e)  # Log the full stack trace
+        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+
+async def generate_reading_comprehension_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """Generate a reading comprehension question."""
+    logger.info(f"[{request_id}] Generating reading-comprehension question")
+    
+    # Reading comprehension uses higher temperature
+    temperature = 0.8
+    logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
+    
+    # Construct prompt specifically for reading comprehension
+    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "reading-comprehension")
+    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
+    
+    # Create system message specific for reading comprehension with explicit instructions
+    system_message = """You are an AI that generates educational reading comprehension questions for elementary school students.
+Your responses MUST be in valid JSON format with the following fields:
+1. 'passage': A short reading text appropriate for the grade level
+2. 'question': A question about the passage
+3. 'choices': An array of 3-4 possible answers
+4. 'answer': The correct answer (which must be one of the choices)
+5. 'type': Must be exactly "reading-comprehension"
+
+Example format:
+{
+  "passage": "Sam has a red ball. He likes to play with it in the park.",
+  "question": "What color is Sam's ball?",
+  "choices": ["Red", "Blue", "Green", "Yellow"],
+  "answer": "Red",
+  "type": "reading-comprehension"
+}
+
+IMPORTANT: Always include all these fields exactly as shown."""
+    
+    try:
+        # Make API call
+        start_time = time.time()
+        
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            format=ReadingComprehensionQuestion.model_json_schema()
+        )
+
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
+        api_time = time.time() - start_time
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        json_data = json.loads(ollama_response.message.content)
+        
+        # Ensure type is set correctly
+        json_data["type"] = "reading-comprehension"
+        
+        # Add metadata
+        json_data["sub_activity"] = sub_activity
+        json_data["subject"] = subject
+        json_data["difficulty"] = difficulty
+        
+        return json_data
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error generating reading-comprehension question: {str(e)}")
+        logger.exception(e)  # Log the full stack trace
+        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
 
 def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
     """
-    Construct a prompt for the OpenRouter model based on the given parameters.
+    Construct a prompt for the AI model based on the given parameters.
     
     Args:
         grade: Student grade level (e.g., 2, 3)
@@ -1501,7 +1536,7 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
 
 async def generate_grammar_feedback(question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
     """
-    Generate detailed feedback for a grammar correction answer using OpenRouter.
+    Generate detailed feedback for a grammar correction answer using Ollama.
     
     Args:
         question: The original question (incorrect sentence)
@@ -1541,31 +1576,21 @@ Please provide a short, gentle response (2-3 sentences) explaining what grammar 
         logger.info(f"[{request_id}] Generating grammar feedback")
         start_time = time.time()
         
-        # Make API call to OpenRouter for feedback
-        completion = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
+        # Make API call to Ollama for feedback
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a friendly, supportive elementary school teacher providing feedback on grammar corrections. Keep your responses short, simple, and encouraging."},
                 {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=150
+            ]
         )
         
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         
         # Extract the feedback
-        if not completion or not hasattr(completion, 'choices') or not completion.choices:
-            logger.error(f"[{request_id}] No valid response from API")
-            return get_fallback_feedback(is_correct)
-        
-        response_message = completion.choices[0].message
-        if not hasattr(response_message, 'content') or not response_message.content:
-            logger.error(f"[{request_id}] No content in response message")
-            return get_fallback_feedback(is_correct)
-        
-        feedback = response_message.content.strip()
+        feedback = ollama_response.message.content.strip()
         logger.info(f"[{request_id}] Generated feedback: {feedback[:100]}...")
         
         return feedback
@@ -1587,7 +1612,7 @@ def getRandomSeed() -> int:
 
 async def evaluate_grammar_correction(question: str, user_answer: str, correct_answer: str) -> dict:
     """
-    Evaluate a grammar correction answer using OpenRouter API and provide detailed feedback.
+    Evaluate a grammar correction answer using Ollama API and provide detailed feedback.
     
     Args:
         question: The original question (incorrect sentence)
@@ -1633,50 +1658,35 @@ Return your response in this JSON format:
         logger.info(f"[{request_id}] Evaluating grammar correction answer")
         start_time = time.time()
         
-        # Make API call to OpenRouter for evaluation
-        completion = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
+        # Make API call to Ollama for evaluation
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating grammar corrections. You judge answers based on whether the student fixed the main grammar issue, even if their wording differs from the expected answer. You provide constructive, encouraging feedback."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,  # Lower temperature for more consistent evaluation
-            response_format={"type": "json_object"}
+            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}}
         )
         
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         
-        # Extract the evaluation results
-        if not completion or not hasattr(completion, 'choices') or not completion.choices:
-            logger.error(f"[{request_id}] No valid response from API")
+        # Parse the JSON response
+        evaluation_result = json.loads(ollama_response.message.content)
+        
+        # Validate the required fields are present
+        if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
+            logger.error(f"[{request_id}] Missing required fields in evaluation result")
             return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
         
-        response_message = completion.choices[0].message
-        if not hasattr(response_message, 'content') or not response_message.content:
-            logger.error(f"[{request_id}] No content in response message")
-            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+        # Convert is_correct to boolean if it's a string
+        if isinstance(evaluation_result["is_correct"], str):
+            evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
         
-        try:
-            # Parse the JSON response
-            evaluation_result = json.loads(response_message.content.strip())
-            
-            # Validate the required fields are present
-            if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
-                logger.error(f"[{request_id}] Missing required fields in evaluation result")
-                return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
-            
-            # Convert is_correct to boolean if it's a string
-            if isinstance(evaluation_result["is_correct"], str):
-                evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
-            
-            logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
-            
-            return evaluation_result
-            
-        except json.JSONDecodeError:
-            logger.error(f"[{request_id}] Failed to parse JSON response: {response_message.content[:100]}...")
-            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+        logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
+        
+        return evaluation_result
             
     except Exception as e:
         logger.error(f"[{request_id}] Error evaluating grammar correction: {str(e)}")
@@ -1703,7 +1713,7 @@ def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_ans
 
 async def evaluate_reading_comprehension(passage: str, question: str, user_answer: str, correct_answer: str) -> dict:
     """
-    Evaluate a reading comprehension answer using OpenRouter API and provide detailed feedback.
+    Evaluate a reading comprehension answer using Ollama API and provide detailed feedback.
     
     Args:
         passage: The reading passage text
@@ -1747,50 +1757,35 @@ Return your response in this JSON format:
         logger.info(f"[{request_id}] Evaluating reading comprehension answer")
         start_time = time.time()
         
-        # Make API call to OpenRouter for evaluation
-        completion = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
+        # Make API call to Ollama for evaluation
+        ollama_response = ollama_chat(
+            model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating reading comprehension answers. You judge answers based on understanding rather than exact wording. You provide constructive, encouraging feedback."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,  # Lower temperature for more consistent evaluation
-            response_format={"type": "json_object"}
+            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}}
         )
         
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         
-        # Extract the evaluation results
-        if not completion or not hasattr(completion, 'choices') or not completion.choices:
-            logger.error(f"[{request_id}] No valid response from API")
+        # Parse the JSON response
+        evaluation_result = json.loads(ollama_response.message.content)
+        
+        # Validate the required fields are present
+        if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
+            logger.error(f"[{request_id}] Missing required fields in evaluation result")
             return get_fallback_reading_evaluation(user_answer, correct_answer)
         
-        response_message = completion.choices[0].message
-        if not hasattr(response_message, 'content') or not response_message.content:
-            logger.error(f"[{request_id}] No content in response message")
-            return get_fallback_reading_evaluation(user_answer, correct_answer)
+        # Convert is_correct to boolean if it's a string
+        if isinstance(evaluation_result["is_correct"], str):
+            evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
         
-        try:
-            # Parse the JSON response
-            evaluation_result = json.loads(response_message.content.strip())
-            
-            # Validate the required fields are present
-            if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
-                logger.error(f"[{request_id}] Missing required fields in evaluation result")
-                return get_fallback_reading_evaluation(user_answer, correct_answer)
-            
-            # Convert is_correct to boolean if it's a string
-            if isinstance(evaluation_result["is_correct"], str):
-                evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
-            
-            logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
-            
-            return evaluation_result
-            
-        except json.JSONDecodeError:
-            logger.error(f"[{request_id}] Failed to parse JSON response: {response_message.content[:100]}...")
-            return get_fallback_reading_evaluation(user_answer, correct_answer)
+        logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
+        
+        return evaluation_result
             
     except Exception as e:
         logger.error(f"[{request_id}] Error evaluating reading comprehension: {str(e)}")

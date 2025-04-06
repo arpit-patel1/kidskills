@@ -4,7 +4,7 @@ import uuid
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
-from app.services.openrouter_service import generate_question, generate_grammar_feedback, evaluate_grammar_correction, FALLBACK_QUESTIONS, evaluate_reading_comprehension
+from app.services.ai_service import generate_question, generate_grammar_feedback, evaluate_grammar_correction, FALLBACK_QUESTIONS, evaluate_reading_comprehension
 from app.api.schemas import (
     GetQuestionRequest, 
     SubmitAnswerRequest, 
@@ -277,7 +277,7 @@ async def delete_player(
 async def get_grammar_feedback(request: GrammarFeedbackRequest):
     """Get detailed feedback for a grammar correction answer."""
     try:
-        # Generate detailed feedback using OpenRouter
+        # Generate detailed feedback using Ollama
         feedback = await generate_grammar_feedback(
             question=request.question,
             user_answer=request.user_answer,
@@ -296,10 +296,10 @@ async def get_grammar_feedback(request: GrammarFeedbackRequest):
         return {"feedback": feedback}
 
 @router.post("/grammar/evaluate", response_model=GrammarCorrectionEvaluationResponse)
-async def evaluate_grammar_correction(request: GrammarCorrectionEvaluationRequest):
+async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluationRequest):
     """Evaluate a grammar correction answer using AI."""
     try:
-        # Generate evaluation using OpenRouter
+        # Generate evaluation using Ollama
         result = await evaluate_grammar_correction(
             question=request.question,
             user_answer=request.user_answer,
@@ -322,10 +322,10 @@ async def evaluate_grammar_correction(request: GrammarCorrectionEvaluationReques
         return {"is_correct": is_correct, "feedback": feedback}
 
 @router.post("/reading/evaluate", response_model=ReadingComprehensionEvaluationResponse)
-async def evaluate_reading_comprehension(request: ReadingComprehensionEvaluationRequest):
+async def evaluate_reading_comprehension_route(request: ReadingComprehensionEvaluationRequest):
     """Evaluate a reading comprehension answer using AI."""
     try:
-        # Generate evaluation using OpenRouter
+        # Generate evaluation using Ollama
         result = await evaluate_reading_comprehension(
             passage=request.passage,
             question=request.question,
