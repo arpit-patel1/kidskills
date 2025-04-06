@@ -5,6 +5,8 @@ const QuestionDisplay = ({
   question,
   onAnswer, 
   loading, 
+  loadingNextQuestion,
+  nextQuestionTimer,
   submitted = false, 
   feedback = null,
   selectedChoice: parentSelectedChoice = null,
@@ -100,14 +102,18 @@ const QuestionDisplay = ({
   // Check if this is a direct answer question
   const isDirectAnswer = question.type === 'direct-answer';
   
+  // Check if this is a reading comprehension question
+  const isReadingComprehension = question.type === 'reading-comprehension';
+  
   // Add debugging statements
   console.log('Question Type:', question.type);
   console.log('Is Direct Answer:', isDirectAnswer);
+  console.log('Is Reading Comprehension:', isReadingComprehension);
   console.log('Full Question Object:', question);
   
   return (
     <div className="question-display">
-      <div className="question-card">
+      <div className={`question-card ${loadingNextQuestion ? 'loading-transition' : ''}`}>
         <div className="fixed-score-display">
           Score: {score} / {questionCount}
         </div>
@@ -116,6 +122,13 @@ const QuestionDisplay = ({
           <div className="fixed-streak-display">
             <i className="bi bi-lightning-fill"></i>
             <span className="fixed-streak-stars">{renderStars()}</span>
+          </div>
+        )}
+        
+        {isReadingComprehension && question.passage && (
+          <div className="reading-passage">
+            <h4>Reading Passage:</h4>
+            <div className="passage-text">{question.passage}</div>
           </div>
         )}
         
@@ -140,7 +153,7 @@ const QuestionDisplay = ({
                   key={index}
                   className={getChoiceClass(choice)}
                   onClick={() => handleChoiceSelection(choice)}
-                  disabled={loading || isSubmitted}
+                  disabled={loading || isSubmitted || loadingNextQuestion}
                 >
                   <span className="choice-letter">{String.fromCharCode(65 + index)}</span>
                   <span className="choice-text">{choice}</span>
@@ -153,7 +166,7 @@ const QuestionDisplay = ({
                 <button 
                   className="btn btn-primary btn-lg submit-btn"
                   onClick={handleSubmit}
-                  disabled={!selectedChoice || loading || isSubmitted}
+                  disabled={!selectedChoice || loading || isSubmitted || loadingNextQuestion}
                   style={{ marginTop: '10px' }}
                 >
                   <i className="bi bi-check-circle"></i> Submit Answer
@@ -162,7 +175,7 @@ const QuestionDisplay = ({
                 <button 
                   className="btn btn-success btn-lg submit-btn"
                   onClick={handleNextQuestion}
-                  disabled={loading}
+                  disabled={loading || loadingNextQuestion}
                   style={{ marginTop: '10px' }}
                 >
                   <i className="bi bi-arrow-right-circle"></i> Next Question
@@ -171,17 +184,20 @@ const QuestionDisplay = ({
             </div>
           </>
         )}
-      </div>
-      
-      {/* Move status container outside the question card */}
-      <div className="status-container">
-        {loading && (
-          <div className="status-item loading-status">
-            <div className="spinner"></div>
-            <p>Checking your answer...</p>
+        
+        {/* Overlay for loading next question */}
+        {loadingNextQuestion && (
+          <div className="loading-overlay">
+            <div className="loading-overlay-content">
+              <div className="spinner"></div>
+              <div className="timer-counter">{nextQuestionTimer}s</div>
+              <div className="loading-text">Loading next question...</div>
+            </div>
           </div>
         )}
       </div>
+      
+      {/* No longer needed - removed "Checking your answer..." status container */}
     </div>
   );
 };

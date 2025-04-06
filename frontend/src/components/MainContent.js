@@ -12,6 +12,8 @@ const MainContent = ({
   streak,
   gameCompleted,
   loading,
+  loadingNextQuestion,
+  nextQuestionTimer,
   handleAnswer,
   nextQuestion,
   resetGame
@@ -62,6 +64,8 @@ const MainContent = ({
             question={currentQuestion} 
             onAnswer={handleAnswer} 
             loading={loading} 
+            loadingNextQuestion={loadingNextQuestion}
+            nextQuestionTimer={nextQuestionTimer}
             submitted={feedback !== null}
             feedback={feedback}
             selectedChoice={selectedAnswer}
@@ -70,6 +74,14 @@ const MainContent = ({
             streak={streak}
             onNextQuestion={nextQuestion}
           />
+        </div>
+      ) : loadingNextQuestion ? (
+        <div className="loading-screen">
+          <div className="spinner-container">
+            <div className="spinner"></div>
+            <div className="timer-counter">{nextQuestionTimer}s</div>
+            <div className="loading-text">Loading question...</div>
+          </div>
         </div>
       ) : (
         <div className="start-screen">

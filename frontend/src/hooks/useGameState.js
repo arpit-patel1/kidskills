@@ -55,6 +55,27 @@ const useGameState = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // Next question loading state
+  const [loadingNextQuestion, setLoadingNextQuestion] = useState(false);
+  const [nextQuestionTimer, setNextQuestionTimer] = useState(0);
+  
+  // Timer effect for next question loading animation
+  useEffect(() => {
+    let timerInterval;
+    
+    if (loadingNextQuestion) {
+      timerInterval = setInterval(() => {
+        setNextQuestionTimer(prev => prev + 1);
+      }, 1000);
+    } else {
+      setNextQuestionTimer(0);
+    }
+    
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [loadingNextQuestion]);
+  
   // Fetch players on component mount
   useEffect(() => {
     fetchPlayers();
@@ -112,6 +133,7 @@ const useGameState = () => {
       console.error(err);
     } finally {
       setLoading(false);
+      setLoadingNextQuestion(false);
     }
   };
   
@@ -185,10 +207,34 @@ const useGameState = () => {
   
   // Move to next question
   const nextQuestion = () => {
-    setFeedback(null);
-    setSelectedAnswer(null);
-    setCurrentQuestion(null); // Clear current question first
-    fetchQuestion(); // Then fetch a new one
+    setLoadingNextQuestion(true); // Show loading spinner with timer
+    
+    // Keep the current question and feedback visible but disabled
+    // We'll fetch the new question after a delay, but don't clear the current question yet
+    setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        const newQuestion = await api.getQuestion(
+          selectedPlayer.id,
+          settings.subject,
+          settings.sub_activity,
+          settings.difficulty
+        );
+        
+        // Clear the old data and set the new question only after we have it
+        setFeedback(null);
+        setSelectedAnswer(null);
+        setCurrentQuestion(newQuestion);
+      } catch (err) {
+        setError('Failed to load question. Please try again.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+        setLoadingNextQuestion(false);
+      }
+    }, 2000);
   };
   
   // Toggle continuous mode - keeping function signature for compatibility
@@ -208,6 +254,8 @@ const useGameState = () => {
     setShowConfetti(false);
     setGameCompleted(false);
     setSelectedAnswer(null);
+    setLoadingNextQuestion(false);
+    setNextQuestionTimer(0);
     setError('');
   };
   
@@ -232,6 +280,8 @@ const useGameState = () => {
     gameCompleted,
     loading,
     error,
+    loadingNextQuestion,
+    nextQuestionTimer,
     
     // Actions
     selectPlayer,

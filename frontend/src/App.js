@@ -23,6 +23,8 @@ function App() {
     streak,
     showConfetti,
     gameCompleted,
+    loadingNextQuestion,
+    nextQuestionTimer,
     selectPlayer,
     updateSettings,
     startGame,
@@ -65,6 +67,8 @@ function App() {
           streak={streak}
           gameCompleted={gameCompleted}
           loading={loading}
+          loadingNextQuestion={loadingNextQuestion}
+          nextQuestionTimer={nextQuestionTimer}
           handleAnswer={handleAnswer}
           nextQuestion={nextQuestion}
           resetGame={resetGame}

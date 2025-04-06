@@ -51,6 +51,41 @@ client = OpenAI(
     api_key=OPENROUTER_API_KEY,
 )
 
+# Constants for question randomization
+NAMES = [
+    "Ava", "Noah", "Emma", "Liam", "Olivia", "Jackson", "Sophia", "Lucas", 
+    "Mia", "Aiden", "Isabella", "Ethan", "Riley", "Elijah", "Aria", 
+    "Grayson", "Amelia", "Mason", "Charlotte", "Logan", "Harper", "James",
+    "Evelyn", "Alexander", "Abigail", "Michael", "Emily", "Benjamin", "Elizabeth", 
+    "Zoe", "William", "Sofia", "Daniel", "Avery", "Matthew", "Scarlett", "Henry",
+    "Victoria", "Sebastian", "Madison", "Jack", "Luna", "Owen", "Grace", "Isaiah",
+    "Chloe", "Leo", "Penelope", "Ryan", "Layla", "Nathan", "Audrey"
+]
+
+MATH_NAMES = NAMES  # Can be used for Math questions specifically
+
+# Reading topics for comprehension questions
+READING_TOPICS = [
+    "animals", "family", "school", "seasons", "weather", "space", 
+    "ocean", "holidays", "food", "sports", "music", "art", 
+    "nature", "travel", "community", "plants", "vehicles",
+    "dinosaurs", "robots", "magic", "friendship", "pets", 
+    "adventures", "insects", "birds", "camping", "cooking",
+    "gardening", "jungle", "desert", "mountains", "inventions",
+    "circus", "planets", "fairy tales", "superheroes", "dragons"
+]
+
+# Locations for reading passages
+READING_LOCATIONS = [
+    "park", "home", "school", "garden", "beach", "forest", 
+    "zoo", "playground", "library", "museum", "farm", 
+    "neighborhood", "classroom", "kitchen", "backyard",
+    "treehouse", "cave", "castle", "island", "mountain",
+    "space station", "boat", "train", "airplane", "submarine",
+    "aquarium", "amusement park", "campsite", "cottage",
+    "desert", "jungle", "bakery", "hospital", "laboratory"
+]
+
 # Define Pydantic models for structured output
 class MultipleChoiceQuestion(BaseModel):
     question: str = Field(..., description="The question text")
@@ -549,13 +584,6 @@ for grade in ["2", "3"]:
 
 # Add these lists at the top level of the file, after the imports and before any functions
 # Various elements to randomize math questions
-MATH_NAMES = [
-    "Emma", "Liam", "Olivia", "Noah", "Ava", "William", "Sophia", "James", "Isabella", "Benjamin",
-    "Mia", "Elijah", "Harper", "Lucas", "Amelia", "Mason", "Evelyn", "Logan", "Abigail", "Alexander",
-    "Emily", "Ethan", "Elizabeth", "Jacob", "Sofia", "Michael", "Avery", "Daniel", "Ella", "Henry",
-    "Madison", "Jackson", "Scarlett", "Sebastian", "Grace", "Aiden", "Chloe", "Matthew", "Victoria", "Samuel"
-]
-
 MATH_OBJECTS = [
     "apples", "oranges", "bananas", "pencils", "markers", "crayons", "books", "notebooks", 
     "cookies", "candies", "toys", "dolls", "cars", "blocks", "stickers", "coins", "marbles",
@@ -648,17 +676,6 @@ ENGLISH_GRAMMAR_TEMPLATES = [
 
 # Lists for enhanced grammar correction randomization
 # List of diverse names representing different cultures/backgrounds
-NAMES = [
-    "Emma", "Liam", "Olivia", "Noah", "Sophia", "Jackson", "Ava", "Lucas", 
-    "Isabella", "Aiden", "Mia", "Caden", "Amelia", "Grayson", "Harper",
-    "Jamal", "Sofia", "Miguel", "Zoe", "Chen", "Aisha", "Omar", "Fatima",
-    "Dev", "Priya", "Mateo", "Nina", "Kenji", "Leila", "Mohammed", "Ling",
-    "Kira", "Zion", "Maya", "Raj", "Elena", "Tyrone", "Luna", "Diego", 
-    "Jade", "Elijah", "Layla", "Leo", "Nia", "Xavier", "Tara", "Jordan",
-    "Aaliyah", "Camden", "Jasmine"
-]
-
-# Diverse scenarios appropriate for elementary students
 SCENARIOS = [
     "playing at the park", "visiting the zoo", "reading in the library",
     "working on a science project", "helping in the garden", "baking cookies",
@@ -787,17 +804,16 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
             logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
             question_type = "direct-answer"
     
-    # Set appropriate temperature based on subject for more variety
-    temperature = 0.5  # Default temperature
+    # Determine temperature: standard or higher for some question types
+    temperature = 0.5  # default temperature
     
-    if subject_norm == "Math":
-        # Higher temperature for math questions to increase variety
-        temperature = 0.7
-        logger.info(f"[{request_id}] Using higher temperature of {temperature} for math questions")
-    elif subject_norm == "English" and sub_activity_norm == "Grammar Correction":
-        # Higher temperature for grammar correction to ensure variety
+    # Use higher temperature for some question types to get more variety
+    if sub_activity_norm == "Grammar Correction":
         temperature = 0.7
         logger.info(f"[{request_id}] Using higher temperature of {temperature} for grammar correction")
+    elif sub_activity_norm == "Reading Comprehension":
+        temperature = 0.8
+        logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
     
     try:
         # Construct a prompt for the OpenRouter model
@@ -966,8 +982,8 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 "sums", "differences"
             ])
             
-            # Make each prompt unique using a random seed
-            random_seed = random.randint(1000, 9999)
+            # Random seed for uniqueness
+            random_seed = getRandomSeed()
             
             prompt = f"""
             Generate a {difficulty.lower()} {grade}-grade level math question about {operation} for elementary students.
@@ -1003,7 +1019,7 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                     division_range = "may include remainders"
             
             # Random seed for uniqueness
-            random_seed = random.randint(1000, 9999)
+            random_seed = getRandomSeed()
             
             prompt = f"""
             Generate a {difficulty.lower()} {grade}-grade level math question about multiplication or division.
@@ -1042,7 +1058,7 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                     num_descrip = "two-step problem with numbers up to 100"
             
             # Random seed for uniqueness
-            random_seed = random.randint(1000, 9999)
+            random_seed = getRandomSeed()
             
             prompt = f"""
             Generate a {difficulty.lower()} {grade}-grade level math word problem.
@@ -1075,10 +1091,66 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 return f"Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms. The question should ask for the opposite of a word appropriate for this grade level."
         
         elif sub_activity == "Reading Comprehension":
+            # Select random elements to create varied passages
+            topic = random.choice(READING_TOPICS)
+            
+            location = random.choice(READING_LOCATIONS)
+            
+            character1 = random.choice(NAMES)
+            character2 = random.choice([n for n in NAMES if n != character1])
+            
+            # Determine question complexity based on grade and difficulty
             if grade <= 2:  # Grade 1-2
-                return f"Create a very short, {difficulty.lower()} {grade}-grade level reading passage (2-3 sentences) followed by a question that tests comprehension. The passage should be simple and age-appropriate."
+                if difficulty.lower() == "easy":
+                    passage_length = "very short (2-3 sentences)"
+                    question_type = "about the main idea or a specific detail"
+                elif difficulty.lower() == "medium":
+                    passage_length = "short (3-4 sentences)"
+                    question_type = "that requires understanding the sequence of events or making a simple inference"
+                else:  # Hard
+                    passage_length = "reading passage (4-5 sentences)"
+                    question_type = "that requires deeper comprehension or making an inference"
             else:  # Grade 3+
-                return f"Create a short, {difficulty.lower()} {grade}-grade level reading passage (3-5 sentences) followed by a question that tests comprehension. The passage should be age-appropriate."
+                if difficulty.lower() == "easy":
+                    passage_length = "short (3-4 sentences)"
+                    question_type = "about key details or main idea"
+                elif difficulty.lower() == "medium":
+                    passage_length = "reading passage (4-5 sentences)"
+                    question_type = "that requires understanding relationships between ideas or making an inference"
+                else:  # Hard
+                    passage_length = "reading passage (5-6 sentences)"
+                    question_type = "that requires understanding cause and effect or drawing conclusions"
+            
+            # Random seed for uniqueness
+            random_seed = getRandomSeed()
+            
+            prompt = f"""
+            Generate a {difficulty.lower()} {grade}-grade level english question about Reading Comprehension for elementary school students.
+            
+            Create a {passage_length} about {topic} set at a {location}, followed by a question {question_type}.
+            
+            Include these characters in your passage: {character1} and optionally {character2}.
+            
+            Use this random seed for variety: {random_seed}
+            
+            Make sure to generate a DIFFERENT passage than ones you've generated before.
+            Try to vary your writing style, sentence patterns, and vocabulary.
+            
+            The passage should:
+            - Use vocabulary appropriate for grade {grade}
+            - Have a clear beginning, middle, and end
+            - Include interesting details that might be asked about in the question
+            - Vary between descriptive, narrative, or informative styles
+            
+            Your question should be thoughtful and require students to really understand the passage.
+            
+            Return as a JSON object with 'passage', 'question', 'choices' (array of 4 options), and 'answer' (correct choice).
+            """
+            
+            # Log the enhanced prompt details
+            logger.info(f"Reading Comprehension randomization - Topic: {topic}, Location: {location}, Characters: {character1}/{character2}, Seed: {random_seed}")
+            
+            return prompt
         
         elif sub_activity == "Nouns/Pronouns":
             if grade <= 2:  # Grade 1-2
@@ -1451,4 +1523,8 @@ def get_fallback_feedback(is_correct: bool) -> str:
     if is_correct:
         return "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly. Keep up the good work!"
     else:
-        return "Good try! The sentence needed a grammar fix. Look carefully at things like verb tense, subject-verb agreement, or word usage. You'll get it next time!" 
+        return "Good try! The sentence needed a grammar fix. Look carefully at things like verb tense, subject-verb agreement, or word usage. You'll get it next time!"
+
+def getRandomSeed() -> int:
+    """Generate a random seed for AI prompts to increase variety."""
+    return random.randint(1000, 9999) 

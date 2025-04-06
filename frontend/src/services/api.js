@@ -59,7 +59,12 @@ export const getQuestion = async (playerId, subject, sub_activity, difficulty) =
     console.log("Getting question for player:", playerId, "Subject:", subject, "Sub-activity:", sub_activity, "Difficulty:", difficulty);
     
     // Determine question type based on sub_activity
-    const question_type = sub_activity === 'Grammar Correction' ? 'direct-answer' : 'multiple-choice';
+    let question_type = 'multiple-choice';
+    if (sub_activity === 'Grammar Correction') {
+      question_type = 'direct-answer';
+    } else if (sub_activity === 'Reading Comprehension') {
+      question_type = 'reading-comprehension';
+    }
     
     const response = await api.post('/challenges/generate', {
       player_id: playerId,
