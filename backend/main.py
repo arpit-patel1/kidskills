@@ -17,11 +17,13 @@ load_dotenv()
 origins = [
     "http://localhost:3000",  # React development server
     "http://127.0.0.1:3000",
+    "http://192.168.1.182:3000",  # Allow the specific IP
+    "http://192.168.1.*:3000",    # Allow all devices on the 192.168.1.* subnet
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins for home network use
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

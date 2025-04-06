@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
+// Get the hostname of the current page
+const hostname = window.location.hostname;
+// Use the hostname to create a dynamic API URL that works across the network
+const API_URL = `http://${hostname}:8000/api`;
 
 // Create axios instance with base configuration
 const api = axios.create({

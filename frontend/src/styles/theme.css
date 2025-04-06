@@ -2085,4 +2085,98 @@ select.form-control:hover, select.form-control:focus {
   .question-card {
     padding: 1.4rem; /* Even smaller padding on mobile */
   }
+}
+
+/* New action container styles to display submit button and status side by side */
+.action-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.submit-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-container {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.loading-status {
+  color: var(--secondary);
+  border-left: 3px solid var(--secondary);
+}
+
+.timer-status {
+  color: var(--accent);
+  border-left: 3px solid var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.timer-status .timer-circle {
+  margin-bottom: 0;
+  width: 40px;
+  height: 40px;
+}
+
+.timer-status .timer-number {
+  font-size: 1.4rem;
+}
+
+.timer-status .next-question-text {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none !important;
+}
+
+/* Keep some loading spinner styles so they look nice in the new layout */
+.loading-status .spinner {
+  width: 25px;
+  height: 25px;
+  margin-right: 0.8rem;
+}
+
+.loading-status p {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .action-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .status-container {
+    width: 100%;
+    justify-content: center;
+  }
 } 

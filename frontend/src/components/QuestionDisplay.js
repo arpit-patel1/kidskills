@@ -126,7 +126,7 @@ const QuestionDisplay = ({
     if (question.subject === 'Math') {
       if (question.sub_activity === 'Addition/Subtraction') return '➕➖';
       if (question.sub_activity === 'Multiplication/Division') return '✖️➗';
-      if (question.sub_activity === 'Word Problems') return '��📝';
+      if (question.sub_activity === 'Word Problems') return '📝📝';
       return '🧮';
     } else if (question.subject === 'English') {
       if (question.sub_activity === 'Opposites/Antonyms') return '⬆️⬇️';
@@ -197,33 +197,35 @@ const QuestionDisplay = ({
           ))}
         </div>
         
-        {loading && (
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Checking your answer...</p>
-          </div>
-        )}
-        
-        {!isSubmitted && (
+        <div className="action-container">
           <div className="submit-container">
             <button 
               className="btn btn-primary btn-lg submit-btn"
               onClick={handleSubmit}
-              disabled={!selectedChoice || loading}
+              disabled={!selectedChoice || loading || isSubmitted}
             >
               <i className="bi bi-check-circle"></i> Submit Answer
             </button>
           </div>
-        )}
-        
-        {isSubmitted && feedback && (
-          <div className="next-question-container">
-            <div className="timer-circle">
-              <div className="timer-number">{timeLeft}</div>
-            </div>
-            <p className="next-question-text">Next question soon!</p>
+          
+          <div className="status-container">
+            {loading && (
+              <div className="status-item loading-status">
+                <div className="spinner"></div>
+                <p>Checking your answer...</p>
+              </div>
+            )}
+            
+            {isSubmitted && feedback && (
+              <div className="status-item timer-status">
+                <div className="timer-circle">
+                  <div className="timer-number">{timeLeft}</div>
+                </div>
+                <p className="next-question-text">Next question soon!</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
