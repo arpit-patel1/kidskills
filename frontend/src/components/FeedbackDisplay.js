@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
 
 const FeedbackDisplay = ({ feedback, onNext }) => {
-  const [timeLeft, setTimeLeft] = useState(6);
+  const [timeLeft, setTimeLeft] = useState(4);
   
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prevTime => Math.max(0, prevTime - 1));
+      setTimeLeft(prevTime => {
+        const newValue = Math.max(0, prevTime - 1);
+        if (newValue === 0 && onNext) {
+          // Call onNext when timer reaches 0
+          setTimeout(() => {
+            onNext();
+          }, 300); // Small delay to ensure UI renders 0 first
+        }
+        return newValue;
+      });
     }, 1000);
     
     return () => clearInterval(timer);
-  }, []);
+  }, [onNext]);
   
   if (!feedback) {
     return null;

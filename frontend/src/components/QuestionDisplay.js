@@ -95,8 +95,30 @@ const QuestionDisplay = ({
   // Generate star emojis based on streak
   const renderStars = () => {
     if (streak === 0) return null;
-    const stars = Array(Math.min(streak, 5)).fill('⭐').join('');
-    return stars;
+    
+    // For higher streaks, add special indicators
+    if (streak >= 20) {
+      return '🔥🔥🔥🔥🔥';
+    } else if (streak >= 15) {
+      return '👑👑👑👑👑';
+    } else if (streak >= 10) {
+      return '🏆🏆🏆🏆🏆';
+    } else if (streak >= 7) {
+      return '🥇🥇🥇🥇🥇';
+    } else if (streak >= 5) {
+      return '🥈🥈🥈🥈🥈';
+    } else {
+      return Array(Math.min(streak, 5)).fill('⭐').join('');
+    }
+  };
+  
+  // Get streak tooltip text that shows bonus points
+  const getStreakTooltip = () => {
+    if (streak >= 15) return '+20 points bonus!';
+    if (streak >= 10) return '+15 points bonus!';
+    if (streak >= 5) return '+10 points bonus!';
+    if (streak >= 3) return '+5 points bonus!';
+    return '';
   };
   
   // Check if this is a direct answer question
@@ -111,6 +133,9 @@ const QuestionDisplay = ({
   console.log('Is Reading Comprehension:', isReadingComprehension);
   console.log('Full Question Object:', question);
   
+  // Calculate progress percentage (for 1000 question game)
+  const progressPercentage = (questionCount / 1000) * 100;
+  
   return (
     <div className="question-display">
       <div className={`question-card ${loadingNextQuestion ? 'loading-transition' : ''}`}>
@@ -118,10 +143,28 @@ const QuestionDisplay = ({
           Score: {score} / {questionCount}
         </div>
         
+        {/* Progress bar for 1000 question game */}
+        <div className="progress mb-3" style={{ height: "8px" }}>
+          <div 
+            className="progress-bar" 
+            role="progressbar" 
+            style={{ width: `${progressPercentage}%` }} 
+            aria-valuenow={progressPercentage} 
+            aria-valuemin="0" 
+            aria-valuemax="100">
+          </div>
+        </div>
+        <div className="text-center mb-2 small text-muted">
+          Question {questionCount} of 1000
+        </div>
+        
         {streak > 0 && (
           <div className="fixed-streak-display">
             <i className="bi bi-lightning-fill"></i>
             <span className="fixed-streak-stars">{renderStars()}</span>
+            {streak >= 3 && (
+              <span className="streak-bonus-indicator">{getStreakTooltip()}</span>
+            )}
           </div>
         )}
         

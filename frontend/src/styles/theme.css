@@ -2687,3 +2687,94 @@ select.form-control:hover, select.form-control:focus {
     font-size: 1.1rem;
   }
 }
+
+/* Enhanced streak bonus indicator */
+.streak-bonus-indicator {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 0.8rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #28a745;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: pulse 2s infinite;
+}
+
+/* Enhanced streak badges in ScoreDisplay */
+.streak-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 5px;
+}
+
+.streak-bonus {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 3px;
+}
+
+/* Game completion stat boxes */
+.stat-box {
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.stat-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+/* Game completion styling */
+.game-completion {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.game-completion h2 {
+  color: #007bff;
+  margin-bottom: 20px;
+}
+
+.completion-message {
+  margin: 20px 0;
+}
+
+/* Responsive adjustments for stat boxes */
+@media (max-width: 576px) {
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  .stat-label {
+    font-size: 0.8rem;
+  }
+  
+  .game-completion {
+    padding: 15px;
+  }
+}

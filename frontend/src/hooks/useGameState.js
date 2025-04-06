@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 
-const QUESTIONS_PER_GAME = 5;
+const QUESTIONS_PER_GAME = 100;
 
 // Define mapping of subjects to sub-activities
 const SUB_ACTIVITIES = {
@@ -183,8 +183,23 @@ const useGameState = () => {
           setStreak(streak + 1);
           // Celebrate with confetti
           triggerConfetti();
-          // Update score (+10 for correct, +5 for streak of 3+)
-          const streakBonus = streak >= 2 ? 5 : 0;
+          // Update score with enhanced streak bonuses for 1000-question game
+          // Base points: 10 for correct answer
+          // Enhanced bonus structure:
+          // - 5 points for streaks of 3-4
+          // - 10 points for streaks of 5-9
+          // - 15 points for streaks of 10-14
+          // - 20 points for streaks of 15+
+          let streakBonus = 0;
+          if (streak >= 2 && streak < 4) {
+            streakBonus = 5;
+          } else if (streak >= 4 && streak < 9) {
+            streakBonus = 10;
+          } else if (streak >= 9 && streak < 14) {
+            streakBonus = 15;
+          } else if (streak >= 14) {
+            streakBonus = 20;
+          }
           setScore(score + 10 + streakBonus);
         } else {
           console.log('Incorrect answer. Resetting streak.');
@@ -219,8 +234,23 @@ const useGameState = () => {
           setStreak(streak + 1);
           // Celebrate with confetti
           triggerConfetti();
-          // Update score (+10 for correct, +5 for streak of 3+)
-          const streakBonus = streak >= 2 ? 5 : 0;
+          // Update score with enhanced streak bonuses for 1000-question game
+          // Base points: 10 for correct answer
+          // Enhanced bonus structure:
+          // - 5 points for streaks of 3-4
+          // - 10 points for streaks of 5-9
+          // - 15 points for streaks of 10-14
+          // - 20 points for streaks of 15+
+          let streakBonus = 0;
+          if (streak >= 2 && streak < 4) {
+            streakBonus = 5;
+          } else if (streak >= 4 && streak < 9) {
+            streakBonus = 10;
+          } else if (streak >= 9 && streak < 14) {
+            streakBonus = 15;
+          } else if (streak >= 14) {
+            streakBonus = 20;
+          }
           setScore(score + 10 + streakBonus);
         } else {
           setStreak(0);

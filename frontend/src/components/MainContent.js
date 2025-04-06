@@ -33,6 +33,22 @@ const MainContent = ({
   }
 
   if (gameCompleted) {
+    // Calculate accuracy percentage
+    const accuracyPercentage = questionCount > 0 
+      ? Math.round((score / (questionCount * 10)) * 100) 
+      : 0;
+    
+    // Determine achievement level based on score and questions
+    const getAchievementLevel = () => {
+      const percentComplete = (questionCount / 1000) * 100;
+      
+      if (accuracyPercentage >= 90 && questionCount >= 100) return "🏆 Master Achiever";
+      if (accuracyPercentage >= 80 && questionCount >= 50) return "🥇 Expert Learner";
+      if (accuracyPercentage >= 70 && questionCount >= 20) return "🥈 Skilled Player";
+      if (questionCount >= 10) return "🎮 Game Explorer";
+      return "👍 Good Start";
+    };
+    
     return (
       <div className="main-content">
         <div className="game-completion">
@@ -44,6 +60,42 @@ const MainContent = ({
           />
           <div className="completion-message">
             <p>Great job, {selectedPlayer.name}! You've completed the challenge.</p>
+            <div className="stats-summary mt-3">
+              <h4 className="text-center mb-3">{getAchievementLevel()}</h4>
+              
+              <div className="d-flex justify-content-center align-items-center mb-3">
+                <div className="progress" style={{ height: "20px", width: "80%" }}>
+                  <div 
+                    className="progress-bar bg-success" 
+                    role="progressbar" 
+                    style={{ width: `${accuracyPercentage}%` }} 
+                    aria-valuenow={accuracyPercentage} 
+                    aria-valuemin="0" 
+                    aria-valuemax="100">
+                    {accuracyPercentage}% Accuracy
+                  </div>
+                </div>
+              </div>
+              
+              <div className="row text-center mb-3">
+                <div className="col">
+                  <div className="stat-box">
+                    <div className="stat-value">{questionCount}</div>
+                    <div className="stat-label">Questions Answered</div>
+                  </div>
+                </div>
+                <div className="col">
+                  <div className="stat-box">
+                    <div className="stat-value">{score}</div>
+                    <div className="stat-label">Total Score</div>
+                  </div>
+                </div>
+              </div>
+              
+              <p className="text-center">
+                You answered <strong>{questionCount}</strong> questions out of 1000!
+              </p>
+            </div>
           </div>
           <button 
             className="btn btn-primary mt-4" 
