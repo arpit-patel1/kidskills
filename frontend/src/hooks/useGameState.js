@@ -53,6 +53,7 @@ const useGameState = () => {
   
   // UI state
   const [loading, setLoading] = useState(false);
+  const [startGameLoading, setStartGameLoading] = useState(false);
   const [error, setError] = useState('');
   
   // Next question loading state
@@ -109,7 +110,27 @@ const useGameState = () => {
   // Start or restart the game
   const startGame = async () => {
     resetGameState();
-    fetchQuestion();
+    
+    if (!selectedPlayer) return;
+    
+    try {
+      setStartGameLoading(true);
+      setError('');
+      
+      const question = await api.getQuestion(
+        selectedPlayer.id,
+        settings.subject,
+        settings.sub_activity,
+        settings.difficulty
+      );
+      
+      setCurrentQuestion(question);
+    } catch (err) {
+      setError('Failed to load question. Please try again.');
+      console.error(err);
+    } finally {
+      setStartGameLoading(false);
+    }
   };
   
   // Fetch a new question
@@ -338,6 +359,9 @@ const useGameState = () => {
     selectedPlayer,
     settings,
     currentQuestion,
+    loading,
+    startGameLoading,
+    error,
     feedback,
     selectedAnswer,
     score,
@@ -345,8 +369,6 @@ const useGameState = () => {
     streak,
     showConfetti,
     gameCompleted,
-    loading,
-    error,
     loadingNextQuestion,
     nextQuestionTimer,
     

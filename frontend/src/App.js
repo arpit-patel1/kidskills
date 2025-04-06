@@ -15,6 +15,7 @@ function App() {
     settings,
     currentQuestion,
     loading,
+    startGameLoading,
     error,
     feedback,
     selectedAnswer,
@@ -55,6 +56,7 @@ function App() {
           settings={settings}
           onUpdateSettings={updateSettings}
           onStartGame={startGame}
+          loading={startGameLoading}
         />
         
         <MainContent

@@ -5,7 +5,8 @@ const ActivitySidebar = ({
   selectedPlayer, 
   settings, 
   onUpdateSettings,
-  onStartGame
+  onStartGame,
+  loading
 }) => {
   return (
     <div className="sidebar activity-sidebar">
@@ -24,8 +25,18 @@ const ActivitySidebar = ({
             <button 
               className="btn btn-primary mt-4 start-button" 
               onClick={onStartGame}
+              disabled={loading}
             >
-              <i className="bi bi-play-fill"></i> Start Game
+              {loading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-play-fill"></i> Start Game
+                </>
+              )}
             </button>
           </div>
         </div>
