@@ -223,24 +223,25 @@ const QuestionDisplay = ({
             </div>
           </>
         )}
+      </div>
+      
+      {/* Move status container outside the question card */}
+      <div className="status-container">
+        {loading && (
+          <div className="status-item loading-status">
+            <div className="spinner"></div>
+            <p>Checking your answer...</p>
+          </div>
+        )}
         
-        <div className="status-container">
-          {loading && (
-            <div className="status-item loading-status">
-              <div className="spinner"></div>
-              <p>Checking your answer...</p>
+        {isSubmitted && feedback && (
+          <div className="status-item timer-status">
+            <div className="timer-circle">
+              <div className="timer-number">{timeLeft}</div>
             </div>
-          )}
-          
-          {isSubmitted && feedback && (
-            <div className="status-item timer-status">
-              <div className="timer-circle">
-                <div className="timer-number">{timeLeft}</div>
-              </div>
-              <p className="next-question-text">Next question soon!</p>
-            </div>
-          )}
-        </div>
+            <p className="next-question-text">Next question soon!</p>
+          </div>
+        )}
       </div>
     </div>
   );

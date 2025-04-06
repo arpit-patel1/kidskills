@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List, Literal
 from openai import OpenAI
 from dotenv import load_dotenv
 import logging
-from pydantic import BaseModel, Field, validator, ValidationError
+from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 import random
 
 # Configure enhanced logging with file output
@@ -64,6 +64,14 @@ class MultipleChoiceQuestion(BaseModel):
             raise ValueError(f'Answer "{v}" must be one of the choices: {values["choices"]}')
         return v
     
+    @root_validator(pre=True)
+    def check_correct_answer(cls, values):
+        # If 'correct_answer' is provided instead of 'answer', use that
+        if 'correct_answer' in values and 'answer' not in values:
+            values['answer'] = values['correct_answer']
+            logger.info("Using 'correct_answer' field as 'answer'")
+        return values
+    
     def to_dict(self):
         # Handle both Pydantic v1 and v2 methods
         if hasattr(self, "model_dump"):
@@ -74,6 +82,14 @@ class DirectAnswerQuestion(BaseModel):
     question: str = Field(..., description="The question text")
     answer: str = Field(..., description="The correct answer")
     type: Literal["direct-answer"] = Field("direct-answer", description="The question type")
+    
+    @root_validator(pre=True)
+    def check_correct_answer(cls, values):
+        # If 'correct_answer' is provided instead of 'answer', use that
+        if 'correct_answer' in values and 'answer' not in values:
+            values['answer'] = values['correct_answer']
+            logger.info("Using 'correct_answer' field as 'answer'")
+        return values
     
     def to_dict(self):
         # Handle both Pydantic v1 and v2 methods
@@ -114,6 +130,14 @@ class ReadingComprehensionQuestion(BaseModel):
         if 'choices' in values and v not in values['choices']:
             raise ValueError(f'Answer "{v}" must be one of the choices: {values["choices"]}')
         return v
+    
+    @root_validator(pre=True)
+    def check_correct_answer(cls, values):
+        # If 'correct_answer' is provided instead of 'answer', use that
+        if 'correct_answer' in values and 'answer' not in values:
+            values['answer'] = values['correct_answer']
+            logger.info("Using 'correct_answer' field as 'answer'")
+        return values
     
     def to_dict(self):
         # Handle both Pydantic v1 and v2 methods
@@ -753,8 +777,8 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         logger.warning(f"[{request_id}] Invalid difficulty: {difficulty}, defaulting to Easy")
         difficulty_norm = "Easy"
     
-    # For MVP, we only support multiple-choice
-    if question_type != "multiple-choice":
+    # For MVP, we mostly support multiple-choice, but handle special cases
+    if question_type != "multiple-choice" and question_type != "direct-answer" and question_type != "reading-comprehension":
         question_type = "multiple-choice"
     
     # Special handling for Grammar Correction
@@ -762,142 +786,70 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         if question_type != "direct-answer":
             logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
             question_type = "direct-answer"
-        
-        # No longer force fallback
-        logger.info(f"[{request_id}] Using direct-answer type for Grammar Correction")
+    
+    # Set appropriate temperature based on subject for more variety
+    temperature = 0.5  # Default temperature
+    
+    if subject_norm == "Math":
+        # Higher temperature for math questions to increase variety
+        temperature = 0.7
+        logger.info(f"[{request_id}] Using higher temperature of {temperature} for math questions")
+    elif subject_norm == "English" and sub_activity_norm == "Grammar Correction":
+        # Higher temperature for grammar correction to ensure variety
+        temperature = 0.7
+        logger.info(f"[{request_id}] Using higher temperature of {temperature} for grammar correction")
     
     try:
-        # Construct the prompt based on settings, including sub_activity
-        prompt = construct_prompt(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, question_type)
-        logger.info(f"[{request_id}] Prompt: {prompt}")
+        # Construct a prompt for the OpenRouter model
+        prompt = construct_prompt(grade=int(grade_str), subject=subject_norm, sub_activity=sub_activity_norm, difficulty=difficulty_norm, question_type=question_type)
         
-        # Determine if we should use higher temperature for grammar correction
-        temperature = 0.5  # Default temperature
-        if sub_activity_norm == "Grammar Correction":
-            temperature = 0.75  # Higher temperature for more variety in grammar questions
-            logger.info(f"[{request_id}] Using higher temperature ({temperature}) for Grammar Correction")
+        logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
         
-        # Select appropriate schema class
-        schema_class = MultipleChoiceQuestion
-        if question_type == "direct-answer":
-            schema_class = DirectAnswerQuestion
-            logger.info(f"[{request_id}] Using DirectAnswerQuestion schema for validation")
-        elif question_type == "reading-comprehension":
-            schema_class = ReadingComprehensionQuestion
-            logger.info(f"[{request_id}] Using ReadingComprehensionQuestion schema for validation")
-        else:
-            logger.info(f"[{request_id}] Using MultipleChoiceQuestion schema for validation")
+        # If API key is not available, use fallback questions
+        if not OPENROUTER_API_KEY:
+            logger.warning(f"[{request_id}] No API key available, using fallback question")
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
         
-        # Create a simple, explicit JSON schema string with clear examples
-        json_schema_str = """
-You must return a valid JSON object with exactly these fields for a multiple-choice question:
-{
-  "question": "Your question text goes here",
-  "choices": ["Option 1", "Option 2", "Option 3", "Option 4"],
-  "answer": "The correct option that exactly matches one of the choices",
-  "type": "multiple-choice"
-}
-
-CRITICAL REQUIREMENTS:
-1. The "type" field MUST be exactly "multiple-choice" (not "object" or anything else)
-2. The "answer" field MUST exactly match one of the choices
-3. There MUST be exactly 4 choices
-4. DO NOT nest fields inside "properties" or any other wrapper
-5. DO NOT add any additional fields or metadata
-6. DO NOT add schema descriptions, field definitions, or explanations
-7. DO NOT wrap your response in markdown code blocks (```json)
-8. Return ONLY the raw JSON object
-"""
-        
-        # Update schema for direct-answer questions
-        if question_type == "direct-answer":
-            json_schema_str = """
-You must return a valid JSON object with exactly these fields for a direct-answer question:
-{
-  "question": "The question text goes here",
-  "answer": "The correct answer goes here",
-  "type": "direct-answer"
-}
-
-CRITICAL REQUIREMENTS:
-1. The "type" field MUST be exactly "direct-answer" (not "object" or anything else)
-2. DO NOT nest fields inside "properties" or any other wrapper
-3. DO NOT add any additional fields or metadata
-4. DO NOT add schema descriptions, field definitions, or explanations
-5. DO NOT wrap your response in markdown code blocks (```json)
-6. Return ONLY the raw JSON object
-"""
-        
-        # Create the enhanced prompt with explicit instructions
-        enhanced_prompt = f"""
-{prompt}
-
-{json_schema_str}
-
-Here's an example of a valid response for a {grade_str}-grade {subject_norm.lower()} {difficulty_norm.lower()} question:
-"""
-
-        # Add specific example based on question type
+        # Determine which model class to use based on question_type
         if question_type == "multiple-choice":
-            enhanced_prompt += """
-{"question": "Emma has 7 apples and Noah has 5 apples. How many apples do they have in total?",
-"choices": ["10", "11", "12", "13"],
-"answer": "12",
-"type": "multiple-choice"}
-"""
+            schema_class = MultipleChoiceQuestion
         elif question_type == "direct-answer":
-            if sub_activity_norm == "Grammar Correction":
-                enhanced_prompt += """
-{"question": "The boy walk to school everyday.",
-"answer": "The boy walks to school everyday.",
-"type": "direct-answer"}
-"""
-            else:
-                enhanced_prompt += """
-{"question": "What is 25 + 17?",
-"answer": "42",
-"type": "direct-answer"}
-"""
+            schema_class = DirectAnswerQuestion
+        else:  # reading-comprehension
+            schema_class = ReadingComprehensionQuestion
         
-        # Log the enhanced prompt
-        logger.info(f"[{request_id}] Enhanced prompt with schema instructions: {enhanced_prompt[:200]}...")
-        
-        # Use the fallback method which has proven more reliable
-        logger.info(f"[{request_id}] Making API call to OpenRouter with model {OPENROUTER_MODEL}")
+        # Make API call to OpenRouter
         start_time = time.time()
-        
-        # Use the standard create method with json_object format
         completion = client.chat.completions.create(
             model=OPENROUTER_MODEL,
             messages=[
-                {"role": "system", "content": f"You are an educational question generator that creates valid JSON objects for {question_type} questions. Your entire output must be a single, flat JSON object with the appropriate keys for a {question_type} question. DO NOT create nested JSON schemas. DO NOT include any 'properties' wrapper. DO NOT use 'type': 'object'. The 'type' field MUST exactly match the requested question type."},
-                {"role": "user", "content": enhanced_prompt}
+                {"role": "system", "content": "You are an AI that generates educational questions for elementary school students. Your responses should be in JSON format with a question, choices (for multiple choice), and the correct answer. Always use the field name 'answer' (not 'correct_answer') for the correct answer field."},
+                {"role": "user", "content": prompt}
             ],
             temperature=temperature,
-            top_p=0.9,
-            response_format={"type": "json_object"}
+            top_p=0.8
         )
-        
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
         
-        # Extract and validate response
-        if not completion or not hasattr(completion, 'choices') or not completion.choices:
+        # Extract and clean the response content
+        if not completion.choices or not hasattr(completion.choices[0], 'message'):
             logger.error(f"[{request_id}] No valid response from API")
             return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-        
+            
         response_message = completion.choices[0].message
         if not hasattr(response_message, 'content') or not response_message.content:
             logger.error(f"[{request_id}] No content in response message")
             return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
-        
+            
         content = response_message.content.strip()
-        logger.info(f"[{request_id}] Raw response content: {content[:200]}...")
         
-        # Clean the content in case it's wrapped in markdown
+        # Clean up the response to extract JSON
         cleaned_content = clean_markdown_json(content)
-        if content != cleaned_content:
-            logger.info(f"[{request_id}] Cleaned JSON from markdown: {cleaned_content[:200]}...")
+        if not cleaned_content:
+            logger.error(f"[{request_id}] Failed to extract JSON from response")
+            logger.error(f"[{request_id}] Original content: {content[:200]}...")
+            return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
         
         try:
             # Parse JSON content
@@ -919,7 +871,7 @@ Here's an example of a valid response for a {grade_str}-grade {subject_norm.lowe
             
             logger.info(f"[{request_id}] Returning validated question")
             return result
-        
+            
         except json.JSONDecodeError as e:
             logger.error(f"[{request_id}] Failed to parse JSON: {str(e)}")
             logger.error(f"[{request_id}] Content: {cleaned_content}")
@@ -955,8 +907,149 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
     
     # Math subject
     if subject == "Math":
-        # Use existing implementation or add placeholder
-        return prompt
+        # Generate random elements for more diverse questions
+        person1 = random.choice(MATH_NAMES)
+        person2 = random.choice([n for n in MATH_NAMES if n != person1])  # Ensure different name
+        objects = random.choice(MATH_OBJECTS)
+        location = random.choice(MATH_LOCATIONS)
+        activity = random.choice(MATH_ACTIVITIES)
+        
+        # Define number ranges based on grade and difficulty
+        if grade <= 2:  # Grade 1-2
+            if difficulty.lower() == "easy":
+                num_range = "1-10"
+                sum_range = "up to 20"
+                diff_range = "no negative numbers"
+            elif difficulty.lower() == "medium":
+                num_range = "5-20"
+                sum_range = "up to 30"
+                diff_range = "no negative numbers"
+            else:  # Hard
+                num_range = "10-30"
+                sum_range = "up to 50"
+                diff_range = "no negative numbers"
+        else:  # Grade 3+
+            if difficulty.lower() == "easy":
+                num_range = "10-30"
+                sum_range = "up to 50"
+                diff_range = "no negative numbers"
+            elif difficulty.lower() == "medium":
+                num_range = "20-50"
+                sum_range = "up to 100"
+                diff_range = "no negative numbers"
+            else:  # Hard
+                num_range = "30-100"
+                sum_range = "up to 150"
+                diff_range = "may include negative results"
+        
+        # Different prompt structures for each sub-activity
+        if sub_activity == "Addition/Subtraction":
+            # Apply random variation to the prompt itself
+            operation = random.choice([
+                "addition", "subtraction", 
+                "adding", "subtracting",
+                "sums", "differences"
+            ])
+            
+            # Make each prompt unique using a random seed
+            random_seed = random.randint(1000, 9999)
+            
+            prompt = f"""
+            Generate a {difficulty.lower()} {grade}-grade level math question about {operation} for elementary students.
+            
+            Number range should be {num_range} with results {sum_range}, {diff_range}.
+            
+            Use this random seed for variety: {random_seed}
+            
+            You can optionally incorporate these elements to make the question more interesting:
+            - Names: {person1} and/or {person2}
+            - Objects: {objects}
+            - Location: {location}
+            
+            The question should require either addition or subtraction to solve, appropriate for grade {grade}.
+            Make sure to generate a DIFFERENT question than ones you've generated before.
+            
+            The correct answer must be one of the multiple choice options.
+            """
+            
+        elif sub_activity == "Multiplication/Division":
+            if grade <= 2:  # Simpler for grade 2
+                table_range = "up to 5 (e.g., 2×4, 3×3, 5×2)"
+                division_range = "simple division with no remainders"
+            else:  # Grade 3+
+                if difficulty.lower() == "easy":
+                    table_range = "up to 5 (e.g., 3×4, 5×2)"
+                    division_range = "simple division with no remainders"
+                elif difficulty.lower() == "medium":
+                    table_range = "up to 10 (e.g., 6×7, 8×4)"
+                    division_range = "may include simple remainders"
+                else:  # Hard
+                    table_range = "up to 12 (e.g., 8×9, 12×6)"
+                    division_range = "may include remainders"
+            
+            # Random seed for uniqueness
+            random_seed = random.randint(1000, 9999)
+            
+            prompt = f"""
+            Generate a {difficulty.lower()} {grade}-grade level math question about multiplication or division.
+            
+            For multiplication, use times tables {table_range}.
+            For division, use {division_range}.
+            
+            Use this random seed for variety: {random_seed}
+            
+            You can optionally incorporate these elements:
+            - Names: {person1} and/or {person2}
+            - Objects arranged in groups/rows: {objects}
+            - Location: {location}
+            
+            Make sure to generate a DIFFERENT question than ones you've generated before.
+            
+            The correct answer must be one of the multiple choice options.
+            """
+            
+        elif sub_activity == "Word Problems":
+            # Select a random template and replace placeholders
+            template = random.choice(MATH_WORD_PROBLEM_TEMPLATES)
+            
+            # Determine appropriate number ranges for word problems
+            if grade <= 2:
+                if difficulty.lower() == "easy":
+                    num_descrip = "simple one-step problem with small numbers (1-10)"
+                else:
+                    num_descrip = "one-step problem with numbers up to 20"
+            else:
+                if difficulty.lower() == "easy":
+                    num_descrip = "one-step problem with numbers up to 30"
+                elif difficulty.lower() == "medium":
+                    num_descrip = "one or two-step problem with numbers up to 50"
+                else:
+                    num_descrip = "two-step problem with numbers up to 100"
+            
+            # Random seed for uniqueness
+            random_seed = random.randint(1000, 9999)
+            
+            prompt = f"""
+            Generate a {difficulty.lower()} {grade}-grade level math word problem.
+            
+            The problem should be a {num_descrip}.
+            
+            Use this random seed for variety: {random_seed}
+            
+            Include these elements in your word problem:
+            - Name: {person1} (and optionally {person2})
+            - Objects: {objects}
+            - Activity: {activity}
+            - Location: {location}
+            
+            Make sure the problem is appropriate for grade {grade} students and has a clear solution.
+            Create a DIFFERENT problem than ones you've generated before.
+            
+            The correct answer must be one of the multiple choice options.
+            """
+        
+        # Log the enhanced prompt details
+        logger.info(f"Math question randomization - Sub-activity: {sub_activity}, Person: {person1}, Objects: {objects}, Location: {location}")
     
     # English subject
     elif subject == "English":
@@ -1194,14 +1287,23 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Repaired nested 'properties' JSON: {str(repaired)[:100]}...")
         return repaired
     
-    # Case 2: Response has all the right fields but wrong type value or missing type
+    # Case 2: Response has "correct_answer" instead of "answer"
+    if "question" in json_data and "choices" in json_data and "correct_answer" in json_data and "answer" not in json_data:
+        json_data["answer"] = json_data["correct_answer"]
+        logger.info(f"Renamed 'correct_answer' to 'answer' in JSON response")
+        # Fix or add the type field
+        if "type" not in json_data:
+            json_data["type"] = "multiple-choice"
+        return json_data
+    
+    # Case 3: Response has all the right fields but wrong type value or missing type
     if "question" in json_data and "choices" in json_data and "answer" in json_data:
         # Fix or add the type field
         json_data["type"] = "multiple-choice"
         logger.info(f"Fixed 'type' field in JSON response")
         return json_data
     
-    # Case 3: Direct answer question format
+    # Case 4: Direct answer question format
     if "question" in json_data and "answer" in json_data and "choices" not in json_data:
         # Make sure type is set to direct-answer
         json_data["type"] = "direct-answer"
@@ -1219,7 +1321,7 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
             
         return json_data
     
-    # Case 4: Reading comprehension format
+    # Case 5: Reading comprehension format
     if "passage" in json_data and "question" in json_data and "choices" in json_data and "answer" in json_data:
         json_data["type"] = "reading-comprehension"
         logger.info(f"Set type to 'reading-comprehension' for passage-based question")
@@ -1227,7 +1329,7 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
     
     # If we can't fix it, return the original (validation will fail and we'll use fallback)
     logger.warning(f"Could not repair malformed JSON structure: {str(json_data)[:100]}...")
-    return json_data 
+    return json_data
 
 async def generate_grammar_feedback(question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
     """
