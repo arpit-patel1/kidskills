@@ -58,12 +58,15 @@ export const getQuestion = async (playerId, subject, sub_activity, difficulty) =
   try {
     console.log("Getting question for player:", playerId, "Subject:", subject, "Sub-activity:", sub_activity, "Difficulty:", difficulty);
     
+    // Determine question type based on sub_activity
+    const question_type = sub_activity === 'Grammar Correction' ? 'direct-answer' : 'multiple-choice';
+    
     const response = await api.post('/challenges/generate', {
       player_id: playerId,
       subject,
       sub_activity,
       difficulty,
-      question_type: 'multiple-choice'
+      question_type
     });
     
     console.log("New question received:", response.data);
@@ -139,6 +142,36 @@ export const deletePlayer = async (playerId) => {
     return true; // Successfully deleted
   } catch (error) {
     return handleError(error);
+  }
+};
+
+// Get grammar feedback
+export const getGrammarFeedback = async (question, userAnswer, correctAnswer, isCorrect) => {
+  try {
+    console.log("Getting grammar feedback for:", {
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect
+    });
+    
+    const response = await api.post('/grammar/feedback', {
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      is_correct: isCorrect
+    });
+    
+    console.log("Grammar feedback response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting grammar feedback:", error);
+    // Provide fallback feedback
+    return {
+      feedback: isCorrect
+        ? "Great job correcting the sentence!"
+        : "Good try! Look at the sentence structure and try again."
+    };
   }
 };
 

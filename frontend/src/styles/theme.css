@@ -197,11 +197,14 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   max-width: 850px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 95%;
+  max-width: 1000px;
+  margin: 0 auto;
   position: relative;
   z-index: 1;
   overflow: hidden;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 .question-card::before {
@@ -231,24 +234,36 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
   position: relative;
   z-index: 2;
+  min-height: 80px;
+  max-height: 120px;
+  overflow-y: hidden;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Answer choices */
 .choices-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin: 2rem 0;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin: 1rem auto;
+  width: 100%;
+  max-width: 900px;
+  min-height: 200px;
+  max-height: 400px;
+  overflow: visible;
+  padding: 10px;
+  position: relative;
+  z-index: 1;
 }
 
 .choice-btn {
   background-color: var(--light);
   border: none;
   border-radius: 20px;
-  padding: 1rem;
+  padding: 1.2rem;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
@@ -256,6 +271,9 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  min-height: 70px;
+  max-height: 120px;
+  z-index: 1;
 }
 
 .choice-letter {
@@ -278,12 +296,17 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.1rem;
   text-align: left;
   flex-grow: 1;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  padding-right: 10px;
 }
 
 .choice-btn:hover:not(:disabled) {
   background-color: #e8f4fa;
   transform: translateY(-4px);
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.1);
+  z-index: 2;
 }
 
 .choice-btn:hover:not(:disabled) .choice-letter {
@@ -373,18 +396,26 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Submit button */
 .submit-btn {
-  min-width: 200px;
-  font-size: 1.1rem;
-  padding: 0.75rem 1.5rem;
-  background-color: var(--secondary);
-  border-color: var(--dark);
+  padding: 15px 40px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 30px;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s;
+  min-width: 240px;
+  position: relative;
+  z-index: 100;
+  margin: 10px auto;
+  display: block;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: var(--dark);
-  color: var(--white);
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background-color: var(--secondary);
 }
 
 .submit-btn:disabled {
@@ -394,12 +425,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Feedback container */
 .feedback-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  min-height: 100px;
+  max-height: 150px;
+  overflow-y: hidden;
 }
 
 /* Feedback overlay */
@@ -620,13 +651,28 @@ h1, h2, h3, h4, h5, h6 {
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+  height: 100%;
+  min-height: 500px;
+  position: relative;
+  width: 100%;
 }
 
 .question-card {
-  flex: 1;
+  width: 95%;
+  max-width: 1000px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 500px;
+  max-height: 700px;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 /* Welcome and start screens */
@@ -1721,6 +1767,7 @@ select.form-control:hover, select.form-control:focus {
   justify-content: center;
   margin-bottom: 1.5rem;
   gap: 0.75rem;
+  min-height: 60px;
 }
 
 .question-emoji {
@@ -2013,6 +2060,7 @@ select.form-control:hover, select.form-control:focus {
   margin-bottom: 1.2rem;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(72, 201, 176, 0.3);
+  height: 50px;
 }
 
 .score-bar .score-item {
@@ -2036,7 +2084,7 @@ select.form-control:hover, select.form-control:focus {
 
 /* Smaller font size and padding for options in the middle section */
 .question-card {
-  padding: 1.8rem;
+  padding: 2rem;
 }
 
 /* Add smaller font size for question header elements */
@@ -2090,11 +2138,12 @@ select.form-control:hover, select.form-control:focus {
 /* New action container styles to display submit button and status side by side */
 .action-container {
   display: flex;
-  align-items: center;
   justify-content: center;
-  margin-top: 2rem;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  width: 100%;
+  margin: 1rem auto;
+  position: relative;
+  z-index: 100;
+  clear: both;
 }
 
 .submit-container {
@@ -2108,6 +2157,7 @@ select.form-control:hover, select.form-control:focus {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  position: relative;
 }
 
 .status-item {
@@ -2178,5 +2228,161 @@ select.form-control:hover, select.form-control:focus {
   .status-container {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Add styles for direct-answer input after the existing question display styles */
+
+.direct-answer-container {
+  width: 100%;
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  height: 200px;
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+.direct-answer-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ced4da;
+  border-radius: 8px;
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  resize: none;
+  height: 100px;
+}
+
+.direct-answer-input:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.direct-answer-input.correct {
+  border-color: #28a745;
+  background-color: rgba(40, 167, 69, 0.1);
+}
+
+.direct-answer-input.incorrect {
+  border-color: #dc3545;
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.correct-answer-display {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: rgba(40, 167, 69, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.correct-answer-display h4 {
+  margin-top: 0;
+  color: #28a745;
+}
+
+.correct-answer {
+  font-weight: 500;
+}
+
+/* Add styles for the detailed feedback display */
+
+.feedback-container {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.feedback-correct {
+  background-color: rgba(40, 167, 69, 0.1);
+  border-left: 4px solid #28a745;
+}
+
+.feedback-incorrect {
+  background-color: rgba(220, 53, 69, 0.1);
+  border-left: 4px solid #dc3545;
+}
+
+.detailed-feedback {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.detailed-feedback h4 {
+  margin-top: 0;
+  color: #495057;
+  font-weight: 600;
+}
+
+.feedback-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #495057;
+}
+
+.loading-feedback {
+  font-style: italic;
+  color: #6c757d;
+}
+
+/* Fixed position score and streak displays */
+.fixed-score-display {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--white);
+  border-radius: 12px;
+  padding: 10px 15px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  min-width: 120px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.fixed-streak-display {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+  color: var(--white);
+  border-radius: 12px;
+  padding: 10px 15px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  min-width: 120px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fixed-streak-stars {
+  font-size: 1.2rem;
+  letter-spacing: -2px;
+}
+
+@media (max-width: 576px) {
+  .fixed-score-display,
+  .fixed-streak-display {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    min-width: 100px;
+  }
+  
+  .fixed-streak-stars {
+    font-size: 1rem;
   }
 } 

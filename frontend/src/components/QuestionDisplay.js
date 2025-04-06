@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DirectAnswerInput from './DirectAnswerInput';
 
 const QuestionDisplay = ({ 
   question,
@@ -132,6 +133,7 @@ const QuestionDisplay = ({
       if (question.sub_activity === 'Opposites/Antonyms') return '⬆️⬇️';
       if (question.sub_activity === 'Reading Comprehension') return '📚🔍';
       if (question.sub_activity === 'Nouns/Pronouns') return '📝👤';
+      if (question.sub_activity === 'Grammar Correction') return '📝✏️';
       return '📚';
     }
     return '🎓';
@@ -140,39 +142,41 @@ const QuestionDisplay = ({
   // Generate star emojis based on streak
   const renderStars = () => {
     if (streak === 0) return null;
-    const stars = Array(Math.min(streak, 5)).fill('⭐').join(' ');
-    return <span className="emoji">{stars}</span>;
+    const stars = Array(Math.min(streak, 5)).fill('⭐').join('');
+    return stars;
   };
+  
+  // Check if this is a direct answer question
+  const isDirectAnswer = question.type === 'direct-answer';
+  
+  // Add debugging statements
+  console.log('Question Type:', question.type);
+  console.log('Is Direct Answer:', isDirectAnswer);
+  console.log('Full Question Object:', question);
   
   return (
     <div className="question-display">
+      {/* Fixed Score Display */}
+      {questionCount > 0 && (
+        <div className="fixed-score-display">
+          Score: {score}/{questionCount}
+        </div>
+      )}
+      
+      {/* Fixed Streak Display */}
+      {streak > 0 && (
+        <div className="fixed-streak-display">
+          <span>Streak: {streak}</span>
+          <span className="fixed-streak-stars">{renderStars()}</span>
+          {streak >= 3 && (
+            <span className="streak-badge">
+              {streak >= 10 ? '🏆' : streak >= 5 ? '🥇' : '🎖️'}
+            </span>
+          )}
+        </div>
+      )}
+      
       <div className="question-card">
-        {questionCount > 0 && (
-          <div className="score-bar">
-            <div className="score-item">
-              <span>Score: </span>
-              <strong>{score} / {questionCount}</strong>
-            </div>
-            
-            {streak > 0 && (
-              <div className="score-item">
-                <span>Streak: </span>
-                <strong>
-                  {renderStars()} ({streak})
-                </strong>
-                
-                {streak >= 3 && (
-                  <span className="streak-badge">
-                    {streak >= 10 ? '🏆 Champion!' : 
-                     streak >= 5 ? '🥇 Expert!' : 
-                     '🎖️ Great job!'}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        
         <div className="question-header">
           <span className="question-emoji">{getEmoji()}</span>
           <div className="question-info">
@@ -183,48 +187,59 @@ const QuestionDisplay = ({
         
         <div className="question-text">{question.question}</div>
         
-        <div className="choices-container">
-          {question.choices.map((choice, index) => (
-            <button
-              key={index}
-              className={getChoiceClass(choice)}
-              onClick={() => handleChoiceSelection(choice)}
-              disabled={loading || isSubmitted}
-            >
-              <span className="choice-letter">{String.fromCharCode(65 + index)}</span>
-              <span className="choice-text">{choice}</span>
-            </button>
-          ))}
-        </div>
-        
-        <div className="action-container">
-          <div className="submit-container">
-            <button 
-              className="btn btn-primary btn-lg submit-btn"
-              onClick={handleSubmit}
-              disabled={!selectedChoice || loading || isSubmitted}
-            >
-              <i className="bi bi-check-circle"></i> Submit Answer
-            </button>
-          </div>
-          
-          <div className="status-container">
-            {loading && (
-              <div className="status-item loading-status">
-                <div className="spinner"></div>
-                <p>Checking your answer...</p>
-              </div>
-            )}
+        {isDirectAnswer ? (
+          <DirectAnswerInput
+            question={question}
+            onAnswer={onAnswer}
+            loading={loading}
+            submitted={isSubmitted}
+            feedback={feedback}
+          />
+        ) : (
+          <>
+            <div className="choices-container">
+              {question.choices.map((choice, index) => (
+                <button
+                  key={index}
+                  className={getChoiceClass(choice)}
+                  onClick={() => handleChoiceSelection(choice)}
+                  disabled={loading || isSubmitted}
+                >
+                  <span className="choice-letter">{String.fromCharCode(65 + index)}</span>
+                  <span className="choice-text">{choice}</span>
+                </button>
+              ))}
+            </div>
             
-            {isSubmitted && feedback && (
-              <div className="status-item timer-status">
-                <div className="timer-circle">
-                  <div className="timer-number">{timeLeft}</div>
-                </div>
-                <p className="next-question-text">Next question soon!</p>
+            <div className="action-container">
+              <button 
+                className="btn btn-primary btn-lg submit-btn"
+                onClick={handleSubmit}
+                disabled={!selectedChoice || loading || isSubmitted}
+                style={{ marginTop: '10px' }}
+              >
+                <i className="bi bi-check-circle"></i> Submit Answer
+              </button>
+            </div>
+          </>
+        )}
+        
+        <div className="status-container">
+          {loading && (
+            <div className="status-item loading-status">
+              <div className="spinner"></div>
+              <p>Checking your answer...</p>
+            </div>
+          )}
+          
+          {isSubmitted && feedback && (
+            <div className="status-item timer-status">
+              <div className="timer-circle">
+                <div className="timer-number">{timeLeft}</div>
               </div>
-            )}
-          </div>
+              <p className="next-question-text">Next question soon!</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

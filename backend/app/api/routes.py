@@ -4,14 +4,16 @@ import uuid
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
-from app.services.openrouter_service import generate_question, FALLBACK_QUESTIONS
+from app.services.openrouter_service import generate_question, generate_grammar_feedback, FALLBACK_QUESTIONS
 from app.api.schemas import (
     GetQuestionRequest, 
     SubmitAnswerRequest, 
     QuestionResponse, 
     AnswerResponse,
     CreatePlayerRequest,
-    PlayerResponse
+    PlayerResponse,
+    GrammarFeedbackRequest,
+    GrammarFeedbackResponse
 )
 
 router = APIRouter()
@@ -101,13 +103,32 @@ async def submit_answer(
     
     print(f"Comparing answers - User: '{user_answer}' (type: {type(user_answer)}) vs Correct: '{correct_answer}' (type: {type(correct_answer)})")
     
-    # Now compare the user's answer to the correct answer (as strings)
-    is_correct = user_answer == correct_answer
+    # Check if this is a grammar correction question
+    is_grammar_correction = (
+        question.get("sub_activity") == "Grammar Correction" and 
+        question.get("type") == "direct-answer"
+    )
+    
+    # Use normalized comparison for grammar correction
+    if is_grammar_correction:
+        # Simple normalization: remove extra spaces, convert to lowercase
+        normalized_correct = correct_answer.strip().lower()
+        normalized_user = user_answer.strip().lower()
+        is_correct = normalized_correct == normalized_user
+    else:
+        # Now compare the user's answer to the correct answer (as strings)
+        is_correct = user_answer == correct_answer
     
     print(f"Answer is {'correct' if is_correct else 'incorrect'}")
     
     # Create feedback message
-    feedback = "Correct! 🎉" if is_correct else f"Oops! The correct answer is: {correct_answer}"
+    if is_correct:
+        feedback = "Correct! 🎉"
+    else:
+        if is_grammar_correction:
+            feedback = f"Oops! The correct sentence is: {correct_answer}"
+        else:
+            feedback = f"Oops! The correct answer is: {correct_answer}"
     
     # In a real implementation, would create a record of the answer
     # progress = Progress(...)
@@ -193,3 +214,25 @@ async def delete_player(
             del ACTIVE_QUESTIONS[key]
     
     return None 
+
+@router.post("/grammar/feedback", response_model=GrammarFeedbackResponse)
+async def get_grammar_feedback(request: GrammarFeedbackRequest):
+    """Get detailed feedback for a grammar correction answer."""
+    try:
+        # Generate detailed feedback using OpenRouter
+        feedback = await generate_grammar_feedback(
+            question=request.question,
+            user_answer=request.user_answer,
+            correct_answer=request.correct_answer,
+            is_correct=request.is_correct
+        )
+        
+        return {"feedback": feedback}
+    except Exception as e:
+        print(f"Error generating grammar feedback: {str(e)}")
+        # Provide fallback feedback
+        if request.is_correct:
+            feedback = "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly."
+        else:
+            feedback = "Good try! Look carefully at the sentence structure and try again."
+        return {"feedback": feedback} 

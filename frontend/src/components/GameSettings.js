@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 // Define mapping of subjects to sub-activities
 const SUB_ACTIVITIES = {
   Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
-  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns']
+  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction']
 };
 
 const GameSettings = ({ settings, onUpdateSettings }) => {

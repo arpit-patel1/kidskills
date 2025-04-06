@@ -10,6 +10,8 @@ A web-based educational game that uses AI to generate math and English challenge
 
 ## 🧱 System Architecture
 
+This section outlines the high-level architecture of the KidSkills educational application.
+
 ### Frontend (Client)
 - Built with: React
 - Layout Structure:
@@ -115,9 +117,43 @@ class Progress(Base):
     player = relationship("Player", back_populates="progress")
 ```
 
----
+### Backend Components
 
-## 🔐 Player Selection (Simplified)
+- **FastAPI Application**: Main backend framework that handles API requests and orchestrates the game logic
+- **Database Module**: Manages player data, progress, and game state
+- **OpenRouter Service**: Interfaces with AI models to dynamically generate questions
+- **Question Generator**: Creates and validates questions based on subject, grade level, and difficulty
+- **Answer Validator**: Compares player answers to correct answers and determines correctness
+- **Feedback Generator**: Produces AI-powered detailed feedback for grammar correction activities
+
+### AI Integration
+
+The application uses the following AI components:
+
+1. **Question Generation**:
+   - OpenRouter API is used to dynamically generate age-appropriate questions
+   - System prompts designed for each subject and difficulty level
+   - Fallback to pre-defined questions when API is unavailable or returns invalid data
+
+2. **Advanced Feedback Mechanism**:
+   - Dedicated `/grammar/feedback` API endpoint for detailed grammar feedback
+   - Sends original question, user's answer, and correct answer to the AI model
+   - Customized prompts based on whether the answer was correct or incorrect
+   - Implementation:
+     - `generate_grammar_feedback` function in `openrouter_service.py`
+     - Pydantic schemas for request/response validation
+     - Frontend integration in `DirectAnswerInput` component
+     - Fallback feedback in case of API failures
+   - Response time optimization with async processing
+
+3. **Error Handling**:
+   - Robust error handling for AI service outages
+   - Fallback to pre-defined responses
+   - Detailed logging for debugging AI interactions
+
+### Frontend Components
+
+### 🔐 Player Selection (Simplified)
 - No formal login/signup.
 - Player Selection: Simple dropdown/buttons on the frontend to choose between pre-defined players (e.g., "Kid 1 - Grade 3", "Kid 2 - Grade 2"). Settings are loaded/saved based on the selected player name.
 
@@ -166,6 +202,14 @@ Sub-activities available:
 3. **Nouns/Pronouns** (Fill-in-the-blank Multiple Choice)
    - Sentences with missing words to be filled with the correct noun or pronoun
    - Identifying parts of speech in sentences
+
+4. **Grammar Correction** (Direct Answer)
+   - Grammatically incorrect sentences that the player must correct
+   - Player types in the corrected sentence
+   - Answer validation uses case-insensitive comparison with some flexibility for extra spaces
+   - Examples:
+     - "She don't like ice cream." should be corrected to "She doesn't like ice cream."
+     - "The cats is playing." should be corrected to "The cats are playing."
 
 ---
 
@@ -313,6 +357,127 @@ The game will support three main question types, each with specific UI component
   Generate a short 2nd-grade reading passage (2-3 sentences) followed by a question about it.
   Return as JSON with "passage", "question", and "answer".
   ```
+
+### 4. Grammar Correction
+- **Format**: Grammatically incorrect sentence that needs to be corrected by the player
+- **UI Implementation**: 
+  - Text area input for typing the corrected sentence
+  - Submit button to check answer
+  - Visual feedback: Highlights differences between user's answer and correct answer
+- **Example**: 
+  - "He walk to school everyday." should be corrected to "He walks to school everyday."
+  - "They was playing in the park." should be corrected to "They were playing in the park."
+- **Answer Validation**: 
+  - Case-insensitive string comparison
+  - Optional normalization to account for extra spaces or alternative punctuation
+  - Highlight differences between submitted answer and correct answer when incorrect
+- **Feedback Flow**:
+  1. Player types in their corrected sentence
+  2. Player clicks the Submit button
+  3. If correct: 
+     - Text area gets green border
+     - Pink and blue confetti rains down for 5 seconds
+     - AI-powered detailed feedback explains what grammar rule they applied correctly
+     - Game automatically advances to next question after 6 seconds
+  4. If incorrect:
+     - Text area gets red border
+     - Correct sentence is displayed below
+     - AI-powered detailed feedback explains what grammar mistake they missed
+     - Game automatically advances to next question after 6 seconds
+- **AI Feedback Enhancement**:
+  - After submission, the system sends both the original question and the student's answer to the AI
+  - For correct answers: AI explains what grammatical error was identified and how it was properly fixed
+  - For incorrect answers: AI provides a gentle explanation of what was missed and offers a helpful tip
+  - Feedback is tailored for elementary school level understanding
+  - Fallback feedback is provided if the AI service is unavailable
+
+#### Enhanced Randomization for Grammar Correction
+To ensure variety in grammar correction questions, the system should incorporate:
+
+1. **Diverse Error Types**:
+   - Subject-verb agreement errors (e.g., "The dog bark loudly")
+   - Verb tense errors (e.g., "Yesterday, she walk to school")
+   - Pronoun errors (e.g., "Me went to the store")
+   - Article usage (e.g., "She has a apple")
+   - Pluralization errors (e.g., "Three cat are playing")
+   - Double negatives (e.g., "She don't have no pencils")
+   - Adjective order (e.g., "The blue big ball")
+   - Preposition usage (e.g., "She arrived to home")
+
+2. **Varied Sentence Patterns**:
+   - Simple sentences with subject-verb-object
+   - Compound sentences with conjunctions
+   - Sentences with prepositional phrases
+   - Questions with errors
+   - Sentences with different tenses (past, present, future)
+   - Sentences with modifiers and adverbs
+
+3. **Diverse Topics and Contexts**:
+   - School-related sentences
+   - Family-related sentences
+   - Nature/animal-related sentences
+   - Sports and hobbies
+   - Everyday activities
+   - Seasonal events and holidays
+
+4. **Prompt Randomization Parameters**:
+   ```python
+   def generate_grammar_correction_prompt(grade, difficulty):
+       # Randomly select error type
+       error_types = [
+           "subject-verb agreement", 
+           "verb tense", 
+           "pronoun usage", 
+           "article usage",
+           "plural forms", 
+           "prepositions"
+       ]
+       
+       # Select complexity appropriate for grade level
+       if grade <= 2:  # Grades 1-2
+           # Simpler error types for younger students
+           error_type = random.choice(error_types[:3])  
+           
+           # Select topics relevant to younger students
+           topics = ["school activities", "family", "pets", "playground games"]
+           topic = random.choice(topics)
+           
+           # Simpler sentence structures
+           sentence_type = "simple sentence"
+       else:  # Grade 3+
+           # Full range of error types for older students
+           error_type = random.choice(error_types) 
+           
+           # More diverse topics
+           topics = ["school subjects", "hobbies", "nature", "sports", "community", "daily routines"]
+           topic = random.choice(topics)
+           
+           # More varied sentence structures
+           sentence_types = ["simple sentence", "compound sentence", "question", "sentence with prepositional phrase"]
+           sentence_type = random.choice(sentence_types)
+       
+       # Build the prompt with specific randomization instructions
+       prompt = f"""
+       Create a {difficulty.lower()} {grade}-grade level English grammar correction question.
+       
+       Write a {sentence_type} about {topic} with exactly ONE grammatical error involving {error_type}.
+       The error should be appropriate for a {grade}-grade student to identify and fix.
+       
+       The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
+       Make sure the sentence sounds natural and uses age-appropriate vocabulary.
+       Do not use the same pattern as these examples: "She don't like ice cream", "The cats is playing", "He walk to school".
+       """
+       
+       return prompt
+   ```
+
+5. **Implementation Strategy**:
+   - Update the `construct_prompt` function to use the enhanced randomization approach
+   - Set a higher temperature value (0.7-0.8) specifically for grammar correction to increase variety
+   - Include specific instructions to avoid repeating patterns from previous questions
+   - Add logging to track and analyze the types of questions being generated
+
+These enhancements will significantly increase question variety while maintaining grade-level appropriateness.
 
 ### Frontend Implementation
 For each question type, the frontend will:
@@ -795,40 +960,192 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
    - [x] Create sub-activity-specific fallback questions
 
 #### Frontend Tasks
-1. **State Management Updates**
-   - [x] Update `settings` state in `useGameState.js` to include `sub_activity` field
-   - [x] Implement logic to update available sub-activities when subject changes
+1. **New Component: DirectAnswerInput**
+   - [x] Create a new component for direct answer input with text area
+   - [x] Add styling for correct/incorrect text input feedback
+   - [x] Implement answer submission logic
 
-2. **API Service Updates**
-   - [x] Update `getQuestion()` function in `api.js` to pass `sub_activity` to the backend
+2. **Update QuestionDisplay**
+   - [x] Enhance component to differentiate between question types
+   - [x] Add conditional rendering for multiple choice vs. direct answer questions
+   - [x] Update emoji/icon selection to include grammar correction (📝✏️)
 
-3. **Component Updates**
-   - [x] Update `GameSettings.js` to add a new dropdown for sub-activity selection
-   - [x] Implement dynamic options based on selected subject
-   - [x] Update `ActivitySidebar.js` to display the current sub-activity
-   - [x] Add event handlers for sub-activity changes
+3. **API Service Updates**
+   - [x] Modify `getQuestion()` function to support direct-answer type
+   - [x] Update `submitAnswer()` function to handle text answers
 
-4. **UI Updates**
-   - [x] Add styling for the new sub-activity dropdown in CSS files
-   - [x] Update activity badges to include sub-activity information
+4. **CSS Styling**
+   - [x] Add styles for text area input
+   - [x] Style correct/incorrect feedback for direct answers
+   - [x] Create transitions and animations for text input
 
 5. **Testing**
-   - [x] Test database migrations
-   - [x] Test API functionality with the new parameter
-   - [x] Test UI flows for selecting different sub-activities
-   - [x] Verify questions match the selected sub-activity
+   - [ ] Test grammar correction activity in isolation
+   - [ ] Test integration with the rest of the application
+   - [ ] Test response handling and feedback display
 
-### Stretch Goals (if time permits)
-- [ ] Implement Direct Answer questions
-- [ ] Add basic stats (% correct, topics mastered)
-- [ ] Improve error handling and recovery
-- [ ] Enhance visual design
+### Grammar Correction Activity Implementation Checklist
 
-### Recommended Development Sequence
-1. Focus on getting the backend API working first
-2. Create a minimal frontend that can fetch and display questions
-3. Add answer validation and scoring
-4. Enhance the UI and user experience
-5. Add more question types (if time permits)
+#### Backend Tasks
+1. **OpenRouter Service Updates**
+   - [x] Update the `DirectAnswerQuestion` schema to support grammar correction prompts
+   - [x] Enhance `construct_prompt()` function to support Grammar Correction sub-activity
+   - [x] Add sample prompts specifically for grammar correction
+   - [x] Add logic to normalize answers (trim whitespace, case-insensitive comparison)
+   - [x] Implement `generate_grammar_feedback` function for detailed AI feedback
 
-This implementation approach ensures you have a functional product even if you don't complete all features within the weekend.
+2. **API Schema Updates**
+   - [x] Update `GetQuestionRequest` schema to support the Grammar Correction sub-activity
+   - [x] Add JSON schema examples for direct-answer grammar correction questions
+   - [x] Update answer validation to handle direct text answers
+   - [x] Create schemas for grammar feedback requests and responses
+
+3. **API Endpoints**
+   - [x] Create `/grammar/feedback` endpoint to provide detailed feedback
+   - [x] Implement error handling and fallbacks for AI service failures
+
+4. **Fallback Questions**
+   - [x] Create 3-5 fallback grammar correction questions in case the API fails
+
+#### Frontend Tasks
+1. **Component Updates** 
+   - [x] Create DirectAnswerInput component for text input
+   - [x] Update QuestionDisplay for conditional rendering based on question type
+   - [x] Add detailed feedback display to DirectAnswerInput component
+   - [x] Implement loading state during feedback generation
+
+2. **API Service Updates**
+   - [x] Modify API service to support grammar feedback endpoint
+   - [x] Update answer handling for direct-answer questions
+   - [x] Implement error handling for feedback retrieval
+
+3. **CSS Styling**
+   - [x] Add styles for text area input and feedback display
+   - [x] Create visual differentiation between correct/incorrect states
+   - [x] Style the detailed feedback presentation
+
+4. **Testing**
+   - [ ] Test grammar correction activity end-to-end
+   - [ ] Verify AI feedback generation and display
+   - [ ] Test fallback mechanisms when AI service is unavailable
+
+### Development Guidelines
+
+1. **Implementation Approach**
+   - Focus on getting the backend API working first
+   - Create a minimal frontend that can fetch and display questions
+   - Add answer validation and scoring
+   - Enhance the UI and user experience
+   - Add more question types and activity variations as time permits
+
+2. **Testing Strategy**
+   - Test each activity type in isolation
+   - Verify integration with the rest of the application
+   - Ensure proper error handling and fallback mechanisms
+   - Test the complete user flow from question generation to feedback display
+
+## Completed Features & Future Enhancements
+
+### Completed Features
+- [x] Base game functionality with question generation and answer validation
+- [x] Multiple choice questions for Math and English activities
+- [x] Direct answer input for Grammar Correction
+- [x] AI-powered detailed feedback for Grammar Correction
+- [x] Visual feedback with confetti for correct answers
+- [x] Responsive sidebar design for settings
+- [x] Session scoring and streaks
+
+### Future Enhancements
+- [ ] Add direct answer support for other subjects/activities
+- [ ] Implement basic statistics tracking (% correct by activity type)
+- [ ] Improve answer validation with partial correctness scoring
+- [ ] Add highlighting for specific grammar errors in incorrect answers
+- [ ] Enhance visual design with more engaging animations
+- [ ] Add user accounts and long-term progress tracking
+- [ ] Implement reading comprehension with more sophisticated question types
+
+## API Endpoints
+
+The backend exposes the following RESTful API endpoints:
+
+### Player Management
+
+- **GET /api/players**
+  - Returns a list of all registered players
+  - Response: Array of player objects with their details
+
+- **POST /api/players**
+  - Creates a new player
+  - Request body: `{ "name": string, "age": number, "grade": number, "avatar": string }`
+  - Response: Created player object
+
+- **DELETE /api/players/{player_id}**
+  - Deletes a player by ID
+  - Response: 204 No Content
+
+### Challenge/Question Management
+
+- **POST /api/challenges/generate**
+  - Generates a new question based on parameters
+  - Request body: `{ "player_id": number, "subject": string, "sub_activity": string, "difficulty": string, "question_type": string }`
+  - Response: Question object with ID, text, choices (if applicable), and other metadata
+
+- **POST /api/challenges/submit**
+  - Submits an answer to a question
+  - Request body: `{ "player_id": number, "question_id": string, "answer": string }`
+  - Response: `{ "is_correct": boolean, "correct_answer": string, "feedback": string }`
+
+### Feedback Management
+
+- **POST /api/grammar/feedback**
+  - Generates detailed AI feedback for grammar correction answers
+  - Request body: `{ "question": string, "user_answer": string, "correct_answer": string, "is_correct": boolean }`
+  - Response: `{ "feedback": string }`
+  - Description: This endpoint analyzes both the question and student response to provide tailored educational feedback. For correct answers, it explains what grammar rule was correctly applied. For incorrect answers, it gently explains what was missed and provides helpful guidance.
+
+## Data Flow
+
+The following diagrams illustrate the data flow for key user interactions:
+
+### Grammar Correction Feedback Flow
+
+```
+┌─────────────┐          ┌─────────────┐           ┌───────────────┐         ┌──────────────┐
+│             │          │             │           │               │         │              │
+│   Student   │────1────▶│   Frontend  │─────2────▶│    Backend    │────3───▶│ OpenRouter   │
+│             │          │             │           │               │         │      AI      │
+│             │◀───6─────│             │◀────5─────│               │◀───4────│              │
+└─────────────┘          └─────────────┘           └───────────────┘         └──────────────┘
+```
+
+1. **Student to Frontend**:
+   - Student receives incorrect grammar sentence
+   - Student submits corrected version
+   - Frontend determines initial correctness
+
+2. **Frontend to Backend**:
+   - Frontend sends:
+     - Original question (incorrect sentence)
+     - Student's answer (their correction)
+     - Correct answer (from initial submission response)
+     - Whether answer was correct (boolean)
+
+3. **Backend to AI**:
+   - Backend calls OpenRouter with appropriate prompt
+   - Prompt includes context and instructions tailored based on correctness
+
+4. **AI to Backend**:
+   - AI generates personalized feedback
+   - Explains grammar rule (if correct) or mistake (if incorrect)
+   - Uses child-friendly language
+
+5. **Backend to Frontend**:
+   - Returns structured feedback response
+   - Includes fallback feedback if AI failed
+
+6. **Frontend to Student**:
+   - Displays feedback in UI
+   - Shows loading state while feedback is being generated
+   - Presents feedback in appropriate styling based on correctness
+
+This approach provides value beyond simple right/wrong feedback by explaining the underlying grammar concepts to the student, making it more educational.

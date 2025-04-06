@@ -65,4 +65,17 @@ class PlayerResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """Response schema for errors."""
-    detail: str = Field(..., description="Error message") 
+    detail: str = Field(..., description="Error message")
+
+
+class GrammarFeedbackRequest(BaseModel):
+    """Request schema for grammar feedback."""
+    question: str = Field(..., description="The original question (incorrect sentence)")
+    user_answer: str = Field(..., description="The user's answer")
+    correct_answer: str = Field(..., description="The correct answer")
+    is_correct: bool = Field(..., description="Whether the answer was correct")
+
+
+class GrammarFeedbackResponse(BaseModel):
+    """Response schema for grammar feedback."""
+    feedback: str = Field(..., description="Detailed feedback on the grammar correction") 

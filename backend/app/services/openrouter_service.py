@@ -7,6 +7,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import logging
 from pydantic import BaseModel, Field, validator, ValidationError
+import random
 
 # Configure enhanced logging with file output
 # Create logs directory at the project root
@@ -79,6 +80,27 @@ class DirectAnswerQuestion(BaseModel):
         if hasattr(self, "model_dump"):
             return self.model_dump()
         return self.dict()  # Fallback for older Pydantic versions
+        
+    def normalize_answer(self, user_answer: str) -> bool:
+        """
+        Normalize and compare a user answer with the correct answer.
+        This is useful for grammar correction where slight differences
+        in spacing or capitalization should be ignored.
+        """
+        # Clean up both answers by removing extra spaces and converting to lowercase
+        correct = self.answer.strip().lower()
+        user = user_answer.strip().lower()
+        
+        # Basic exact match after normalization
+        if correct == user:
+            return True
+            
+        # TODO: Add more sophisticated comparison if needed:
+        # - Remove punctuation for comparison
+        # - Allow for alternative phrasings
+        # - Use word-by-word comparison
+        
+        return False
 
 class ReadingComprehensionQuestion(BaseModel):
     passage: str = Field(..., description="The reading text")
@@ -460,6 +482,47 @@ FALLBACK_QUESTIONS = {
     }
 }
 
+# Add fallback questions for Grammar Correction sub-activity
+for grade in ["2", "3"]:
+    for difficulty in ["Easy", "Medium", "Hard"]:
+        if "English" not in FALLBACK_QUESTIONS[grade]:
+            FALLBACK_QUESTIONS[grade]["English"] = {}
+        
+        if difficulty not in FALLBACK_QUESTIONS[grade]["English"]:
+            FALLBACK_QUESTIONS[grade]["English"][difficulty] = []
+        
+        # Add grammar correction fallback questions
+        grammar_fallbacks = [
+            {
+                "question": "She don't like ice cream.",
+                "answer": "She doesn't like ice cream.",
+                "type": "direct-answer",
+                "sub_activity": "Grammar Correction"
+            },
+            {
+                "question": "The cats is playing outside.",
+                "answer": "The cats are playing outside.",
+                "type": "direct-answer",
+                "sub_activity": "Grammar Correction"
+            },
+            {
+                "question": "He walk to school everyday.",
+                "answer": "He walks to school everyday.",
+                "type": "direct-answer",
+                "sub_activity": "Grammar Correction"
+            },
+            {
+                "question": "They was playing in the park.",
+                "answer": "They were playing in the park.",
+                "type": "direct-answer",
+                "sub_activity": "Grammar Correction"
+            }
+        ]
+        
+        # Add these fallbacks to the existing ones
+        for fallback in grammar_fallbacks:
+            FALLBACK_QUESTIONS[grade]["English"][difficulty].append(fallback)
+
 # Add these lists at the top level of the file, after the imports and before any functions
 # Various elements to randomize math questions
 MATH_NAMES = [
@@ -559,6 +622,59 @@ ENGLISH_GRAMMAR_TEMPLATES = [
     "Which sentence uses '{word}' correctly?"
 ]
 
+# Lists for enhanced grammar correction randomization
+# List of diverse names representing different cultures/backgrounds
+NAMES = [
+    "Emma", "Liam", "Olivia", "Noah", "Sophia", "Jackson", "Ava", "Lucas", 
+    "Isabella", "Aiden", "Mia", "Caden", "Amelia", "Grayson", "Harper",
+    "Jamal", "Sofia", "Miguel", "Zoe", "Chen", "Aisha", "Omar", "Fatima",
+    "Dev", "Priya", "Mateo", "Nina", "Kenji", "Leila", "Mohammed", "Ling",
+    "Kira", "Zion", "Maya", "Raj", "Elena", "Tyrone", "Luna", "Diego", 
+    "Jade", "Elijah", "Layla", "Leo", "Nia", "Xavier", "Tara", "Jordan",
+    "Aaliyah", "Camden", "Jasmine"
+]
+
+# Diverse scenarios appropriate for elementary students
+SCENARIOS = [
+    "playing at the park", "visiting the zoo", "reading in the library",
+    "working on a science project", "helping in the garden", "baking cookies",
+    "building a sandcastle", "drawing a picture", "solving a math problem",
+    "writing a story", "practicing piano", "feeding the fish", "walking the dog",
+    "riding a bicycle", "swimming in the pool", "making a craft", "going on a hike",
+    "shopping at the grocery store", "celebrating a birthday", "visiting grandparents",
+    "cleaning their room", "planting flowers", "watching a movie", "playing soccer",
+    "building with blocks", "singing in the choir", "eating lunch", "taking a test",
+    "going camping", "flying a kite", "collecting leaves", "looking at stars",
+    "playing video games", "writing a letter", "making a sandwich", "painting a picture",
+    "playing basketball", "doing homework", "telling a joke", "learning an instrument",
+    "folding laundry", "walking to school", "riding the bus", "playing with friends",
+    "sharing toys", "helping a teacher", "taking care of a pet", "jumping rope",
+    "playing board games", "exploring a museum"
+]
+
+# Objects that can be used in sentences
+OBJECTS = [
+    "book", "ball", "pencil", "apple", "backpack", "toy", "bicycle", "computer",
+    "sandwich", "painting", "puzzle", "kite", "rock", "flower", "tree", "hat",
+    "cup", "box", "shoe", "game", "picture", "notebook", "crayon", "tablet",
+    "chair", "desk", "blocks", "doll", "truck", "markers", "glue", "scissors"
+]
+
+# Settings/locations for contextual variety
+LOCATIONS = [
+    "classroom", "playground", "home", "library", "park", "beach", "museum",
+    "aquarium", "zoo", "garden", "kitchen", "cafeteria", "gymnasium", "art room",
+    "backyard", "treehouse", "swimming pool", "farm", "forest", "shopping mall",
+    "school bus", "soccer field", "birthday party", "science lab", "music room"
+]
+
+# Time expressions for adding temporal context
+TIME_EXPRESSIONS = [
+    "yesterday", "last week", "this morning", "after school", "during recess",
+    "before dinner", "on the weekend", "last summer", "every day", "tomorrow",
+    "next week", "at night", "in the afternoon", "on Monday", "during lunch"
+]
+
 def clean_markdown_json(text: str) -> str:
     """
     Clean JSON from markdown code blocks and remove any extra text.
@@ -641,17 +757,36 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
     if question_type != "multiple-choice":
         question_type = "multiple-choice"
     
+    # Special handling for Grammar Correction
+    if sub_activity_norm == "Grammar Correction":
+        if question_type != "direct-answer":
+            logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
+            question_type = "direct-answer"
+        
+        # No longer force fallback
+        logger.info(f"[{request_id}] Using direct-answer type for Grammar Correction")
+    
     try:
         # Construct the prompt based on settings, including sub_activity
         prompt = construct_prompt(int(grade_str), subject_norm, sub_activity_norm, difficulty_norm, question_type)
         logger.info(f"[{request_id}] Prompt: {prompt}")
         
+        # Determine if we should use higher temperature for grammar correction
+        temperature = 0.5  # Default temperature
+        if sub_activity_norm == "Grammar Correction":
+            temperature = 0.75  # Higher temperature for more variety in grammar questions
+            logger.info(f"[{request_id}] Using higher temperature ({temperature}) for Grammar Correction")
+        
         # Select appropriate schema class
         schema_class = MultipleChoiceQuestion
         if question_type == "direct-answer":
             schema_class = DirectAnswerQuestion
+            logger.info(f"[{request_id}] Using DirectAnswerQuestion schema for validation")
         elif question_type == "reading-comprehension":
             schema_class = ReadingComprehensionQuestion
+            logger.info(f"[{request_id}] Using ReadingComprehensionQuestion schema for validation")
+        else:
+            logger.info(f"[{request_id}] Using MultipleChoiceQuestion schema for validation")
         
         # Create a simple, explicit JSON schema string with clear examples
         json_schema_str = """
@@ -674,6 +809,25 @@ CRITICAL REQUIREMENTS:
 8. Return ONLY the raw JSON object
 """
         
+        # Update schema for direct-answer questions
+        if question_type == "direct-answer":
+            json_schema_str = """
+You must return a valid JSON object with exactly these fields for a direct-answer question:
+{
+  "question": "The question text goes here",
+  "answer": "The correct answer goes here",
+  "type": "direct-answer"
+}
+
+CRITICAL REQUIREMENTS:
+1. The "type" field MUST be exactly "direct-answer" (not "object" or anything else)
+2. DO NOT nest fields inside "properties" or any other wrapper
+3. DO NOT add any additional fields or metadata
+4. DO NOT add schema descriptions, field definitions, or explanations
+5. DO NOT wrap your response in markdown code blocks (```json)
+6. Return ONLY the raw JSON object
+"""
+        
         # Create the enhanced prompt with explicit instructions
         enhanced_prompt = f"""
 {prompt}
@@ -681,11 +835,28 @@ CRITICAL REQUIREMENTS:
 {json_schema_str}
 
 Here's an example of a valid response for a {grade_str}-grade {subject_norm.lower()} {difficulty_norm.lower()} question:
+"""
 
-{{"question": "Emma has 7 apples and Noah has 5 apples. How many apples do they have in total?",
+        # Add specific example based on question type
+        if question_type == "multiple-choice":
+            enhanced_prompt += """
+{"question": "Emma has 7 apples and Noah has 5 apples. How many apples do they have in total?",
 "choices": ["10", "11", "12", "13"],
 "answer": "12",
-"type": "multiple-choice"}}
+"type": "multiple-choice"}
+"""
+        elif question_type == "direct-answer":
+            if sub_activity_norm == "Grammar Correction":
+                enhanced_prompt += """
+{"question": "The boy walk to school everyday.",
+"answer": "The boy walks to school everyday.",
+"type": "direct-answer"}
+"""
+            else:
+                enhanced_prompt += """
+{"question": "What is 25 + 17?",
+"answer": "42",
+"type": "direct-answer"}
 """
         
         # Log the enhanced prompt
@@ -699,10 +870,10 @@ Here's an example of a valid response for a {grade_str}-grade {subject_norm.lowe
         completion = client.chat.completions.create(
             model=OPENROUTER_MODEL,
             messages=[
-                {"role": "system", "content": "You are an educational question generator that creates valid JSON objects for multiple-choice questions. Your entire output must be a single, flat JSON object with these exact keys: 'question', 'choices', 'answer', and 'type'. DO NOT create nested JSON schemas. DO NOT include any 'properties' wrapper. DO NOT use 'type': 'object'. Always use 'type': 'multiple-choice'."},
+                {"role": "system", "content": f"You are an educational question generator that creates valid JSON objects for {question_type} questions. Your entire output must be a single, flat JSON object with the appropriate keys for a {question_type} question. DO NOT create nested JSON schemas. DO NOT include any 'properties' wrapper. DO NOT use 'type': 'object'. The 'type' field MUST exactly match the requested question type."},
                 {"role": "user", "content": enhanced_prompt}
             ],
-            temperature=0.5,
+            temperature=temperature,
             top_p=0.9,
             response_format={"type": "json_object"}
         )
@@ -764,105 +935,119 @@ Here's an example of a valid response for a {grade_str}-grade {subject_norm.lowe
 
 def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
     """
-    Construct a prompt for the AI model based on the settings.
+    Construct a prompt for the OpenRouter model based on the given parameters.
     
     Args:
-        grade: Student grade level
-        subject: Subject area
-        sub_activity: Sub-activity type
-        difficulty: Difficulty level
-        question_type: Type of question
+        grade: Student grade level (e.g., 2, 3)
+        subject: Subject area (Math, English)
+        sub_activity: Sub-activity type 
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        question_type: Type of question (multiple-choice, direct-answer, reading-comprehension)
         
     Returns:
-        Prompt string for the AI model
+        String prompt for the AI model
     """
-    import random
+    logger = logging.getLogger(__name__)
+    logger.info(f"Constructing prompt for: Grade {grade}, {subject}, {sub_activity}, {difficulty}")
     
-    base_prompt = f"Generate a {difficulty.lower()} {grade}-grade level {subject.lower()} question about {sub_activity} for elementary school students."
+    # Default base prompt
+    prompt = f"Generate a {difficulty.lower()} {grade}-grade level {subject.lower()} question about {sub_activity} for elementary school students."
     
-    if subject.lower() == "math":
-        # Randomly select elements to include in the prompt
-        random_name = random.choice(MATH_NAMES)
-        random_name2 = random.choice([n for n in MATH_NAMES if n != random_name])  # Ensure different names
-        random_objects = random.choice(MATH_OBJECTS)
-        random_location = random.choice(MATH_LOCATIONS)
-        random_activity = random.choice(MATH_ACTIVITIES)
-        
-        # Add specific context based on sub_activity
-        if sub_activity == "Addition/Subtraction":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} The question should involve basic {difficulty.lower()} arithmetic with addition or subtraction with small numbers."
-                prompt += f" Consider using the name {random_name} and {random_objects} in your question."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} The question should involve addition or subtraction with larger numbers, possibly requiring carrying or borrowing."
-                prompt += f" For example, a question about {random_name} having some {random_objects} and {random_activity} more or giving some away."
-            else:  # Hard
-                prompt = f"{base_prompt} The question should involve multi-step addition and subtraction problems or mental math strategies."
-                prompt += f" For example, a question involving {random_name} and {random_name2} with different amounts of {random_objects}."
-        
-        elif sub_activity == "Multiplication/Division":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} The question should involve basic multiplication or division with small numbers (up to 5)."
-                prompt += f" Consider using the name {random_name} and groups of {random_objects} in your question."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} The question should involve multiplication or division with larger numbers (up to 10)."
-                prompt += f" For example, a question about {random_name} arranging {random_objects} into equal groups."
-            else:  # Hard
-                prompt = f"{base_prompt} The question should involve more complex multiplication or division problems with larger numbers or remainders."
-                prompt += f" For example, a multi-step problem where {random_name} needs to divide {random_objects} among friends."
-        
-        elif sub_activity == "Word Problems":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} Create a simple word problem using {random_name} and {random_objects} that involves a single operation."
-                prompt += f" The problem should be set at a {random_location}."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} Create a word problem using {random_name} and {random_objects} that requires two operations to solve."
-                prompt += f" The problem could involve {random_name} {random_activity} at a {random_location}."
-            else:  # Hard
-                prompt = f"{base_prompt} Create a multi-step word problem that requires at least three operations or logical steps."
-                prompt += f" The problem should involve {random_name} and {random_name2} with different amounts of {random_objects}."
-        else:
-            # Default math prompt if sub_activity is not recognized
-            return construct_prompt(grade, subject, "Addition/Subtraction", difficulty, question_type)
-            
-    elif subject.lower() == "english":
-        # Randomly select elements to include in the prompt
-        random_topic = random.choice(ENGLISH_TOPICS)
-        random_verb = random.choice(ENGLISH_VERBS)
-        random_adjective = random.choice(ENGLISH_ADJECTIVES)
-        random_noun = random.choice(ENGLISH_NOUNS)
-        
+    # Math subject
+    if subject == "Math":
+        # Use existing implementation or add placeholder
+        return prompt
+    
+    # English subject
+    elif subject == "English":
         if sub_activity == "Opposites/Antonyms":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} Create a question about identifying the opposite of a simple word like '{random_adjective}'."
-                prompt += " Give 4 options with only one being the correct opposite."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} Create a question about finding the antonym of '{random_adjective}' or '{random_verb}'."
-                prompt += " Provide 4 options with only one being the correct antonym."
-            else:  # Hard
-                prompt = f"{base_prompt} Create a question asking for the antonym of a more challenging word."
-                prompt += " Ensure the options include words that might be confusing for students."
+            if grade <= 2:  # Grade 1-2
+                return f"Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms. The question should ask for the opposite of a simple word appropriate for this grade level."
+            else:  # Grade 3+
+                return f"Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms. The question should ask for the opposite of a word appropriate for this grade level."
         
         elif sub_activity == "Reading Comprehension":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} Create a very short reading passage (2-3 sentences) about {random_topic} that uses simple vocabulary, followed by a question about the main idea or a specific detail."
-                prompt += f" Include a character named {random.choice(MATH_NAMES)}."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} Create a short reading passage (3-4 sentences) about {random_topic} set at a {random.choice(MATH_LOCATIONS)}, followed by a question that requires understanding the sequence of events or making a simple inference."
-            else:  # Hard
-                prompt = f"{base_prompt} Create a reading passage (4-5 sentences) about {random_topic} with slightly more complex vocabulary, followed by a question that requires deeper comprehension or inference."
-                prompt += f" Include a problem that the character {random.choice(MATH_NAMES)} has to solve."
+            if grade <= 2:  # Grade 1-2
+                return f"Create a very short, {difficulty.lower()} {grade}-grade level reading passage (2-3 sentences) followed by a question that tests comprehension. The passage should be simple and age-appropriate."
+            else:  # Grade 3+
+                return f"Create a short, {difficulty.lower()} {grade}-grade level reading passage (3-5 sentences) followed by a question that tests comprehension. The passage should be age-appropriate."
         
         elif sub_activity == "Nouns/Pronouns":
-            if difficulty.lower() == "easy":
-                prompt = f"{base_prompt} Create a question about identifying which word in a sentence is a noun."
-                prompt += f" For example, a simple sentence about {random_topic} or {random.choice(MATH_NAMES)}."
-            elif difficulty.lower() == "medium":
-                prompt = f"{base_prompt} Create a question about choosing the correct pronoun to replace a noun in a sentence."
-                prompt += f" For example, a sentence about {random.choice(MATH_NAMES)} and their {random_noun}."
-            else:  # Hard
-                prompt = f"{base_prompt} Create a question about selecting the correct pronoun in a more complex sentence or identifying a specific type of pronoun."
-                prompt += f" The sentence could involve multiple characters like {random.choice(MATH_NAMES)} and {random.choice(MATH_NAMES)}."
+            if grade <= 2:  # Grade 1-2
+                return f"Generate a {difficulty.lower()} {grade}-grade level English question about basic nouns or pronouns. The question should be appropriate for this grade level."
+            else:  # Grade 3+
+                return f"Generate a {difficulty.lower()} {grade}-grade level English question about nouns or pronouns. The question could involve identifying or using the correct noun or pronoun in a sentence."
+                
+        elif sub_activity == "Grammar Correction":
+            if question_type != "direct-answer":
+                # Force direct-answer for grammar correction
+                question_type = "direct-answer"
+                logger.info("Forcing direct-answer question type for Grammar Correction")
+                
+            # Apply enhanced randomization for grammar correction
+            
+            # Randomly select error type
+            error_types = [
+                "subject-verb agreement", 
+                "verb tense", 
+                "pronoun usage", 
+                "article usage",
+                "plural forms", 
+                "prepositions"
+            ]
+            
+            # Get random elements to include in the prompt
+            selected_names = random.sample(NAMES, 2)  # Pick 2 different names
+            scenario = random.choice(SCENARIOS)
+            location = random.choice(LOCATIONS)
+            object_name = random.choice(OBJECTS)
+            time_expression = random.choice(TIME_EXPRESSIONS)
+            
+            # Select complexity appropriate for grade level
+            if grade <= 2:  # Grades 1-2
+                # Simpler error types for younger students
+                error_type = random.choice(error_types[:3])  
+                
+                # Select topics relevant to younger students
+                topics = ["school activities", "family", "pets", "playground games"]
+                topic = random.choice(topics)
+                
+                # Simpler sentence structures
+                sentence_type = "simple sentence"
+            else:  # Grade 3+
+                # Full range of error types for older students
+                error_type = random.choice(error_types) 
+                
+                # More diverse topics
+                topics = ["school subjects", "hobbies", "nature", "sports", "community", "daily routines"]
+                topic = random.choice(topics)
+                
+                # More varied sentence structures
+                sentence_types = ["simple sentence", "compound sentence", "question", "sentence with prepositional phrase"]
+                sentence_type = random.choice(sentence_types)
+            
+            # Build the prompt with specific randomization instructions
+            prompt = f"""
+            Create a {difficulty.lower()} {grade}-grade level English grammar correction question.
+            
+            Write a {sentence_type} about {topic} with exactly ONE grammatical error involving {error_type}.
+            The error should be appropriate for a {grade}-grade student to identify and fix.
+            
+            Use these elements in your sentence:
+            - Names: {selected_names[0]} and/or {selected_names[1]}
+            - Activity: {scenario}
+            - Location: {location}
+            - Object: {object_name}
+            - Time expression: {time_expression}
+            
+            The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
+            Make sure the sentence sounds natural and uses age-appropriate vocabulary.
+            Do not use the same pattern as these examples: "She don't like ice cream", "The cats is playing", "He walk to school".
+            """
+            
+            # Log the enhanced prompt details
+            logger.info(f"Grammar correction randomization - Error type: {error_type}, Names: {selected_names}, Scenario: {scenario}, Location: {location}, Object: {object_name}, Time: {time_expression}")
+        
         else:
             # Default english prompt if sub_activity is not recognized
             return construct_prompt(grade, subject, "Opposites/Antonyms", difficulty, question_type)
@@ -907,11 +1092,21 @@ def get_fallback_question(grade: str, subject: str, sub_activity: str, difficult
         # Get all questions for the specified criteria
         questions = FALLBACK_QUESTIONS[grade][subject][difficulty]
         
-        # Randomly select a question from the available options
-        fallback_question = random.choice(questions)
+        # Filter questions for the specific sub-activity if possible
+        matching_questions = [q for q in questions if q.get("sub_activity") == sub_activity]
         
-        # Add the sub_activity to the fallback question
-        fallback_question["sub_activity"] = sub_activity
+        # If we have matching questions, use those, otherwise use all available questions
+        question_pool = matching_questions if matching_questions else questions
+        
+        # Randomly select a question from the available options
+        fallback_question = random.choice(question_pool)
+        
+        # Add the sub_activity to the fallback question if it's not already there
+        if "sub_activity" not in fallback_question:
+            fallback_question["sub_activity"] = sub_activity
+        
+        # Add clear logging about the selected fallback
+        logger.info(f"Selected fallback question type: {fallback_question.get('type', 'unknown')} for {sub_activity}")
         
         return fallback_question
         
@@ -1008,8 +1203,20 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
     
     # Case 3: Direct answer question format
     if "question" in json_data and "answer" in json_data and "choices" not in json_data:
+        # Make sure type is set to direct-answer
         json_data["type"] = "direct-answer"
         logger.info(f"Set type to 'direct-answer' for question without choices")
+        
+        # If sub_activity is in the response but not a known key, handle it
+        if "sub_activity" in json_data and not isinstance(json_data["sub_activity"], str):
+            if isinstance(json_data["sub_activity"], dict) and "description" in json_data["sub_activity"]:
+                json_data["sub_activity"] = json_data["sub_activity"]["description"]
+        
+        # Remove any 'choices' property if it somehow exists
+        if "choices" in json_data:
+            logger.info(f"Removing unexpected 'choices' from direct-answer question")
+            del json_data["choices"]
+            
         return json_data
     
     # Case 4: Reading comprehension format
@@ -1021,3 +1228,85 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
     # If we can't fix it, return the original (validation will fail and we'll use fallback)
     logger.warning(f"Could not repair malformed JSON structure: {str(json_data)[:100]}...")
     return json_data 
+
+async def generate_grammar_feedback(question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
+    """
+    Generate detailed feedback for a grammar correction answer using OpenRouter.
+    
+    Args:
+        question: The original question (incorrect sentence)
+        user_answer: The student's answer (their attempted correction)
+        correct_answer: The correct answer
+        is_correct: Whether the student's answer was correct
+        
+    Returns:
+        Detailed feedback string
+    """
+    logger = logging.getLogger(__name__)
+    request_id = f"{time.time():.0f}"
+    
+    # Create a prompt based on whether the answer was correct or not
+    if is_correct:
+        prompt = f"""
+The student was given this grammatically incorrect sentence: "{question}"
+
+The student correctly fixed it to: "{user_answer}"
+
+The correct answer is: "{correct_answer}"
+
+Please provide a short, encouraging response (2-3 sentences) explaining what grammatical error they fixed correctly. Use language appropriate for an elementary school student. Focus on the specific grammar rule they applied.
+"""
+    else:
+        prompt = f"""
+The student was given this grammatically incorrect sentence: "{question}"
+
+The student attempted to fix it with: "{user_answer}"
+
+The correct answer is: "{correct_answer}"
+
+Please provide a short, gentle response (2-3 sentences) explaining what grammar error they missed or fixed incorrectly. Use language appropriate for an elementary school student. Give a simple tip to help them understand the grammar rule.
+"""
+    
+    try:
+        logger.info(f"[{request_id}] Generating grammar feedback")
+        start_time = time.time()
+        
+        # Make API call to OpenRouter for feedback
+        completion = client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a friendly, supportive elementary school teacher providing feedback on grammar corrections. Keep your responses short, simple, and encouraging."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=150
+        )
+        
+        api_time = time.time() - start_time
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        
+        # Extract the feedback
+        if not completion or not hasattr(completion, 'choices') or not completion.choices:
+            logger.error(f"[{request_id}] No valid response from API")
+            return get_fallback_feedback(is_correct)
+        
+        response_message = completion.choices[0].message
+        if not hasattr(response_message, 'content') or not response_message.content:
+            logger.error(f"[{request_id}] No content in response message")
+            return get_fallback_feedback(is_correct)
+        
+        feedback = response_message.content.strip()
+        logger.info(f"[{request_id}] Generated feedback: {feedback[:100]}...")
+        
+        return feedback
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Error generating feedback: {str(e)}")
+        return get_fallback_feedback(is_correct)
+
+def get_fallback_feedback(is_correct: bool) -> str:
+    """Get fallback feedback when the API fails."""
+    if is_correct:
+        return "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly. Keep up the good work!"
+    else:
+        return "Good try! The sentence needed a grammar fix. Look carefully at things like verb tense, subject-verb agreement, or word usage. You'll get it next time!" 
