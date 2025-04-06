@@ -9,6 +9,15 @@ from pydantic import BaseModel, Field, validator, ValidationError, root_validato
 import random
 from ollama import chat as ollama_chat
 
+# Import constants from constants.py
+from .constants import (
+    NAMES, MATH_NAMES, READING_TOPICS, READING_LOCATIONS,
+    MATH_OBJECTS, MATH_LOCATIONS, MATH_ACTIVITIES, MATH_WORD_PROBLEM_TEMPLATES,
+    ENGLISH_TOPICS, ENGLISH_VERBS, ENGLISH_ADJECTIVES, ENGLISH_NOUNS,
+    ENGLISH_WORD_PATTERNS, ENGLISH_GRAMMAR_TEMPLATES,
+    SCENARIOS, OBJECTS, LOCATIONS, TIME_EXPRESSIONS
+)
+
 # Configure enhanced logging with file output
 # Create logs directory at the project root
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs")
@@ -36,41 +45,6 @@ load_dotenv()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
 
-# Constants for question randomization
-NAMES = [
-    "Ava", "Noah", "Emma", "Liam", "Olivia", "Jackson", "Sophia", "Lucas", 
-    "Mia", "Aiden", "Isabella", "Ethan", "Riley", "Elijah", "Aria", 
-    "Grayson", "Amelia", "Mason", "Charlotte", "Logan", "Harper", "James",
-    "Evelyn", "Alexander", "Abigail", "Michael", "Emily", "Benjamin", "Elizabeth", 
-    "Zoe", "William", "Sofia", "Daniel", "Avery", "Matthew", "Scarlett", "Henry",
-    "Victoria", "Sebastian", "Madison", "Jack", "Luna", "Owen", "Grace", "Isaiah",
-    "Chloe", "Leo", "Penelope", "Ryan", "Layla", "Nathan", "Audrey"
-]
-
-MATH_NAMES = NAMES  # Can be used for Math questions specifically
-
-# Reading topics for comprehension questions
-READING_TOPICS = [
-    "animals", "family", "school", "seasons", "weather", "space", 
-    "ocean", "holidays", "food", "sports", "music", "art", 
-    "nature", "travel", "community", "plants", "vehicles",
-    "dinosaurs", "robots", "magic", "friendship", "pets", 
-    "adventures", "insects", "birds", "camping", "cooking",
-    "gardening", "jungle", "desert", "mountains", "inventions",
-    "circus", "planets", "fairy tales", "superheroes", "dragons"
-]
-
-# Locations for reading passages
-READING_LOCATIONS = [
-    "park", "home", "school", "garden", "beach", "forest", 
-    "zoo", "playground", "library", "museum", "farm", 
-    "neighborhood", "classroom", "kitchen", "backyard",
-    "treehouse", "cave", "castle", "island", "mountain",
-    "space station", "boat", "train", "airplane", "submarine",
-    "aquarium", "amusement park", "campsite", "cottage",
-    "desert", "jungle", "bakery", "hospital", "laboratory"
-]
-
 # Define Pydantic models for structured output
 class MultipleChoiceQuestion(BaseModel):
     question: str = Field(..., description="The question text")
@@ -82,36 +56,7 @@ class DirectAnswerQuestion(BaseModel):
     question: str = Field(..., description="The question text")
     answer: str = Field(..., description="The correct answer")
     type: str = Field("direct-answer", description="The type of question")
-    # @root_validator(pre=True)
-    # def check_correct_answer(cls, values):
-    #     # If 'correct_answer' is provided instead of 'answer', use that
-    #     if 'correct_answer' in values and 'answer' not in values:
-    #         values['answer'] = values['correct_answer']
-    #         logger.info("Using 'correct_answer' field as 'answer'")
-    #     return values
     
-       
-    # def normalize_answer(self, user_answer: str) -> bool:
-    #     """
-    #     Normalize and compare a user answer with the correct answer.
-    #     This is useful for grammar correction where slight differences
-    #     in spacing or capitalization should be ignored.
-    #     """
-    #     # Clean up both answers by removing extra spaces and converting to lowercase
-    #     correct = self.answer.strip().lower()
-    #     user = user_answer.strip().lower()
-        
-    #     # Basic exact match after normalization
-    #     if correct == user:
-    #         return True
-            
-    #     # TODO: Add more sophisticated comparison if needed:
-    #     # - Remove punctuation for comparison
-    #     # - Allow for alternative phrasings
-    #     # - Use word-by-word comparison
-        
-    #     return False
-
 class ReadingComprehensionQuestion(BaseModel):
     passage: str = Field(..., description="The reading text")
     question: str = Field(..., description="The question about the passage")
@@ -539,140 +484,6 @@ for grade in ["2", "3"]:
         # Add these fallbacks to the existing ones
         for fallback in grammar_fallbacks:
             FALLBACK_QUESTIONS[grade]["English"][difficulty].append(fallback)
-
-# Add these lists at the top level of the file, after the imports and before any functions
-# Various elements to randomize math questions
-MATH_OBJECTS = [
-    "apples", "oranges", "bananas", "pencils", "markers", "crayons", "books", "notebooks", 
-    "cookies", "candies", "toys", "dolls", "cars", "blocks", "stickers", "coins", "marbles",
-    "flowers", "plants", "trees", "dogs", "cats", "birds", "fish", "stickers", "cards",
-    "erasers", "rulers", "paper clips", "buttons", "beads", "balls", "balloons", "cupcakes"
-]
-
-MATH_LOCATIONS = [
-    "store", "school", "park", "library", "home", "garden", "zoo", "farm", "beach", 
-    "playground", "museum", "bakery", "party", "classroom", "bookstore", "market", "kitchen",
-    "backyard", "basement", "garage", "attic", "treehouse", "clubhouse", "campsite", "amusement park"
-]
-
-MATH_ACTIVITIES = [
-    "collecting", "buying", "sharing", "giving away", "selling", "counting", "finding", "arranging",
-    "packing", "distributing", "sorting", "planting", "picking", "saving", "winning", "losing",
-    "receiving", "dividing", "grouping", "organizing", "displaying", "gathering", "earning"
-]
-
-MATH_WORD_PROBLEM_TEMPLATES = [
-    "{person} has {num1} {objects}. They {activity} {num2} more. How many {objects} do they have now?",
-    "{person} had {num1} {objects}. They {activity} {num2} of them. How many {objects} do they have left?",
-    "{person} and {person2} have {num1} and {num2} {objects} respectively. How many {objects} do they have in total?",
-    "There are {num1} {objects} at the {location}. {person} brings {num2} more. How many {objects} are there now?",
-    "{person} wants to share {num1} {objects} equally among {num2} friends. How many {objects} will each friend get?",
-    "{person} has {num1} {objects} and {person2} has {num2} {objects}. How many more {objects} does {person} have?",
-    "{person} arranges {num1} {objects} in {num2} equal rows. How many {objects} are in each row?",
-    "{person} buys {num1} {objects} from the {location} for ${num2} each. How much money did {person} spend?",
-    "If {person} collects {num1} {objects} each day, how many {objects} will {person} have after {num2} days?",
-    "{person} has {num1} {objects}. {person2} has {num2} times as many. How many {objects} does {person2} have?"
-]
-
-# English randomization elements can be added in a similar way
-ENGLISH_TOPICS = [
-    "animals", "plants", "weather", "seasons", "family", "friends", "school", "sports",
-    "hobbies", "food", "travel", "colors", "shapes", "vehicles", "clothes", "emotions",
-    "celebrations", "movies", "music", "books", "nature", "planets", "oceans", "mountains",
-    "insects", "dinosaurs", "community helpers", "transportation", "outer space", "zoo animals",
-    "farm animals", "pets", "fairy tales", "superheroes", "holidays", "art", "science", "history"
-]
-
-ENGLISH_VERBS = [
-    "run", "jump", "swim", "play", "read", "write", "draw", "paint", "sing", "dance",
-    "eat", "drink", "sleep", "walk", "talk", "laugh", "smile", "cry", "help", "watch",
-    "listen", "speak", "work", "study", "learn", "teach", "make", "build", "create", "find",
-    "explore", "discover", "climb", "fly", "throw", "catch", "kick", "push", "pull", "ride",
-    "drive", "visit", "grow", "plant", "cook", "bake", "clean", "wash", "fold", "carry"
-]
-
-ENGLISH_ADJECTIVES = [
-    "happy", "sad", "big", "small", "fast", "slow", "hot", "cold", "new", "old",
-    "good", "bad", "easy", "hard", "funny", "serious", "loud", "quiet", "clean", "dirty",
-    "bright", "dark", "soft", "hard", "sweet", "sour", "tall", "short", "strong", "weak",
-    "brave", "scared", "kind", "mean", "pretty", "ugly", "smart", "silly", "friendly", "shy",
-    "young", "smooth", "rough", "shiny", "dull", "heavy", "light", "thick", "thin", "sharp"
-]
-
-ENGLISH_NOUNS = [
-    "dog", "cat", "bird", "fish", "tree", "flower", "house", "car", "book", "toy",
-    "ball", "game", "chair", "table", "bed", "door", "window", "phone", "computer", "school",
-    "friend", "family", "teacher", "student", "doctor", "police", "firefighter", "park", "store", "zoo",
-    "mountain", "river", "ocean", "beach", "forest", "cake", "cookie", "ice cream", "pizza", "sandwich"
-]
-
-ENGLISH_WORD_PATTERNS = [
-    "Synonyms - words that mean the same as '{word}'",
-    "Antonyms - words that mean the opposite of '{word}'",
-    "Words that rhyme with '{word}'",
-    "Words that start with the same letter as '{word}'",
-    "Compound words that include '{word}'",
-    "The correct spelling of '{word}'",
-    "The plural form of '{word}'",
-    "The past tense of '{word}'",
-    "The correct definition of '{word}'",
-    "Identifying '{word}' as a noun/verb/adjective"
-]
-
-ENGLISH_GRAMMAR_TEMPLATES = [
-    "Which sentence uses the correct form of '{verb}'?",
-    "Which sentence has the correct punctuation?",
-    "Which word is a {part_of_speech}?",
-    "Fill in the blank: '{sentence_start} _____ {sentence_end}'",
-    "Which sentence is grammatically correct?",
-    "Which word should come next in this sentence: '{sentence}'",
-    "What is the correct article (a/an/the) to use with '{noun}'?",
-    "What is the correct prefix to use with '{word}' to mean '{meaning}'?",
-    "What is the correct suffix to add to '{word}' to make it '{desired_form}'?",
-    "Which sentence uses '{word}' correctly?"
-]
-
-# Lists for enhanced grammar correction randomization
-# List of diverse names representing different cultures/backgrounds
-SCENARIOS = [
-    "playing at the park", "visiting the zoo", "reading in the library",
-    "working on a science project", "helping in the garden", "baking cookies",
-    "building a sandcastle", "drawing a picture", "solving a math problem",
-    "writing a story", "practicing piano", "feeding the fish", "walking the dog",
-    "riding a bicycle", "swimming in the pool", "making a craft", "going on a hike",
-    "shopping at the grocery store", "celebrating a birthday", "visiting grandparents",
-    "cleaning their room", "planting flowers", "watching a movie", "playing soccer",
-    "building with blocks", "singing in the choir", "eating lunch", "taking a test",
-    "going camping", "flying a kite", "collecting leaves", "looking at stars",
-    "playing video games", "writing a letter", "making a sandwich", "painting a picture",
-    "playing basketball", "doing homework", "telling a joke", "learning an instrument",
-    "folding laundry", "walking to school", "riding the bus", "playing with friends",
-    "sharing toys", "helping a teacher", "taking care of a pet", "jumping rope",
-    "playing board games", "exploring a museum"
-]
-
-# Objects that can be used in sentences
-OBJECTS = [
-    "book", "ball", "pencil", "apple", "backpack", "toy", "bicycle", "computer",
-    "sandwich", "painting", "puzzle", "kite", "rock", "flower", "tree", "hat",
-    "cup", "box", "shoe", "game", "picture", "notebook", "crayon", "tablet",
-    "chair", "desk", "blocks", "doll", "truck", "markers", "glue", "scissors"
-]
-
-# Settings/locations for contextual variety
-LOCATIONS = [
-    "classroom", "playground", "home", "library", "park", "beach", "museum",
-    "aquarium", "zoo", "garden", "kitchen", "cafeteria", "gymnasium", "art room",
-    "backyard", "treehouse", "swimming pool", "farm", "forest", "shopping mall",
-    "school bus", "soccer field", "birthday party", "science lab", "music room"
-]
-
-# Time expressions for adding temporal context
-TIME_EXPRESSIONS = [
-    "yesterday", "last week", "this morning", "after school", "during recess",
-    "before dinner", "on the weekend", "last summer", "every day", "tomorrow",
-    "next week", "at night", "in the afternoon", "on Monday", "during lunch"
-]
 
 def clean_markdown_json(text: str) -> str:
     """
