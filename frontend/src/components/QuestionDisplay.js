@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DirectAnswerInput from './DirectAnswerInput';
+import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
 
 const QuestionDisplay = ({ 
   question,
@@ -134,7 +135,7 @@ const QuestionDisplay = ({
   console.log('Full Question Object:', question);
   
   // Calculate progress percentage (for 1000 question game)
-  const progressPercentage = (questionCount / 1000) * 100;
+  const progressPercentage = (questionCount / QUESTIONS_PER_GAME) * 100;
   
   return (
     <div className="question-display">
@@ -155,7 +156,7 @@ const QuestionDisplay = ({
           </div>
         </div>
         <div className="text-center mb-2 small text-muted">
-          Question {questionCount} of 1000
+          Question {questionCount} of {QUESTIONS_PER_GAME}
         </div>
         
         {streak > 0 && (

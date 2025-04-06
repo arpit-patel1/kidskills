@@ -1,6 +1,7 @@
 import React from 'react';
 import QuestionDisplay from './QuestionDisplay';
 import ScoreDisplay from './ScoreDisplay';
+import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
 
 const MainContent = ({
   selectedPlayer,
@@ -40,12 +41,10 @@ const MainContent = ({
     
     // Determine achievement level based on score and questions
     const getAchievementLevel = () => {
-      const percentComplete = (questionCount / 1000) * 100;
-      
-      if (accuracyPercentage >= 90 && questionCount >= 100) return "🏆 Master Achiever";
-      if (accuracyPercentage >= 80 && questionCount >= 50) return "🥇 Expert Learner";
-      if (accuracyPercentage >= 70 && questionCount >= 20) return "🥈 Skilled Player";
-      if (questionCount >= 10) return "🎮 Game Explorer";
+      if (accuracyPercentage >= 90 && questionCount >= QUESTIONS_PER_GAME) return "🏆 Master Achiever";
+      if (accuracyPercentage >= 80 && questionCount >= QUESTIONS_PER_GAME / 2) return "🥇 Expert Learner";
+      if (accuracyPercentage >= 70 && questionCount >= QUESTIONS_PER_GAME / 4) return "🥈 Skilled Player";
+      if (questionCount >= QUESTIONS_PER_GAME / 10) return "🎮 Game Explorer";
       return "👍 Good Start";
     };
     
@@ -93,7 +92,7 @@ const MainContent = ({
               </div>
               
               <p className="text-center">
-                You answered <strong>{questionCount}</strong> questions out of 1000!
+                You answered <strong>{questionCount}</strong> questions out of {QUESTIONS_PER_GAME}!
               </p>
             </div>
           </div>

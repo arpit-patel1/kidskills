@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 
-const QUESTIONS_PER_GAME = 100;
+export const QUESTIONS_PER_GAME = 100;
 
 // Define mapping of subjects to sub-activities
 const SUB_ACTIVITIES = {
@@ -134,6 +134,7 @@ const useGameState = () => {
   };
   
   // Fetch a new question
+  // eslint-disable-next-line no-unused-vars
   const fetchQuestion = async () => {
     if (!selectedPlayer) return;
     
