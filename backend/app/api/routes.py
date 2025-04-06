@@ -4,7 +4,7 @@ import uuid
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
-from app.services.openrouter_service import generate_question, generate_grammar_feedback, FALLBACK_QUESTIONS
+from app.services.openrouter_service import generate_question, generate_grammar_feedback, evaluate_grammar_correction, FALLBACK_QUESTIONS, evaluate_reading_comprehension
 from app.api.schemas import (
     GetQuestionRequest, 
     SubmitAnswerRequest, 
@@ -13,7 +13,11 @@ from app.api.schemas import (
     CreatePlayerRequest,
     PlayerResponse,
     GrammarFeedbackRequest,
-    GrammarFeedbackResponse
+    GrammarFeedbackResponse,
+    GrammarCorrectionEvaluationRequest,
+    GrammarCorrectionEvaluationResponse,
+    ReadingComprehensionEvaluationRequest,
+    ReadingComprehensionEvaluationResponse
 )
 
 router = APIRouter()
@@ -70,63 +74,117 @@ async def submit_answer(
     db: Session = Depends(get_db)
 ):
     """Submit an answer to a challenge."""
-    print(f"Received answer submission - Player: {request.player_id}, Question: {request.question_id}, Answer: {request.answer}")
+    print(f"Received answer submission: {request}")
     
-    # Verify player exists
-    player = db.query(Player).filter(Player.id == request.player_id).first()
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Player with ID {request.player_id} not found"
-        )
+    # Get the question details - in a real implementation, would fetch from the database
+    question_data = ACTIVE_QUESTIONS.get(f"player_{request.player_id}_{request.question_id}")
+    if not question_data:
+        raise HTTPException(status_code=404, detail=f"Question {request.question_id} not found")
     
-    # Try to get the question from our in-memory store
-    question_key = f"player_{request.player_id}_{request.question_id}"
-    question = ACTIVE_QUESTIONS.get(question_key)
+    print(f"Found question in memory: {question_data}")
     
-    # If we couldn't find the question, return a fallback
-    if not question:
-        print(f"Question not found in active questions: {question_key}")
-        # Log what's in the active questions dict for debugging
-        print(f"Active questions keys: {list(ACTIVE_QUESTIONS.keys())}")
-        
-        # This is a fallback - in a real app, you'd handle this differently
-        return {
-            "is_correct": False,
-            "correct_answer": "Unknown",
-            "feedback": "Sorry, we couldn't find that question. Please try a new one."
-        }
+    # Extract the user's answer from the request
+    user_answer = request.answer
     
-    # Get the correct answer from the stored question
-    correct_answer = str(question["answer"])
-    user_answer = str(request.answer)
+    # Extract question details
+    question_type = question_data.get("type", "multiple-choice")
+    question_subject = question_data.get("subject", "Math")
+    question_sub_activity = question_data.get("sub_activity", "Addition/Subtraction")
     
-    print(f"Comparing answers - User: '{user_answer}' (type: {type(user_answer)}) vs Correct: '{correct_answer}' (type: {type(correct_answer)})")
+    # Get the correct answer from the original question
+    correct_answer = question_data.get("answer", "")
+    if not correct_answer:
+        # Some questions might use 'correct_answer' instead of 'answer'
+        correct_answer = question_data.get("correct_answer", "")
     
-    # Check if this is a grammar correction question
-    is_grammar_correction = (
-        question.get("sub_activity") == "Grammar Correction" and 
-        question.get("type") == "direct-answer"
-    )
+    if not correct_answer:
+        # If we still can't find the correct answer
+        raise HTTPException(status_code=500, detail="Could not determine correct answer for this question")
     
-    # Use normalized comparison for grammar correction
+    # Check specific activity types
+    is_grammar_correction = question_sub_activity == "Grammar Correction"
+    is_reading_comprehension = question_sub_activity == "Reading Comprehension"
+    
+    # Default to false (will be set below)
+    is_correct = False
+    feedback = ""
+    
+    # For grammar correction, use AI evaluation
     if is_grammar_correction:
-        # Simple normalization: remove extra spaces, convert to lowercase
-        normalized_correct = correct_answer.strip().lower()
-        normalized_user = user_answer.strip().lower()
-        is_correct = normalized_correct == normalized_user
+        try:
+            # Use AI to evaluate the grammar correction answer
+            evaluation_result = await evaluate_grammar_correction(
+                question=question_data.get("question", ""),
+                user_answer=user_answer,
+                correct_answer=correct_answer
+            )
+            
+            # Get the evaluation result
+            is_correct = evaluation_result.get('is_correct', False)
+            
+            # Set feedback based on AI evaluation
+            if is_correct:
+                feedback = "Correct! 🎉"
+            else:
+                feedback = f"Oops! The correct sentence is: {correct_answer}"
+                
+            print(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {evaluation_result.get('feedback', '')}")
+        except Exception as e:
+            print(f"Error during AI evaluation, falling back to string comparison: {str(e)}")
+            # Fall back to string comparison if AI evaluation fails
+            normalized_correct = correct_answer.strip().lower()
+            normalized_user = user_answer.strip().lower()
+            is_correct = normalized_correct == normalized_user
+            
+            # Create feedback message
+            if is_correct:
+                feedback = "Correct! 🎉"
+            else:
+                feedback = f"Oops! The correct sentence is: {correct_answer}"
+    
+    # For reading comprehension, use AI evaluation
+    elif is_reading_comprehension:
+        try:
+            # Use AI to evaluate the reading comprehension answer
+            evaluation_result = await evaluate_reading_comprehension(
+                passage=question_data.get("passage", ""),
+                question=question_data.get("question", ""),
+                user_answer=user_answer,
+                correct_answer=correct_answer
+            )
+            
+            # Get the evaluation result
+            is_correct = evaluation_result.get('is_correct', False)
+            
+            # Set feedback based on AI evaluation
+            if is_correct:
+                feedback = "Correct! 🎉"
+            else:
+                feedback = f"Oops! The correct answer is: {correct_answer}"
+                
+            print(f"AI evaluation for reading comprehension - is_correct: {is_correct}, feedback: {evaluation_result.get('feedback', '')}")
+        except Exception as e:
+            print(f"Error during reading evaluation, falling back to string comparison: {str(e)}")
+            # Fall back to string comparison if AI evaluation fails
+            normalized_correct = correct_answer.strip().lower()
+            normalized_user = user_answer.strip().lower()
+            is_correct = normalized_correct == normalized_user or normalized_user in normalized_correct or normalized_correct in normalized_user
+            
+            # Create feedback message
+            if is_correct:
+                feedback = "Correct! 🎉"
+            else:
+                feedback = f"Oops! The correct answer is: {correct_answer}"
+    
     else:
-        # Now compare the user's answer to the correct answer (as strings)
+        # Regular string comparison for other question types
         is_correct = user_answer == correct_answer
     
-    print(f"Answer is {'correct' if is_correct else 'incorrect'}")
-    
-    # Create feedback message
-    if is_correct:
-        feedback = "Correct! 🎉"
-    else:
-        if is_grammar_correction:
-            feedback = f"Oops! The correct sentence is: {correct_answer}"
+        print(f"Answer is {'correct' if is_correct else 'incorrect'}")
+        
+        # Create feedback message
+        if is_correct:
+            feedback = "Correct! 🎉"
         else:
             feedback = f"Oops! The correct answer is: {correct_answer}"
     
@@ -235,4 +293,57 @@ async def get_grammar_feedback(request: GrammarFeedbackRequest):
             feedback = "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly."
         else:
             feedback = "Good try! Look carefully at the sentence structure and try again."
-        return {"feedback": feedback} 
+        return {"feedback": feedback}
+
+@router.post("/grammar/evaluate", response_model=GrammarCorrectionEvaluationResponse)
+async def evaluate_grammar_correction(request: GrammarCorrectionEvaluationRequest):
+    """Evaluate a grammar correction answer using AI."""
+    try:
+        # Generate evaluation using OpenRouter
+        result = await evaluate_grammar_correction(
+            question=request.question,
+            user_answer=request.user_answer,
+            correct_answer=request.correct_answer
+        )
+        
+        return result
+    except Exception as e:
+        print(f"Error evaluating grammar correction: {str(e)}")
+        # Provide fallback evaluation
+        user_lower = request.user_answer.lower().strip()
+        correct_lower = request.correct_answer.lower().strip()
+        is_correct = user_lower == correct_lower
+        
+        if is_correct:
+            feedback = "Great job! You fixed the grammar error correctly."
+        else:
+            feedback = "Good try! Check the sentence structure again."
+            
+        return {"is_correct": is_correct, "feedback": feedback}
+
+@router.post("/reading/evaluate", response_model=ReadingComprehensionEvaluationResponse)
+async def evaluate_reading_comprehension(request: ReadingComprehensionEvaluationRequest):
+    """Evaluate a reading comprehension answer using AI."""
+    try:
+        # Generate evaluation using OpenRouter
+        result = await evaluate_reading_comprehension(
+            passage=request.passage,
+            question=request.question,
+            user_answer=request.user_answer,
+            correct_answer=request.correct_answer
+        )
+        
+        return result
+    except Exception as e:
+        print(f"Error evaluating reading comprehension: {str(e)}")
+        # Provide fallback evaluation
+        user_lower = request.user_answer.lower().strip()
+        correct_lower = request.correct_answer.lower().strip()
+        is_correct = user_lower == correct_lower or user_lower in correct_lower or correct_lower in user_lower
+        
+        if is_correct:
+            feedback = "Great job! Your answer shows you understood the passage well."
+        else:
+            feedback = "Good try! Take another look at the passage for the answer."
+            
+        return {"is_correct": is_correct, "feedback": feedback} 

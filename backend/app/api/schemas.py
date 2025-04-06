@@ -78,4 +78,31 @@ class GrammarFeedbackRequest(BaseModel):
 
 class GrammarFeedbackResponse(BaseModel):
     """Response schema for grammar feedback."""
-    feedback: str = Field(..., description="Detailed feedback on the grammar correction") 
+    feedback: str = Field(..., description="Detailed feedback on the grammar correction")
+
+
+class GrammarCorrectionEvaluationRequest(BaseModel):
+    """Request schema for grammar correction evaluation."""
+    question: str = Field(..., description="The original question (incorrect sentence)")
+    user_answer: str = Field(..., description="The user's answer (corrected sentence)")
+    correct_answer: str = Field(..., description="The expected correct answer")
+
+
+class GrammarCorrectionEvaluationResponse(BaseModel):
+    """Response schema for grammar correction evaluation."""
+    is_correct: bool = Field(..., description="Whether the answer is correct according to AI evaluation")
+    feedback: str = Field(..., description="Detailed feedback on the answer")
+
+
+class ReadingComprehensionEvaluationRequest(BaseModel):
+    """Request schema for reading comprehension evaluation."""
+    passage: str = Field(..., description="The reading passage")
+    question: str = Field(..., description="The question about the passage")
+    user_answer: str = Field(..., description="The user's answer")
+    correct_answer: str = Field(..., description="The correct answer from the original question")
+
+
+class ReadingComprehensionEvaluationResponse(BaseModel):
+    """Response schema for reading comprehension evaluation."""
+    is_correct: bool = Field(..., description="Whether the answer is correct according to AI evaluation")
+    feedback: str = Field(..., description="Detailed feedback on the reading comprehension answer") 

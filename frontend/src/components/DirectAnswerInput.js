@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getGrammarFeedback } from '../services/api';
+import { getGrammarFeedback, evaluateGrammarCorrection, evaluateReadingComprehension } from '../services/api';
 
 const DirectAnswerInput = ({ 
   question,
@@ -12,19 +12,31 @@ const DirectAnswerInput = ({
   const [answer, setAnswer] = useState('');
   const [detailedFeedback, setDetailedFeedback] = useState('');
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [aiEvaluation, setAiEvaluation] = useState(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   
   // Clear the input when question changes
   useEffect(() => {
     setAnswer('');
     setDetailedFeedback('');
+    setAiEvaluation(null);
   }, [question]);
   
   // Get detailed feedback when receiving basic feedback
   useEffect(() => {
     const fetchDetailedFeedback = async () => {
       if (submitted && feedback && question.sub_activity === 'Grammar Correction') {
+        // If we already have AI evaluation, use its feedback directly
+        if (aiEvaluation && aiEvaluation.feedback) {
+          console.log("Using AI evaluation feedback:", aiEvaluation.feedback);
+          setDetailedFeedback(aiEvaluation.feedback);
+          return;
+        }
+
+        // Otherwise, get feedback via API
         setLoadingFeedback(true);
         try {
+          // Get detailed AI feedback on why the answer was correct/incorrect
           const result = await getGrammarFeedback(
             question.question,           // Original incorrect sentence
             answer,                      // User's attempted correction
@@ -41,11 +53,54 @@ const DirectAnswerInput = ({
     };
     
     fetchDetailedFeedback();
-  }, [submitted, feedback, question, answer]);
+  }, [submitted, feedback, question, answer, aiEvaluation]);
   
-  const handleSubmit = () => {
-    if (!answer.trim() || loading || submitted) return;
-    onAnswer(answer);
+  const handleSubmit = async () => {
+    if (!answer.trim() || loading || submitted || isEvaluating) return;
+    
+    const isGrammarCorrection = question.sub_activity === 'Grammar Correction';
+    const isReadingComprehension = question.sub_activity === 'Reading Comprehension';
+    
+    setIsEvaluating(true);
+    
+    try {
+      // Different evaluation based on question type
+      if (isGrammarCorrection) {
+        // For grammar correction, use AI grammar evaluation
+        const evaluation = await evaluateGrammarCorrection(
+          question.question,      // Original incorrect sentence
+          answer,                 // User's attempted correction
+          question.answer         // Expected correct answer from the question object
+        );
+        
+        setAiEvaluation(evaluation);
+        // Pass the AI evaluation result to the parent component instead of raw answer
+        onAnswer(answer, evaluation);
+      } 
+      else if (isReadingComprehension) {
+        // For reading comprehension, use AI reading evaluation
+        const evaluation = await evaluateReadingComprehension(
+          question.passage,       // Reading passage
+          question.question,      // Question about the passage
+          answer,                 // User's answer
+          question.answer         // Expected correct answer
+        );
+        
+        setAiEvaluation(evaluation);
+        // Pass the AI evaluation result to the parent component
+        onAnswer(answer, evaluation);
+      }
+      else {
+        // For other types, just submit the answer as before
+        onAnswer(answer);
+      }
+    } catch (error) {
+      console.error("Error during AI evaluation:", error);
+      // If evaluation fails, submit the answer without AI evaluation
+      onAnswer(answer);
+    } finally {
+      setIsEvaluating(false);
+    }
   };
   
   const handleNextQuestion = () => {
@@ -74,7 +129,7 @@ const DirectAnswerInput = ({
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
         placeholder={isGrammarCorrection ? "Type the corrected sentence here..." : "Type your answer here..."}
-        disabled={loading || submitted}
+        disabled={loading || submitted || isEvaluating}
         rows={3}
         style={inputStyle}
       />
@@ -84,9 +139,18 @@ const DirectAnswerInput = ({
           <button 
             className="btn btn-primary btn-lg submit-btn"
             onClick={handleSubmit}
-            disabled={!answer.trim() || loading || submitted}
+            disabled={!answer.trim() || loading || submitted || isEvaluating}
           >
-            <i className="bi bi-check-circle"></i> Submit Answer
+            {isEvaluating ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Evaluating...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check-circle"></i> Submit Answer
+              </>
+            )}
           </button>
         ) : (
           <button 
@@ -113,13 +177,26 @@ const DirectAnswerInput = ({
               <span style={{ fontWeight: 'bold', color: '#495057' }}>Your answer:</span>
               <div style={{ 
                 padding: '5px 8px', 
-                backgroundColor: 'rgba(255,255,255,0.7)', 
+                backgroundColor: '#ffffff', 
                 borderRadius: '4px', 
                 marginTop: '3px', 
                 color: '#212529'
               }}>
                 {answer}
               </div>
+              
+              {feedback.ai_evaluated && (
+                <div style={{ 
+                  marginTop: '8px', 
+                  fontSize: '0.8rem', 
+                  fontStyle: 'italic',
+                  padding: '3px',
+                  backgroundColor: '#e0f3ff',
+                  borderRadius: '4px'
+                }}>
+                  <i className="bi bi-robot"></i> Evaluated by AI
+                </div>
+              )}
             </div>
           )}
           

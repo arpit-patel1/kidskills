@@ -808,12 +808,20 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
     temperature = 0.5  # default temperature
     
     # Use higher temperature for some question types to get more variety
-    if sub_activity_norm == "Grammar Correction":
-        temperature = 0.7
-        logger.info(f"[{request_id}] Using higher temperature of {temperature} for grammar correction")
-    elif sub_activity_norm == "Reading Comprehension":
-        temperature = 0.8
-        logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
+    if subject_norm == "English":
+        if sub_activity_norm == "Grammar Correction":
+            temperature = 0.7
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for grammar correction")
+        elif sub_activity_norm == "Reading Comprehension": 
+            temperature = 0.8
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
+        elif sub_activity_norm == "Opposites/Antonyms":
+            temperature = 0.9
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for Opposites/Antonyms")
+        else:
+            # For all other English activities
+            temperature = 0.7
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for {sub_activity_norm}")
     
     try:
         # Construct a prompt for the OpenRouter model
@@ -836,10 +844,18 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         
         # Make API call to OpenRouter
         start_time = time.time()
+        
+        # Create system message that's appropriate for the subject/activity
+        system_message = "You are an AI that generates educational questions for elementary school students. Your responses should be in JSON format with a question, choices (for multiple choice), and the correct answer. Always use the field name 'answer' (not 'correct_answer') for the correct answer field."
+        
+        # Enhance system message for Opposites/Antonyms to avoid repetitive questions
+        if subject_norm == "English" and sub_activity_norm == "Opposites/Antonyms":
+            system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
+        
         completion = client.chat.completions.create(
             model=OPENROUTER_MODEL,
             messages=[
-                {"role": "system", "content": "You are an AI that generates educational questions for elementary school students. Your responses should be in JSON format with a question, choices (for multiple choice), and the correct answer. Always use the field name 'answer' (not 'correct_answer') for the correct answer field."},
+                {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
             temperature=temperature,
@@ -1085,10 +1101,50 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
     # English subject
     elif subject == "English":
         if sub_activity == "Opposites/Antonyms":
+            # Get random elements for variety
+            target_words = [word for word in ENGLISH_ADJECTIVES if word != "happy"]  # Exclude 'happy' to avoid repetition
+            target_word = random.choice(target_words)
+            random_seed = getRandomSeed()
+            prompt_templates = [
+                f"What is the opposite of '{target_word}'?",
+                f"Which word means the opposite of '{target_word}'?",
+                f"Select the word that has the opposite meaning of '{target_word}'.",
+                f"Choose the antonym for '{target_word}'.",
+                f"Which of these words is most opposite in meaning to '{target_word}'?"
+            ]
+            prompt_template = random.choice(prompt_templates)
+            
             if grade <= 2:  # Grade 1-2
-                return f"Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms. The question should ask for the opposite of a simple word appropriate for this grade level."
+                prompt = f"""
+                Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
+                
+                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+                
+                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+                DO NOT use the word 'happy' in your question - this word has been overused.
+                
+                Use this random seed for variety: {random_seed}
+                
+                The question should ask for the opposite of a simple word appropriate for this grade level.
+                """
             else:  # Grade 3+
-                return f"Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms. The question should ask for the opposite of a word appropriate for this grade level."
+                prompt = f"""
+                Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
+                
+                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+                
+                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+                DO NOT use the word 'happy' in your question - this word has been overused.
+                
+                Use this random seed for variety: {random_seed}
+                
+                The question should ask for the opposite of a word appropriate for this grade level.
+                """
+            
+            # Log the enhanced prompt details
+            logger.info(f"Opposites/Antonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
+            
+            return prompt
         
         elif sub_activity == "Reading Comprehension":
             # Select random elements to create varied passages
@@ -1527,4 +1583,234 @@ def get_fallback_feedback(is_correct: bool) -> str:
 
 def getRandomSeed() -> int:
     """Generate a random seed for AI prompts to increase variety."""
-    return random.randint(1000, 9999) 
+    return random.randint(1000, 9999)
+
+async def evaluate_grammar_correction(question: str, user_answer: str, correct_answer: str) -> dict:
+    """
+    Evaluate a grammar correction answer using OpenRouter API and provide detailed feedback.
+    
+    Args:
+        question: The original question (incorrect sentence)
+        user_answer: The student's corrected answer
+        correct_answer: The expected correct answer
+        
+    Returns:
+        Dictionary with is_correct (bool) and feedback (str)
+    """
+    logger = logging.getLogger(__name__)
+    request_id = f"{time.time():.0f}"
+    
+    # Create a prompt to evaluate the answer
+    prompt = f"""
+You are evaluating a student's grammar correction answer. Please review the following:
+
+ORIGINAL INCORRECT SENTENCE:
+{question}
+
+EXPECTED CORRECT ANSWER:
+{correct_answer}
+
+STUDENT'S ANSWER:
+{user_answer}
+
+First, determine if the student's answer is essentially correct. Consider:
+1. Did they fix the primary grammar issue(s)?
+2. Is their sentence grammatically correct, even if worded differently than the expected answer?
+3. Does their correction maintain the original meaning of the sentence?
+
+Be somewhat lenient - if they fixed the main grammar issue but made a minor spelling mistake, still consider it correct.
+
+Then provide brief, encouraging feedback (2-3 sentences) appropriate for an elementary school student.
+
+Return your response in this JSON format:
+{{
+  "is_correct": true/false,
+  "feedback": "Your feedback here"
+}}
+"""
+    
+    try:
+        logger.info(f"[{request_id}] Evaluating grammar correction answer")
+        start_time = time.time()
+        
+        # Make API call to OpenRouter for evaluation
+        completion = client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating grammar corrections. You judge answers based on whether the student fixed the main grammar issue, even if their wording differs from the expected answer. You provide constructive, encouraging feedback."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,  # Lower temperature for more consistent evaluation
+            response_format={"type": "json_object"}
+        )
+        
+        api_time = time.time() - start_time
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        
+        # Extract the evaluation results
+        if not completion or not hasattr(completion, 'choices') or not completion.choices:
+            logger.error(f"[{request_id}] No valid response from API")
+            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+        
+        response_message = completion.choices[0].message
+        if not hasattr(response_message, 'content') or not response_message.content:
+            logger.error(f"[{request_id}] No content in response message")
+            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+        
+        try:
+            # Parse the JSON response
+            evaluation_result = json.loads(response_message.content.strip())
+            
+            # Validate the required fields are present
+            if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
+                logger.error(f"[{request_id}] Missing required fields in evaluation result")
+                return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+            
+            # Convert is_correct to boolean if it's a string
+            if isinstance(evaluation_result["is_correct"], str):
+                evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
+            
+            logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
+            
+            return evaluation_result
+            
+        except json.JSONDecodeError:
+            logger.error(f"[{request_id}] Failed to parse JSON response: {response_message.content[:100]}...")
+            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+            
+    except Exception as e:
+        logger.error(f"[{request_id}] Error evaluating grammar correction: {str(e)}")
+        return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+
+def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_answer: str) -> dict:
+    """Get fallback evaluation when the API fails."""
+    # Simple string similarity to determine correctness as fallback
+    user_lower = user_answer.lower().strip()
+    correct_lower = correct_answer.lower().strip()
+    
+    # Very basic fallback evaluation - same as current system
+    is_correct = user_lower == correct_lower
+    
+    if is_correct:
+        feedback = "Great job! You fixed the grammar error correctly."
+    else:
+        feedback = "Good effort! Take another look at the sentence and check for grammar errors."
+    
+    return {
+        "is_correct": is_correct,
+        "feedback": feedback
+    }
+
+async def evaluate_reading_comprehension(passage: str, question: str, user_answer: str, correct_answer: str) -> dict:
+    """
+    Evaluate a reading comprehension answer using OpenRouter API and provide detailed feedback.
+    
+    Args:
+        passage: The reading passage text
+        question: The question about the passage
+        user_answer: The student's answer
+        correct_answer: The correct answer from the original question
+        
+    Returns:
+        Dictionary with is_correct (bool) and feedback (str)
+    """
+    logger = logging.getLogger(__name__)
+    request_id = f"{time.time():.0f}"
+    
+    # Create a prompt to evaluate the answer
+    prompt = f"""
+You are evaluating a student's answer to a reading comprehension question. Please review the following:
+
+READING PASSAGE:
+{passage}
+
+QUESTION:
+{question}
+
+CORRECT ANSWER FROM QUESTION:
+{correct_answer}
+
+STUDENT'S ANSWER:
+{user_answer}
+
+First, determine if the student's answer is essentially correct. Consider the meaning and understanding, not just exact words.
+Then provide brief, encouraging feedback (2-3 sentences) appropriate for an elementary school student.
+
+Return your response in this JSON format:
+{{
+  "is_correct": true/false,
+  "feedback": "Your feedback here"
+}}
+"""
+    
+    try:
+        logger.info(f"[{request_id}] Evaluating reading comprehension answer")
+        start_time = time.time()
+        
+        # Make API call to OpenRouter for evaluation
+        completion = client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating reading comprehension answers. You judge answers based on understanding rather than exact wording. You provide constructive, encouraging feedback."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,  # Lower temperature for more consistent evaluation
+            response_format={"type": "json_object"}
+        )
+        
+        api_time = time.time() - start_time
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
+        
+        # Extract the evaluation results
+        if not completion or not hasattr(completion, 'choices') or not completion.choices:
+            logger.error(f"[{request_id}] No valid response from API")
+            return get_fallback_reading_evaluation(user_answer, correct_answer)
+        
+        response_message = completion.choices[0].message
+        if not hasattr(response_message, 'content') or not response_message.content:
+            logger.error(f"[{request_id}] No content in response message")
+            return get_fallback_reading_evaluation(user_answer, correct_answer)
+        
+        try:
+            # Parse the JSON response
+            evaluation_result = json.loads(response_message.content.strip())
+            
+            # Validate the required fields are present
+            if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
+                logger.error(f"[{request_id}] Missing required fields in evaluation result")
+                return get_fallback_reading_evaluation(user_answer, correct_answer)
+            
+            # Convert is_correct to boolean if it's a string
+            if isinstance(evaluation_result["is_correct"], str):
+                evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
+            
+            logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
+            
+            return evaluation_result
+            
+        except json.JSONDecodeError:
+            logger.error(f"[{request_id}] Failed to parse JSON response: {response_message.content[:100]}...")
+            return get_fallback_reading_evaluation(user_answer, correct_answer)
+            
+    except Exception as e:
+        logger.error(f"[{request_id}] Error evaluating reading comprehension: {str(e)}")
+        return get_fallback_reading_evaluation(user_answer, correct_answer)
+
+def get_fallback_reading_evaluation(user_answer: str, correct_answer: str) -> dict:
+    """Get fallback evaluation when the API fails."""
+    # Simple string similarity to determine correctness as fallback
+    user_lower = user_answer.lower().strip()
+    correct_lower = correct_answer.lower().strip()
+    
+    # Very basic fallback evaluation
+    is_correct = user_lower == correct_lower or user_lower in correct_lower or correct_lower in user_lower
+    
+    if is_correct:
+        feedback = "Great job! Your answer shows you understood the passage well. You identified the key information correctly!"
+    else:
+        feedback = "Good effort! Take another look at the passage and see if you can find the specific details that answer the question."
+    
+    return {
+        "is_correct": is_correct,
+        "feedback": feedback
+    } 

@@ -62,8 +62,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.1);
+  /* Remove box-shadow */
 }
 
 .btn:active {
@@ -80,8 +79,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary:hover {
   background-color: var(--secondary);
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 8px 15px rgba(52, 152, 219, 0.4);
+  /* Remove box-shadow */
 }
 
 .btn-secondary {
@@ -166,8 +164,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .player-card:hover {
-  transform: translateY(-8px) rotate(1deg);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  /* Remove box-shadow */
 }
 
 .player-card:hover::after {
@@ -178,7 +175,6 @@ h1, h2, h3, h4, h5, h6 {
 .player-card.selected {
   background-color: var(--secondary);
   color: var(--white);
-  transform: translateY(-5px);
   box-shadow: 0 12px 25px rgba(52, 152, 219, 0.4);
 }
 
@@ -218,8 +214,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .question-card:hover {
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  transform: translateY(-5px);
+  /* No shadow effect */
 }
 
 .question-text {
@@ -293,8 +288,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .choice-btn:hover:not(:disabled) {
   background-color: #e8f4fa;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.1);
   z-index: 2;
 }
 
@@ -306,7 +299,6 @@ h1, h2, h3, h4, h5, h6 {
 .choice-btn.selected {
   background-color: #e2f4fd;
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
-  transform: translateY(-4px);
 }
 
 .choice-btn.selected .choice-letter {
@@ -426,9 +418,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
   background-color: var(--secondary);
+  /* Remove box-shadow */
 }
 
 .submit-btn:disabled {
@@ -478,7 +469,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .user-answer-display div {
   padding: 8px 10px;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: #ffffff;
   border-radius: 4px;
   color: #212529;
   font-size: 0.95rem !important;
@@ -509,7 +500,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #212529;
   margin-top: 8px;
   padding: 10px;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: #ffffff;
   border-radius: 6px;
   max-width: 100%;
   white-space: normal;
@@ -526,7 +517,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 10px;
   padding: 15px;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: #ffffff;
   border-radius: 6px;
   margin-top: 10px;
 }
@@ -613,6 +604,7 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.9rem !important;
     padding: 8px;
     line-height: 1.4;
+    background-color: #ffffff;
   }
   
   .detailed-feedback {
@@ -1111,8 +1103,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .start-button:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 14px 0 rgba(0, 0, 0, 0.1);
+  /* Remove box-shadow */
 }
 
 .start-button:hover::before {
@@ -1329,8 +1320,7 @@ select.form-control {
 
 select.form-control:hover, select.form-control:focus {
   border-color: var(--secondary);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
-  transform: translateY(-2px);
+  /* Remove box-shadow */
 }
 
 /* Badge styling improvements */
@@ -1952,9 +1942,8 @@ select.form-control:hover, select.form-control:focus {
 }
 
 .player-pill:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   background-color: var(--primary);
+  /* Remove box-shadow */
 }
 
 .player-pill.selected {
@@ -2266,7 +2255,7 @@ select.form-control:hover, select.form-control:focus {
 
 .user-answer-display div {
   padding: 8px 10px;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: #ffffff;
   border-radius: 4px;
   color: #212529;
   font-size: 0.95rem !important;
@@ -2297,7 +2286,7 @@ select.form-control:hover, select.form-control:focus {
   color: #212529;
   margin-top: 8px;
   padding: 10px;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: #ffffff;
   border-radius: 6px;
   max-width: 100%;
   white-space: normal;
@@ -2314,7 +2303,7 @@ select.form-control:hover, select.form-control:focus {
   align-items: center;
   gap: 10px;
   padding: 15px;
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: #ffffff;
   border-radius: 6px;
   margin-top: 10px;
 }
@@ -2401,6 +2390,7 @@ select.form-control:hover, select.form-control:focus {
     font-size: 0.9rem !important;
     padding: 8px;
     line-height: 1.4;
+    background-color: #ffffff;
   }
   
   .detailed-feedback {

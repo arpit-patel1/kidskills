@@ -39,7 +39,7 @@ const useGameState = () => {
         }));
       }
     }
-  }, [settings.subject]);
+  }, [settings.subject, settings.sub_activity]);
   
   // Game state
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -137,69 +137,106 @@ const useGameState = () => {
     }
   };
   
+  // Function to show confetti for correct answers
+  const triggerConfetti = () => {
+    console.log('Showing confetti for correct answer');
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 3000);
+  };
+  
   // Handle answer submission
-  const handleAnswer = async (answer) => {
-    if (!currentQuestion || !selectedPlayer) return;
+  const handleAnswer = async (answer, aiEvaluation = null) => {
+    if (!currentQuestion || !selectedPlayer) {
+      console.error('Cannot submit answer: Missing currentQuestion or selectedPlayer');
+      return;
+    }
     
-    // Store the selected answer
+    console.log('handleAnswer called with:', { answer, hasAiEval: !!aiEvaluation });
+    
+    // Immediately mark as submitted
     setSelectedAnswer(answer);
     
+    const isGrammarCorrection = currentQuestion.sub_activity === 'Grammar Correction';
+    const isReadingComprehension = currentQuestion.sub_activity === 'Reading Comprehension';
+    
     try {
-      setLoading(true);
-      setError('');
-      
-      console.log("Submitting answer:", answer);
-      const result = await api.submitAnswer(
-        selectedPlayer.id,
-        currentQuestion.id,
-        answer
-      );
-      console.log("API response:", result);
-      
-      // Update score and streak
-      setQuestionCount(prevCount => prevCount + 1);
-      
-      // Make sure is_correct is a boolean
-      const isCorrect = result.is_correct === true || result.is_correct === "true";
-      
-      // Only show confetti and update score/streak for correct answers
-      if (isCorrect) {
-        console.log("Answer is correct! Showing confetti.");
-        setScore(prevScore => prevScore + 1);
-        setStreak(prevStreak => prevStreak + 1);
-        setShowConfetti(true);
+      // If we have AI evaluation, use it directly instead of calling the API
+      if ((isGrammarCorrection || isReadingComprehension) && aiEvaluation) {
+        console.log('Using AI evaluation result:', aiEvaluation);
         
-        // Hide confetti after 5 seconds
-        setTimeout(() => {
-          setShowConfetti(false);
-        }, 5000);
+        // Create result with the AI evaluation
+        const result = {
+          is_correct: aiEvaluation.is_correct,
+          correct_answer: currentQuestion.answer,
+          ai_evaluated: true,
+          feedback: aiEvaluation.feedback || (aiEvaluation.is_correct ? "Correct!" : "Incorrect")
+        };
+        
+        // Store feedback
+        setFeedback(result);
+        
+        // Update streak and score
+        if (aiEvaluation.is_correct) {
+          console.log('Correct answer! Updating score and streak.');
+          setStreak(streak + 1);
+          // Celebrate with confetti
+          triggerConfetti();
+          // Update score (+10 for correct, +5 for streak of 3+)
+          const streakBonus = streak >= 2 ? 5 : 0;
+          setScore(score + 10 + streakBonus);
+        } else {
+          console.log('Incorrect answer. Resetting streak.');
+          setStreak(0);
+        }
+        
+        // Update question count
+        setQuestionCount(questionCount + 1);
+        
+        // Check if game is completed
+        if (questionCount + 1 >= QUESTIONS_PER_GAME) {
+          setGameCompleted(true);
+        }
       } else {
-        // For incorrect answers, reset streak and ensure NO confetti
-        console.log("Answer is incorrect. No confetti.");
-        setStreak(0);
-        setShowConfetti(false);
-      }
-      
-      // Set feedback but keep the current question displayed
-      setFeedback(result);
-      
-      // Pre-fetch the next question in the background
-      try {
-        console.log("Pre-fetching next question...");
-        await api.getQuestion(
+        // For answers that didn't get AI evaluation, submit normally
+        console.log('Submitting answer through API:', answer);
+        setLoading(true);
+        
+        const result = await api.submitAnswer(
           selectedPlayer.id,
-          settings.subject,
-          settings.sub_activity,
-          settings.difficulty
+          currentQuestion.id,
+          answer
         );
-        console.log("Next question pre-fetched");
-      } catch (err) {
-        console.error("Failed to pre-fetch next question:", err);
+        
+        console.log('API submission result:', result);
+        
+        // Store feedback
+        setFeedback(result);
+        
+        // Update streak and score
+        if (result.is_correct) {
+          setStreak(streak + 1);
+          // Celebrate with confetti
+          triggerConfetti();
+          // Update score (+10 for correct, +5 for streak of 3+)
+          const streakBonus = streak >= 2 ? 5 : 0;
+          setScore(score + 10 + streakBonus);
+        } else {
+          setStreak(0);
+        }
+        
+        // Update question count
+        setQuestionCount(questionCount + 1);
+        
+        // Check if game is completed
+        if (questionCount + 1 >= QUESTIONS_PER_GAME) {
+          setGameCompleted(true);
+        }
       }
-      
-    } catch (err) {
+    } catch (error) {
+      console.error('Error submitting answer:', error);
       setError('Failed to submit answer. Please try again.');
-      console.error(err);
     } finally {
       setLoading(false);
     }

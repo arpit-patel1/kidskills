@@ -180,4 +180,66 @@ export const getGrammarFeedback = async (question, userAnswer, correctAnswer, is
   }
 };
 
+// Evaluate grammar correction answer using AI
+export const evaluateGrammarCorrection = async (question, userAnswer, correctAnswer) => {
+  try {
+    console.log("Evaluating grammar correction answer:", {
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer
+    });
+    
+    const response = await api.post('/grammar/evaluate', {
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer
+    });
+    
+    console.log("Grammar correction evaluation response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error evaluating grammar correction:", error);
+    // Provide fallback evaluation - simple string comparison
+    const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+    return {
+      is_correct: isCorrect,
+      feedback: isCorrect
+        ? "Great job! You fixed the grammar error correctly."
+        : "Good try! Check the sentence structure again."
+    };
+  }
+};
+
+// Evaluate reading comprehension answer using AI
+export const evaluateReadingComprehension = async (passage, question, userAnswer, correctAnswer) => {
+  try {
+    console.log("Evaluating reading comprehension answer:", {
+      passage,
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer
+    });
+    
+    const response = await api.post('/reading/evaluate', {
+      passage,
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer
+    });
+    
+    console.log("Reading comprehension evaluation response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error evaluating reading comprehension:", error);
+    // Provide fallback evaluation - simple string comparison
+    const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+    return {
+      is_correct: isCorrect,
+      feedback: isCorrect
+        ? "Great job! Your answer shows good understanding of the passage."
+        : "Good try! Re-read the passage carefully to find the correct answer."
+    };
+  }
+};
+
 export default api; 
