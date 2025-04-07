@@ -2814,7 +2814,7 @@ select.form-control:hover, select.form-control:focus {
   margin-top: 0.5rem;
   z-index: 100;
   width: 100%;
-  max-width: 300px;
+  max-width: 350px;
 }
 
 @media (min-width: 768px) {
@@ -2828,9 +2828,9 @@ select.form-control:hover, select.form-control:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--white);
-  border: 2px solid var(--primary);
-  color: var(--dark);
+  background-color: var(--primary);
+  border: none;
+  color: var(--white);
   padding: 0.6rem 1.2rem;
   border-radius: 50px;
   font-weight: bold;
@@ -2838,10 +2838,13 @@ select.form-control:hover, select.form-control:focus {
   transition: all 0.3s;
   width: 100%;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .player-dropdown-button:hover {
-  background-color: var(--light);
+  background-color: var(--secondary);
   transform: translateY(-2px);
 }
 
@@ -3190,7 +3193,7 @@ select.form-control:hover, select.form-control:focus {
   margin-top: 0.5rem;
   z-index: 100;
   width: 100%;
-  max-width: 300px;
+  max-width: 350px;
 }
 
 @media (min-width: 768px) {
@@ -3215,6 +3218,9 @@ select.form-control:hover, select.form-control:focus {
   transition: all 0.3s;
   width: 100%;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .game-dropdown-button:hover {

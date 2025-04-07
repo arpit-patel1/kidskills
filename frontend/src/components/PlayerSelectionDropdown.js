@@ -33,8 +33,7 @@ const PlayerSelectionDropdown = ({
       >
         {selectedPlayer ? (
           <>
-            <i className="bi bi-person-circle me-2"></i>
-            {selectedPlayer.name} (Grade {selectedPlayer.grade})
+            {selectedPlayer.name}(Grade {selectedPlayer.grade})
           </>
         ) : (
           <>

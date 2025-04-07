@@ -58,11 +58,6 @@ const GameSelectorDropdown = ({
     // The dropdown will close when the question loads in the useEffect
   };
   
-  // Only show when a player is selected
-  if (!selectedPlayer) {
-    return null;
-  }
-  
   // Subject to sub-activity mapping
   const subActivities = {
     Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
@@ -73,8 +68,9 @@ const GameSelectorDropdown = ({
     <div className="game-dropdown-container">
       <button 
         className="game-dropdown-button" 
-        onClick={() => setShowDropdown(prev => !prev)}
-        disabled={startGameLoading}
+        onClick={() => selectedPlayer && setShowDropdown(prev => !prev)}
+        disabled={!selectedPlayer || startGameLoading}
+        style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
       >
         {startGameLoading ? (
           <>
@@ -84,13 +80,13 @@ const GameSelectorDropdown = ({
         ) : (
           <>
             <i className="bi bi-controller me-2"></i>
-            {currentQuestion ? 'Current Game' : 'Play Game'}
+            {currentQuestion ? `${settings.subject}: ${settings.sub_activity}` : 'Play Game'}
             <i className={`bi bi-chevron-${showDropdown ? 'up' : 'down'} ms-2`}></i>
           </>
         )}
       </button>
 
-      {showDropdown && (
+      {showDropdown && selectedPlayer && (
         <div className="game-dropdown-menu">
           <div className="dropdown-header">
             <strong>{currentQuestion ? 'Game Options' : 'Game Settings'}</strong>
