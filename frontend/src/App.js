@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './styles/theme.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import useGameState from './hooks/useGameState';
-import PlayerSidebar from './components/PlayerSidebar';
-import ActivitySidebar from './components/ActivitySidebar';
 import MainContent from './components/MainContent';
 import ConfettiEffect from './components/ConfettiEffect';
+import PlayerSelectionDropdown from './components/PlayerSelectionDropdown';
+import GameSelectorDropdown from './components/GameSelectorDropdown';
 
 function App() {
   const {
@@ -35,6 +35,14 @@ function App() {
     fetchPlayers
   } = useGameState();
 
+  // Function to start a game with predefined settings
+  const handleQuickStart = (quickSettings) => {
+    // Update the settings
+    updateSettings(quickSettings);
+    // Start the game with these settings
+    startGame();
+  };
+
   return (
     <div className="app">
       <ConfettiEffect show={showConfetti} />
@@ -42,6 +50,25 @@ function App() {
       <header className="app-header">
         <h1>KidSkills <i className="bi bi-stars"></i></h1>
         <p className="subtitle">Fun learning for young minds <i className="bi bi-emoji-smile"></i></p>
+        
+        <div className="dropdown-container">
+          <PlayerSelectionDropdown 
+            players={players}
+            selectedPlayer={selectedPlayer}
+            onSelectPlayer={selectPlayer}
+            onPlayersUpdated={fetchPlayers}
+          />
+          
+          <GameSelectorDropdown 
+            selectedPlayer={selectedPlayer}
+            currentQuestion={currentQuestion}
+            resetGame={resetGame}
+            settings={settings}
+            onUpdateSettings={updateSettings}
+            onStartGame={startGame}
+            startGameLoading={startGameLoading}
+          />
+        </div>
       </header>
       
       {error && (
@@ -51,14 +78,6 @@ function App() {
       )}
       
       <div className="app-layout">
-        <ActivitySidebar
-          selectedPlayer={selectedPlayer}
-          settings={settings}
-          onUpdateSettings={updateSettings}
-          onStartGame={startGame}
-          loading={startGameLoading}
-        />
-        
         <MainContent
           selectedPlayer={selectedPlayer}
           currentQuestion={currentQuestion}
@@ -74,13 +93,6 @@ function App() {
           handleAnswer={handleAnswer}
           nextQuestion={nextQuestion}
           resetGame={resetGame}
-        />
-        
-        <PlayerSidebar
-          players={players}
-          selectedPlayer={selectedPlayer}
-          onSelectPlayer={selectPlayer}
-          onPlayersUpdated={fetchPlayers}
         />
       </div>
       

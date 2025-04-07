@@ -115,6 +115,7 @@ const useGameState = () => {
     
     try {
       setStartGameLoading(true);
+      setLoading(true); // Also set regular loading for MainContent indicator
       setError('');
       
       const question = await api.getQuestion(
@@ -130,6 +131,7 @@ const useGameState = () => {
       console.error(err);
     } finally {
       setStartGameLoading(false);
+      setLoading(false); // Clear loading state
     }
   };
   
@@ -348,10 +350,12 @@ const useGameState = () => {
     setError('');
   };
   
-  // Reset entire game
-  const resetGame = () => {
+  // Reset entire game - modified to keep the selected player by default
+  const resetGame = (resetPlayer = false) => {
     resetGameState();
-    setSelectedPlayer(null);
+    if (resetPlayer) {
+      setSelectedPlayer(null);
+    }
   };
   
   return {

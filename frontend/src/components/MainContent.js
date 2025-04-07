@@ -19,12 +19,15 @@ const MainContent = ({
   nextQuestion,
   resetGame
 }) => {
+  // Check if a game is loading from useGameState
+  const isStartingGame = !currentQuestion && loading;
+  
   if (!selectedPlayer) {
     return (
       <div className="main-content">
         <div className="welcome-screen">
           <h2>Welcome to AI Kids Challenge Game!</h2>
-          <p>Please select a player from the sidebar to start.</p>
+          <p>Please select a player from the header menu to start.</p>
           <div className="welcome-emoji">
             <span role="img" aria-label="Welcome" className="welcome-emoji-icon">👋 🎮 🧠 🎯</span>
           </div>
@@ -126,18 +129,20 @@ const MainContent = ({
             onNextQuestion={nextQuestion}
           />
         </div>
-      ) : loadingNextQuestion ? (
+      ) : loadingNextQuestion || isStartingGame ? (
         <div className="loading-screen">
           <div className="spinner-container">
             <div className="spinner"></div>
-            <div className="timer-counter">{nextQuestionTimer}s</div>
-            <div className="loading-text">Loading question...</div>
+            <div className="timer-counter">{nextQuestionTimer > 0 ? `${nextQuestionTimer}s` : ''}</div>
+            <div className="loading-text">
+              {isStartingGame ? 'Starting game...' : 'Loading question...'}
+            </div>
           </div>
         </div>
       ) : (
         <div className="start-screen">
           <h2>Ready to Play, {selectedPlayer.name}?</h2>
-          <p>Select your subject and difficulty level in the sidebar, then click "Start Game".</p>
+          <p>Click on "Play Game" in the header to configure and start your game!</p>
           <div className="start-emoji">
             <span role="img" aria-label="Start Game" className="welcome-emoji-icon">🎮 🚀 ✨ 🎯</span>
           </div>
