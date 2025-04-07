@@ -727,14 +727,14 @@ Example for Grammar Correction:
 
         # Make API call
         start_time = time.time()
-        
-        ollama_response = ollama_chat(
-            model=os.getenv("OLLAMA_MODEL"),
+
+        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            format=DirectAnswerQuestion.model_json_schema()
+            format=DirectAnswerQuestion.model_json_schema(),
+            options={"temperature": temperature},
         )
 
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
@@ -783,14 +783,14 @@ IMPORTANT: Always include all these fields exactly as shown."""
     try:
         # Make API call
         start_time = time.time()
-        
-        ollama_response = ollama_chat(
-            model=os.getenv("OLLAMA_MODEL"),
+
+        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            format=ReadingComprehensionQuestion.model_json_schema()
+            format=ReadingComprehensionQuestion.model_json_schema(),
+            options={"temperature": temperature},
         )
 
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
