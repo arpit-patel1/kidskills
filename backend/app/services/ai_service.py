@@ -10,7 +10,15 @@ import random
 from ollama import chat as ollama_chat
 from ollama import AsyncClient
 
-ollama_async_client = AsyncClient()
+# Load environment variables
+load_dotenv()
+
+# Get Ollama configuration from env
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+# Initialize Ollama client with configured base URL
+ollama_async_client = AsyncClient(host=OLLAMA_BASE_URL)
 
 # Import constants from constants.py
 from .constants import (
@@ -41,11 +49,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info(f"Logging to {log_file}")
 
-# Load environment variables
-load_dotenv()
-
 # Get Ollama model from env or use default
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
 
 # Define Pydantic models for structured output
@@ -663,7 +667,9 @@ Remember: Every question must be complete and solvable with the information prov
         # Make API call
         start_time = time.time()
         
-        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
+        model = os.getenv("OLLAMA_MODEL") if subject != "Math" else os.getenv("OLLAMA_MATH_MODEL")
+
+        ollama_response = await ollama_async_client.chat(model=model,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
