@@ -66,12 +66,16 @@ export const getQuestion = async (playerId, subject, sub_activity, difficulty) =
       question_type = 'reading-comprehension';
     }
     
+    // Add a timestamp to ensure we don't get cached responses
+    const timestamp = new Date().getTime();
+    
     const response = await api.post('/challenges/generate', {
       player_id: playerId,
       subject,
       sub_activity,
       difficulty,
-      question_type
+      question_type,
+      timestamp
     });
     
     console.log("New question received:", response.data);

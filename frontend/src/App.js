@@ -37,10 +37,10 @@ function App() {
 
   // Function to start a game with predefined settings
   const handleQuickStart = (quickSettings) => {
-    // Update the settings
+    // Update the settings in state
     updateSettings(quickSettings);
-    // Start the game with these settings
-    startGame();
+    // Start the game with these settings directly
+    startGame(quickSettings);
   };
 
   return (

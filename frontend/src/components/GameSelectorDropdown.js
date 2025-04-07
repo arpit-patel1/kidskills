@@ -12,6 +12,7 @@ const GameSelectorDropdown = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
   const [previousQuestionState, setPreviousQuestionState] = useState(!!currentQuestion);
+  const [previousStartGameLoading, setPreviousStartGameLoading] = useState(startGameLoading);
   
   // Reset temp settings when actual settings change
   useEffect(() => {
@@ -19,16 +20,21 @@ const GameSelectorDropdown = ({
   }, [settings]);
   
   // Effect to close dropdown when a game is first loaded
-  // but not when trying to open it during an active game
+  // or when loading starts/finishes
   useEffect(() => {
-    const questionStarted = !previousQuestionState && !!currentQuestion;
-    if (questionStarted && showDropdown) {
+    // Only track previous states, don't manipulate dropdown
+    setPreviousQuestionState(!!currentQuestion);
+    setPreviousStartGameLoading(startGameLoading);
+    
+    // Close dropdown ONLY when a question has been successfully loaded
+    // (a new question exists AND we were previously loading)
+    if (!!currentQuestion && previousStartGameLoading && showDropdown) {
       setShowDropdown(false);
     }
-    setPreviousQuestionState(!!currentQuestion);
-  }, [currentQuestion, showDropdown, previousQuestionState]);
+  }, [currentQuestion, previousStartGameLoading, showDropdown, startGameLoading]);
   
   const handleResetGame = () => {
+    console.log("Ending game with current settings:", settings);
     resetGame();
     setShowDropdown(false);
   };
@@ -39,17 +45,17 @@ const GameSelectorDropdown = ({
       ...prev,
       [name]: value
     }));
+    console.log(`Changed setting ${name} to ${value}`);
   };
 
   const handleStartGame = () => {
+    console.log("Starting new game with settings:", tempSettings);
     // Apply temp settings to actual settings
     onUpdateSettings(tempSettings);
-    // Start the game
-    onStartGame();
-    // Keep dropdown open while loading to show spinner
-    if (!startGameLoading) {
-      setShowDropdown(false);
-    }
+    // Start the game with these settings
+    onStartGame(tempSettings);
+    // Always keep dropdown open when starting a game to show the loading state
+    // The dropdown will close when the question loads in the useEffect
   };
   
   // Only show when a player is selected
@@ -167,7 +173,7 @@ const GameSelectorDropdown = ({
                   {startGameLoading ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Loading Game...
+                      <span>Loading Game...</span>
                     </>
                   ) : (
                     <>

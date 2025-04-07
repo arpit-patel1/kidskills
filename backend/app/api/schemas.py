@@ -9,6 +9,7 @@ class GetQuestionRequest(BaseModel):
     sub_activity: str = Field(..., description="Sub-activity (e.g., Addition/Subtraction, Opposites/Antonyms)")
     difficulty: str = Field(..., description="Difficulty level (easy, medium, hard)")
     question_type: str = Field("multiple-choice", description="Question type (multiple-choice, direct-answer, reading-comprehension)")
+    timestamp: Optional[int] = Field(None, description="Optional timestamp to ensure fresh questions for new games")
 
 
 class SubmitAnswerRequest(BaseModel):

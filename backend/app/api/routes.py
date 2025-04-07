@@ -40,6 +40,16 @@ async def get_challenge(
             detail=f"Player with ID {request.player_id} not found"
         )
     
+    # Check if this is a new game request (indicated by timestamp parameter)
+    is_new_game = "timestamp" in request.dict() and request.dict()["timestamp"] is not None
+    
+    # Clear previous questions for this player if it's a new game request or subject/activity changed
+    if is_new_game:
+        active_keys = list(ACTIVE_QUESTIONS.keys())
+        for key in active_keys:
+            if key.startswith(f"player_{request.player_id}_"):
+                del ACTIVE_QUESTIONS[key]
+    
     # Generate a question
     question_data = await generate_question(
         grade=player.grade,

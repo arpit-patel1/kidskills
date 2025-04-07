@@ -27,9 +27,16 @@ const QuestionDisplay = ({
 
   // Clear state when question changes
   useEffect(() => {
+    console.log("Question changed, resetting local state");
     setLocalSelectedChoice(null);
     setLocalSubmitted(false);
-  }, [question]);
+    
+    // Add a log to help debug question transitions
+    if (question) {
+      console.log("New question received in QuestionDisplay:", question.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question?.id]); // Only depend on question ID to prevent unnecessary rerenders
   
   if (!question) {
     return null;

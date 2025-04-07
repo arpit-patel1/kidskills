@@ -104,34 +104,70 @@ const useGameState = () => {
   
   // Update game settings
   const updateSettings = (newSettings) => {
+    console.log("Updating settings:", { current: settings, new: newSettings });
     setSettings({ ...settings, ...newSettings });
   };
   
   // Start or restart the game
-  const startGame = async () => {
-    resetGameState();
-    
-    if (!selectedPlayer) return;
-    
+  const startGame = async (customSettings = null) => {
     try {
+      // First set loading states before anything else
       setStartGameLoading(true);
-      setLoading(true); // Also set regular loading for MainContent indicator
+      setLoading(true);
       setError('');
       
+      // Use provided settings or current settings
+      const gameSettings = customSettings || settings;
+      console.log("Starting game with settings:", gameSettings);
+      
+      // Small delay to ensure loading state is visible before resetting
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Reset game state
+      resetGameState();
+      
+      // But restore loading states that were cleared by resetGameState
+      setStartGameLoading(true);
+      setLoading(true);
+      
+      // Return early if no player selected
+      if (!selectedPlayer) {
+        setStartGameLoading(false);
+        setLoading(false);
+        return;
+      }
+      
+      // Add a small delay to ensure state is completely cleared before fetching
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log("After reset, using settings for API call:", gameSettings);
+      
+      // Now that we're sure state is reset, fetch the new question
       const question = await api.getQuestion(
         selectedPlayer.id,
-        settings.subject,
-        settings.sub_activity,
-        settings.difficulty
+        gameSettings.subject,
+        gameSettings.sub_activity,
+        gameSettings.difficulty
       );
       
+      console.log("Question received for settings:", { 
+        subject: gameSettings.subject, 
+        sub_activity: gameSettings.sub_activity,
+        questionSubject: question.subject,
+        questionSubActivity: question.sub_activity
+      });
+      
+      // Set current question after everything else is cleared
       setCurrentQuestion(question);
+      
+      // Add a small delay before removing loading states
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (err) {
       setError('Failed to load question. Please try again.');
       console.error(err);
     } finally {
       setStartGameLoading(false);
-      setLoading(false); // Clear loading state
+      setLoading(false);
     }
   };
   
@@ -298,15 +334,22 @@ const useGameState = () => {
   
   // Move to next question
   const nextQuestion = () => {
-    setLoadingNextQuestion(true); // Show loading spinner with timer
+    setLoadingNextQuestion(true);
     
-    // Keep the current question and feedback visible but disabled
-    // We'll fetch the new question after a delay, but don't clear the current question yet
+    // Use a promise-based approach with proper state clearing
     setTimeout(async () => {
       try {
         setLoading(true);
         setError('');
         
+        // First clear the old question state completely
+        setFeedback(null);
+        setSelectedAnswer(null);
+        
+        // Small delay to ensure state updates are processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Then fetch the new question
         const newQuestion = await api.getQuestion(
           selectedPlayer.id,
           settings.subject,
@@ -314,9 +357,7 @@ const useGameState = () => {
           settings.difficulty
         );
         
-        // Clear the old data and set the new question only after we have it
-        setFeedback(null);
-        setSelectedAnswer(null);
+        // Set the new question after state is cleared
         setCurrentQuestion(newQuestion);
       } catch (err) {
         setError('Failed to load question. Please try again.');
@@ -325,7 +366,7 @@ const useGameState = () => {
         setLoading(false);
         setLoadingNextQuestion(false);
       }
-    }, 2000);
+    }, 1000); // Reduced delay for better UX
   };
   
   // Toggle continuous mode - keeping function signature for compatibility
@@ -337,6 +378,7 @@ const useGameState = () => {
   
   // Reset game state (but keep player)
   const resetGameState = () => {
+    // Explicitly set each state to initial value to prevent lingering state
     setCurrentQuestion(null);
     setFeedback(null);
     setScore(0);
@@ -348,6 +390,10 @@ const useGameState = () => {
     setLoadingNextQuestion(false);
     setNextQuestionTimer(0);
     setError('');
+    
+    // Ensure we're not stuck in a loading state
+    setLoading(false);
+    setStartGameLoading(false);
   };
   
   // Reset entire game - modified to keep the selected player by default
