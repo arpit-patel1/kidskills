@@ -8,6 +8,9 @@ import logging
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 import random
 from ollama import chat as ollama_chat
+from ollama import AsyncClient
+
+ollama_async_client = AsyncClient()
 
 # Import constants from constants.py
 from .constants import (
@@ -619,7 +622,40 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown."""
-    
+
+    if subject == "Math":
+        system_message += """
+For math questions, follow these CRITICAL rules:
+
+1. Question Completeness:
+   - Every question MUST include ALL numbers needed to solve it
+   - NEVER ask about unknown quantities without providing the numbers
+   - Example of BAD question: "What is the sum of James's age and his brother's age?" (no numbers provided)
+   - Example of GOOD question: "James is 7 years old and his brother is 5 years old. What is the sum of their ages?"
+
+2. Word Problem Requirements:
+   - Always provide specific numbers in the problem statement
+   - Make sure the scenario is complete and solvable
+   - Include all necessary information to find the answer
+   - Example of BAD question: "Sarah has some apples and gives some to her friend. How many does she have left?"
+   - Example of GOOD question: "Sarah has 8 apples and gives 3 to her friend. How many apples does she have left?"
+
+3. Multiple Choice Guidelines:
+   - The correct answer MUST be one of the choices
+   - Wrong answers should be plausible but clearly incorrect
+   - All numbers in choices should be appropriate for the grade level
+   - Example of BAD choices: ["10", "12", "15", "20"] for a question with no numbers
+   - Example of GOOD choices: ["10", "12", "15", "20"] for "What is 7 + 5?"
+
+4. Validation Steps:
+   - First, write the complete question with all numbers
+   - Then, calculate the correct answer
+   - Generate plausible wrong answers
+   - Double-check that the question is solvable with the given information
+   - Verify that the correct answer is one of the choices
+
+Remember: Every question must be complete and solvable with the information provided. If you're unsure, use simpler numbers or a different question type."""
+
     if subject == "English" and sub_activity == "Opposites/Antonyms":
         system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
     
@@ -627,16 +663,15 @@ IMPORTANT: Always include all these fields exactly as shown."""
         # Make API call
         start_time = time.time()
         
-
-        ollama_response = ollama_chat(
-            model=os.getenv("OLLAMA_MODEL"),
+        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            format=MultipleChoiceQuestion.model_json_schema()
+            format=MultipleChoiceQuestion.model_json_schema(),
+            options={"temperature": temperature},
         )
-
+        
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
