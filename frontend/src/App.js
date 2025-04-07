@@ -21,7 +21,6 @@ function App() {
     selectedAnswer,
     score,
     questionCount,
-    streak,
     showConfetti,
     gameCompleted,
     loadingNextQuestion,
@@ -48,7 +47,7 @@ function App() {
       <ConfettiEffect show={showConfetti} />
       
       <header className="app-header">
-        <h1>KidSkills <i className="bi bi-stars"></i></h1>
+        <h1><span className="pink-text">Kid</span><span className="blue-text">Skills</span> <i className="bi bi-stars"></i></h1>
         <p className="subtitle">Fun learning for young minds <i className="bi bi-emoji-smile"></i></p>
         
         <div className="dropdown-container">
@@ -85,7 +84,6 @@ function App() {
           selectedAnswer={selectedAnswer}
           score={score}
           questionCount={questionCount}
-          streak={streak}
           gameCompleted={gameCompleted}
           loading={loading}
           loadingNextQuestion={loadingNextQuestion}

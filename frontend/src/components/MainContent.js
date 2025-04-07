@@ -1,6 +1,5 @@
 import React from 'react';
 import QuestionDisplay from './QuestionDisplay';
-import ScoreDisplay from './ScoreDisplay';
 import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
 
 const MainContent = ({
@@ -55,55 +54,30 @@ const MainContent = ({
       <div className="main-content">
         <div className="game-completion">
           <h2>Game Completed!</h2>
-          <ScoreDisplay 
-            score={score} 
-            questionCount={questionCount} 
-            streak={streak} 
-          />
-          <div className="completion-message">
-            <p>Great job, {selectedPlayer.name}! You've completed the challenge.</p>
-            <div className="stats-summary mt-3">
-              <h4 className="text-center mb-3">{getAchievementLevel()}</h4>
-              
-              <div className="d-flex justify-content-center align-items-center mb-3">
-                <div className="progress" style={{ height: "20px", width: "80%" }}>
-                  <div 
-                    className="progress-bar bg-success" 
-                    role="progressbar" 
-                    style={{ width: `${accuracyPercentage}%` }} 
-                    aria-valuenow={accuracyPercentage} 
-                    aria-valuemin="0" 
-                    aria-valuemax="100">
-                    {accuracyPercentage}% Accuracy
-                  </div>
-                </div>
-              </div>
-              
-              <div className="row text-center mb-3">
-                <div className="col">
-                  <div className="stat-box">
-                    <div className="stat-value">{questionCount}</div>
-                    <div className="stat-label">Questions Answered</div>
-                  </div>
-                </div>
-                <div className="col">
-                  <div className="stat-box">
-                    <div className="stat-value">{score}</div>
-                    <div className="stat-label">Total Score</div>
-                  </div>
-                </div>
-              </div>
-              
-              <p className="text-center">
-                You answered <strong>{questionCount}</strong> questions out of {QUESTIONS_PER_GAME}!
-              </p>
+          <div className="completion-stats">
+            <div className="completion-stat">
+              <span>Score: </span>
+              <strong>{score}</strong>
+            </div>
+            <div className="completion-stat">
+              <span>Questions: </span>
+              <strong>{questionCount}/{QUESTIONS_PER_GAME}</strong>
+            </div>
+            <div className="completion-stat">
+              <span>Accuracy: </span>
+              <strong>{accuracyPercentage}%</strong>
+            </div>
+            <div className="completion-achievement">
+              <span>Achievement: </span>
+              <strong>{getAchievementLevel()}</strong>
             </div>
           </div>
           <button 
-            className="btn btn-primary mt-4" 
-            onClick={resetGame}
+            className="btn btn-primary start-btn" 
+            onClick={() => resetGame(false)}
+            style={{ marginTop: '20px' }}
           >
-            Start New Game
+            Play Again
           </button>
         </div>
       </div>
@@ -125,7 +99,6 @@ const MainContent = ({
             selectedChoice={selectedAnswer}
             score={score}
             questionCount={questionCount}
-            streak={streak}
             onNextQuestion={nextQuestion}
           />
         </div>

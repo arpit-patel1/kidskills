@@ -100,35 +100,6 @@ const QuestionDisplay = ({
     return 'choice-btn';
   };
   
-  // Generate star emojis based on streak
-  const renderStars = () => {
-    if (streak === 0) return null;
-    
-    // For higher streaks, add special indicators
-    if (streak >= 20) {
-      return '🔥🔥🔥🔥🔥';
-    } else if (streak >= 15) {
-      return '👑👑👑👑👑';
-    } else if (streak >= 10) {
-      return '🏆🏆🏆🏆🏆';
-    } else if (streak >= 7) {
-      return '🥇🥇🥇🥇🥇';
-    } else if (streak >= 5) {
-      return '🥈🥈🥈🥈🥈';
-    } else {
-      return Array(Math.min(streak, 5)).fill('⭐').join('');
-    }
-  };
-  
-  // Get streak tooltip text that shows bonus points
-  const getStreakTooltip = () => {
-    if (streak >= 15) return '+20 points bonus!';
-    if (streak >= 10) return '+15 points bonus!';
-    if (streak >= 5) return '+10 points bonus!';
-    if (streak >= 3) return '+5 points bonus!';
-    return '';
-  };
-  
   // Check if this is a direct answer question
   const isDirectAnswer = question.type === 'direct-answer';
   
@@ -147,8 +118,8 @@ const QuestionDisplay = ({
   return (
     <div className="question-display">
       <div className={`question-card ${loadingNextQuestion ? 'loading-transition' : ''}`}>
-        <div className="fixed-score-display">
-          Score: {score} / {questionCount}
+        <div className="score-circle">
+          {score}
         </div>
         
         {/* Progress bar for 1000 question game */}
@@ -165,16 +136,6 @@ const QuestionDisplay = ({
         <div className="text-center mb-2 small text-muted">
           Question {questionCount} of {QUESTIONS_PER_GAME}
         </div>
-        
-        {streak > 0 && (
-          <div className="fixed-streak-display">
-            <i className="bi bi-lightning-fill"></i>
-            <span className="fixed-streak-stars">{renderStars()}</span>
-            {streak >= 3 && (
-              <span className="streak-bonus-indicator">{getStreakTooltip()}</span>
-            )}
-          </div>
-        )}
         
         {isReadingComprehension && question.passage && (
           <div className="reading-passage">

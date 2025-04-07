@@ -46,7 +46,6 @@ const useGameState = () => {
   const [feedback, setFeedback] = useState(null);
   const [score, setScore] = useState(0);
   const [questionCount, setQuestionCount] = useState(0);
-  const [streak, setStreak] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [gameCompleted, setGameCompleted] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -237,33 +236,13 @@ const useGameState = () => {
         // Store feedback
         setFeedback(result);
         
-        // Update streak and score
+        // Update score
         if (aiEvaluation.is_correct) {
-          console.log('Correct answer! Updating score and streak.');
-          setStreak(streak + 1);
+          console.log('Correct answer! Updating score.');
           // Celebrate with confetti
           triggerConfetti();
-          // Update score with enhanced streak bonuses for 1000-question game
           // Base points: 10 for correct answer
-          // Enhanced bonus structure:
-          // - 5 points for streaks of 3-4
-          // - 10 points for streaks of 5-9
-          // - 15 points for streaks of 10-14
-          // - 20 points for streaks of 15+
-          let streakBonus = 0;
-          if (streak >= 2 && streak < 4) {
-            streakBonus = 5;
-          } else if (streak >= 4 && streak < 9) {
-            streakBonus = 10;
-          } else if (streak >= 9 && streak < 14) {
-            streakBonus = 15;
-          } else if (streak >= 14) {
-            streakBonus = 20;
-          }
-          setScore(score + 10 + streakBonus);
-        } else {
-          console.log('Incorrect answer. Resetting streak.');
-          setStreak(0);
+          setScore(score + 10);
         }
         
         // Update question count
@@ -289,31 +268,12 @@ const useGameState = () => {
         // Store feedback
         setFeedback(result);
         
-        // Update streak and score
+        // Update score
         if (result.is_correct) {
-          setStreak(streak + 1);
           // Celebrate with confetti
           triggerConfetti();
-          // Update score with enhanced streak bonuses for 1000-question game
           // Base points: 10 for correct answer
-          // Enhanced bonus structure:
-          // - 5 points for streaks of 3-4
-          // - 10 points for streaks of 5-9
-          // - 15 points for streaks of 10-14
-          // - 20 points for streaks of 15+
-          let streakBonus = 0;
-          if (streak >= 2 && streak < 4) {
-            streakBonus = 5;
-          } else if (streak >= 4 && streak < 9) {
-            streakBonus = 10;
-          } else if (streak >= 9 && streak < 14) {
-            streakBonus = 15;
-          } else if (streak >= 14) {
-            streakBonus = 20;
-          }
-          setScore(score + 10 + streakBonus);
-        } else {
-          setStreak(0);
+          setScore(score + 10);
         }
         
         // Update question count
@@ -383,7 +343,6 @@ const useGameState = () => {
     setFeedback(null);
     setScore(0);
     setQuestionCount(0);
-    setStreak(0);
     setShowConfetti(false);
     setGameCompleted(false);
     setSelectedAnswer(null);
@@ -417,7 +376,6 @@ const useGameState = () => {
     selectedAnswer,
     score,
     questionCount,
-    streak,
     showConfetti,
     gameCompleted,
     loadingNextQuestion,

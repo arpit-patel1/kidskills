@@ -1,17 +1,27 @@
 /* Girl-friendly powder blue theme for Kids Challenge Game */
 
 :root {
-  --primary: #5DADE2;       /* Brighter Blue */
-  --secondary: #3498DB;     /* Vivid Sky Blue */
-  --accent: #48C9B0;        /* Turquoise */
-  --success: #2ECC71;       /* Emerald Green */
-  --info: #9B59B6;          /* Amethyst Purple */
-  --warning: #F39C12;       /* Orange */
-  --danger: #FF6B81;        /* Coral Pink */
-  --light: #F5F8FA;         /* Soft White */
-  --dark: #34495E;          /* Deep Blue-Gray */
-  --white: #FFFFFF;
-  --black: #2C3E50;
+  /* Primary Color Palette */
+  --primary: #ff69b4;
+  --primary-dark: #ff1493;
+  --secondary: #48c9b0;
+  --accent: #3498db;
+  --success: #2ecc71;
+  --warning: #f39c12;
+  --danger: #e74c3c;
+  --info: #5bc0de;
+  
+  /* Neutral Colors */
+  --white: #ffffff;
+  --light: #f8f9fa;
+  --lighter: #f1f3f5;
+  --dark: #343a40;
+  --black: #212529;
+  
+  /* Background Colors */
+  --body-bg: #f5f7fa;
+  --primary-bg-color: #f0f2f5;
+  --secondary-bg-color: #ebf0f5;
   
   --background: #E8F8FF;    /* Light Sky Blue */
   --font-family: 'Comic Sans MS', 'Marker Felt', 'Bubblegum Sans', cursive;
@@ -19,7 +29,7 @@
 
 body {
   font-family: var(--font-family);
-  background-color: var(--background);
+  background-color: var(--body-bg);
   color: var(--black);
   margin: 0;
   padding: 0;
@@ -536,6 +546,28 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Fixed position score and streak displays */
+.score-circle {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+  color: var(--white);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Remove fixed-streak-display */
+/* Keeping fixed-score-display for backward compatibility, but it's no longer used */
 .fixed-score-display {
   position: absolute;
   top: -50px;
@@ -553,43 +585,20 @@ h1, h2, h3, h4, h5, h6 {
   border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.fixed-streak-display {
-  position: absolute;
-  top: -50px;
-  left: 0;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
-  color: var(--white);
-  border-radius: 12px;
-  padding: 10px 15px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  min-width: 120px;
-  text-align: center;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.fixed-streak-stars {
-  font-size: 1.2rem;
-  letter-spacing: -2px;
-}
-
 @media (max-width: 576px) {
-  .fixed-score-display,
-  .fixed-streak-display {
+  .score-circle {
+    width: 50px;
+    height: 50px;
+    font-size: 1.1rem;
+    top: 10px;
+    left: 10px;
+  }
+  
+  .fixed-score-display {
     font-size: 0.9rem;
     padding: 8px 12px;
     min-width: 100px;
     top: -40px;
-  }
-  
-  .fixed-streak-stars {
-    font-size: 1rem;
   }
 }
 
@@ -2827,25 +2836,26 @@ select.form-control:hover, select.form-control:focus {
 .player-dropdown-button {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: var(--primary);
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+  color: white;
   border: none;
-  color: var(--white);
-  padding: 0.6rem 1.2rem;
   border-radius: 50px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s;
-  width: 100%;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  min-width: 165px;
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
+  z-index: 10;
 }
 
 .player-dropdown-button:hover {
-  background-color: var(--secondary);
   transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #ff1493 0%, #ff69b4 100%);
 }
 
 .player-dropdown-menu {
@@ -3207,25 +3217,26 @@ select.form-control:hover, select.form-control:focus {
 .game-dropdown-button {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: var(--accent);
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+  color: white;
   border: none;
-  color: var(--white);
-  padding: 0.6rem 1.2rem;
   border-radius: 50px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s;
-  width: 100%;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  min-width: 165px;
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
+  z-index: 10;
 }
 
 .game-dropdown-button:hover {
-  background-color: var(--secondary);
   transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #ff1493 0%, #ff69b4 100%);
 }
 
 .game-dropdown-menu {
@@ -3376,11 +3387,50 @@ select.form-control:hover, select.form-control:focus {
 }
 
 .game-settings-panel .start-game-button {
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.6rem 1rem;
-  background: linear-gradient(to right, var(--success), var(--accent));
-  border: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+  color: white;
   font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  width: 100%;
+  margin-top: 15px;
+}
+
+.game-settings-panel .start-game-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #ff1493 0%, #ff69b4 100%);
+}
+
+.submit-btn.btn-primary {
+  background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.submit-btn.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff1493 0%, #ff69b4 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+}
+
+.pink-text {
+  color: #ff69b4;
+}
+
+.blue-text {
+  color: #87CEEB; /* Powder blue */
+}
+
+/* App Layout */
+.app-layout {
+  display: flex;
+  flex: 1;
+  margin: 0 auto;
+  max-width: 1400px;
+  position: relative;
+  padding-bottom: 2rem;
 }
