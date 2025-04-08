@@ -4,7 +4,7 @@ import uuid
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
-from app.services.ai_service import generate_question, generate_grammar_feedback, evaluate_grammar_correction, FALLBACK_QUESTIONS, evaluate_reading_comprehension
+from app.services.ai_service import generate_question, generate_grammar_feedback, evaluate_grammar_correction, evaluate_reading_comprehension
 from app.api.schemas import (
     GetQuestionRequest, 
     SubmitAnswerRequest, 
