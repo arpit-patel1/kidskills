@@ -327,7 +327,7 @@ Example format:
 
 IMPORTANT: Always include all these fields exactly as shown.
 IMPORTANT: Always provide EXACTLY 4 choices for the multiple-choice question. No more, no less.
-IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter of the question."""
+IMPORTANT: Always add multiple emojis to the question text to make it more engaging for children. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🌍 What is the capital of France? This is a geography question! 🗼 🏙️"""
 
     if subject == "Math":
         system_message += """
@@ -691,7 +691,7 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter of the question."""
+IMPORTANT: Always add multiple emojis to the question text to make it more engaging for children. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🌍 What is the capital of France? This is a geography question! 🗼 🏙️"""
     
     if sub_activity == "Grammar Correction":
         system_message += """ For Grammar Correction, provide a sentence with a grammatical error that the student needs to correct.
@@ -774,8 +774,8 @@ Example format:
 
 IMPORTANT: Always include all these fields exactly as shown.
 IMPORTANT: Always provide EXACTLY 4 choices for the question. No more, no less.
-IMPORTANT: Always add appropriate emojis throughout the passage text to make it more engaging and visually interesting for children. Emojis can be placed in the middle or at the end of sentences.
-IMPORTANT: Also add appropriate emojis to the question text to make it more engaging. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter."""
+IMPORTANT: Always add multiple emojis throughout the passage text to make it more engaging and visually interesting for children. Add emojis at the beginning, in the middle, and at the end of each paragraph or section.
+IMPORTANT: Also add multiple emojis to the question text to make it more engaging. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🔴 What color is Sam's ball? This is an important detail! 🎯 🎪"""
     
     try:
         # Make API call
