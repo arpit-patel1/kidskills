@@ -654,4 +654,44 @@ SCENARIOS += [
     "creating a time capsule", "developing a family tree", "documenting oral histories", "preserving traditions",
     "starting a school newspaper", "hosting a radio show", "creating a photo essay", "filming a documentary",
     "designing adaptive equipment", "developing assistive technology", "writing in braille", "learning tactile sign language"
+]
+
+# Mario-themed constants for themed games
+MARIO_CHARACTERS = [
+    "Mario", "Luigi", "Princess Peach", "Princess Daisy", "Toad", "Yoshi", "Bowser", "Bowser Jr.", 
+    "Wario", "Waluigi", "Donkey Kong", "Diddy Kong", "Rosalina", "Toadette", "Koopa Troopa", 
+    "Goomba", "Shy Guy", "Boo", "Kamek", "Piranha Plant", "Lakitu", "Chain Chomp", "Baby Mario", 
+    "Baby Luigi", "King Boo", "Dry Bones", "Nabbit", "Pauline", "Birdo"
+]
+
+MARIO_ITEMS = [
+    "Super Mushroom", "Fire Flower", "Star", "Super Leaf", "Tanooki Suit", "Frog Suit", 
+    "Cape Feather", "Mega Mushroom", "Mini Mushroom", "Ice Flower", "Gold Flower", "Boomerang Flower", 
+    "Super Bell", "Double Cherry", "P-Switch", "POW Block", "Question Block", "Brick Block", 
+    "Coin", "Red Coin", "Blue Coin", "1-Up Mushroom", "Super Star", "Yoshi Egg", "Bob-omb", 
+    "Bullet Bill", "Green Shell", "Red Shell", "Blue Shell", "Banana Peel", "Mushroom Cup", 
+    "Flower Cup", "Star Cup", "Special Cup", "Warp Pipe", "Flag Pole"
+]
+
+MARIO_LOCATIONS = [
+    "Mushroom Kingdom", "Bowser's Castle", "Peach's Castle", "Luigi's Mansion", "Yoshi's Island", 
+    "Toad Town", "Wario's Gold Mine", "Waluigi Stadium", "Rainbow Road", "Mario Circuit", 
+    "Coconut Mall", "Delfino Plaza", "Bob-omb Battlefield", "Whomp's Fortress", "Cool, Cool Mountain", 
+    "Jolly Roger Bay", "Big Boo's Haunt", "Dire, Dire Docks", "New Donk City", "Cascade Kingdom", 
+    "Sand Kingdom", "Wooded Kingdom", "Luncheon Kingdom", "Metro Kingdom", "Seaside Kingdom", 
+    "Snow Kingdom", "World 1-1", "World 1-2", "Underground Cavern", "Ghost House", "Airship", 
+    "Waterworld", "Desert Land", "Sky Land", "Ice Land", "Pipe Land", "Koopa Troopa Beach", 
+    "Cheep Cheep Lagoon", "Twisted Mansion"
+]
+
+MARIO_ACTIVITIES = [
+    "collecting coins", "jumping on Goombas", "throwing fireballs", "riding Yoshi", "breaking blocks", 
+    "finding secret areas", "rescuing Princess Peach", "racing go-karts", "battling Bowser", 
+    "playing tennis", "golfing", "playing soccer", "playing baseball", "partying with friends", 
+    "solving puzzles", "finding Power Stars", "collecting Shine Sprites", "using power-ups", 
+    "swimming underwater", "flying with a cape", "floating with balloons", "growing giant", 
+    "shrinking tiny", "throwing hammers", "climbing vines", "sliding down hills", 
+    "jumping over obstacles", "finding hidden blocks", "entering warp pipes", "collecting 1-Ups", 
+    "defeating bosses", "building with blocks", "exploring galaxies", "capturing enemies", 
+    "finding hidden treasures", "avoiding Bullet Bills", "jumping through paintings"
 ] 

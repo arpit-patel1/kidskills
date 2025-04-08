@@ -25,7 +25,8 @@ from .constants import (
     MATH_OBJECTS, MATH_LOCATIONS, MATH_ACTIVITIES, MATH_WORD_PROBLEM_TEMPLATES,
     ENGLISH_TOPICS, ENGLISH_VERBS, ENGLISH_ADJECTIVES, ENGLISH_NOUNS,
     ENGLISH_WORD_PATTERNS, ENGLISH_GRAMMAR_TEMPLATES,
-    SCENARIOS, OBJECTS, LOCATIONS, TIME_EXPRESSIONS
+    SCENARIOS, OBJECTS, LOCATIONS, TIME_EXPRESSIONS,
+    MARIO_CHARACTERS, MARIO_ITEMS, MARIO_LOCATIONS, MARIO_ACTIVITIES
 )
 
 # Configure enhanced logging with file output
@@ -196,7 +197,78 @@ FALLBACK_QUESTIONS = {
                     "type": "multiple-choice",
                     "sub_activity": "Word Problems"
                 }
-            ]
+            ],
+            "Mushroom Kingdom Calculations": {
+                "Easy": [
+                    {
+                        "question": "Mario collected 5 coins in World 1-1 and then 3 more coins in World 1-2. How many coins does he have in total?",
+                        "choices": ["5", "8", "10", "12"],
+                        "answer": "8",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Luigi has 7 Super Mushrooms. He gives 4 to Mario. How many Super Mushrooms does Luigi have left?",
+                        "choices": ["2", "3", "4", "5"],
+                        "answer": "3",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Princess Peach baked 10 star cookies. Toad ate 2 of them. How many star cookies are left?",
+                        "choices": ["6", "7", "8", "9"],
+                        "answer": "8",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ],
+                "Medium": [
+                    {
+                        "question": "Mario jumped on 3 rows of Goombas with 4 Goombas in each row. How many Goombas did he defeat in total?",
+                        "choices": ["7", "9", "12", "15"],
+                        "answer": "12",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Yoshi collected 18 coins. He wants to share them equally with Mario and Luigi. How many coins will each character get?",
+                        "choices": ["3", "6", "9", "12"],
+                        "answer": "6",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Bowser has 23 minions. If 14 minions are Goombas, how many minions are not Goombas?",
+                        "choices": ["7", "8", "9", "10"],
+                        "answer": "9",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ],
+                "Hard": [
+                    {
+                        "question": "Mario needs 25 coins to get an extra life. He has already collected 17 coins. How many more coins does he need?",
+                        "choices": ["5", "7", "8", "10"],
+                        "answer": "8",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Luigi collected 20 coins, which is 6 coins more than Mario collected. How many coins did Mario collect?",
+                        "choices": ["12", "14", "16", "18"],
+                        "answer": "14",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "In a race, Yoshi completed 4 laps in 28 minutes. How many minutes did it take him to complete each lap on average?",
+                        "choices": ["5", "6", "7", "8"],
+                        "answer": "7",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ]
+            }
         },
         "English": {
             "Easy": [
@@ -277,7 +349,78 @@ FALLBACK_QUESTIONS = {
                     "type": "reading-comprehension",
                     "sub_activity": "Reading Comprehension"
                 }
-            ]
+            ],
+            "Mushroom Kingdom Vocabulary": {
+                "Easy": [
+                    {
+                        "question": "Mario is brave because he fights Bowser. What does 'brave' mean?",
+                        "choices": ["scared", "courageous", "silly", "quiet"],
+                        "answer": "courageous",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Luigi jumps ___ the pipe to enter the underground level.",
+                        "choices": ["into", "over", "behind", "beside"],
+                        "answer": "into",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Princess Peach was ___ when Bowser kidnapped her.",
+                        "choices": ["happy", "sleepy", "frightened", "excited"],
+                        "answer": "frightened",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ],
+                "Medium": [
+                    {
+                        "question": "Which word is the opposite of 'giant' Mario?",
+                        "choices": ["mega", "super", "tiny", "fire"],
+                        "answer": "tiny",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "When Toad said the Mushroom Kingdom was 'peaceful', he meant it was:",
+                        "choices": ["exciting", "calm", "dangerous", "lonely"],
+                        "answer": "calm",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Which word describes how Bowser feels when Mario defeats him?",
+                        "choices": ["joyful", "proud", "frustrated", "amused"],
+                        "answer": "frustrated",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ],
+                "Hard": [
+                    {
+                        "question": "In the sentence 'Mario quickly jumped over the dangerous Piranha Plant', which word is an adverb?",
+                        "choices": ["Mario", "quickly", "over", "dangerous"],
+                        "answer": "quickly",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "If Yoshi is 'famished' after a long adventure, what does he need?",
+                        "choices": ["a nap", "food", "medicine", "exercise"],
+                        "answer": "food",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "The Star makes Mario ___ so enemies can't hurt him.",
+                        "choices": ["invisible", "invincible", "intelligent", "incredible"],
+                        "answer": "invincible",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ]
+            }
         }
     },
     "3": {  # Grade 3
@@ -371,7 +514,78 @@ FALLBACK_QUESTIONS = {
                     "type": "multiple-choice",
                     "sub_activity": "Word Problems"
                 }
-            ]
+            ],
+            "Mushroom Kingdom Calculations": {
+                "Easy": [
+                    {
+                        "question": "Mario collected 8 coins in World 1-1 and then 7 more coins in World 1-2. How many coins does he have in total?",
+                        "choices": ["13", "15", "17", "19"],
+                        "answer": "15",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Luigi has 12 Super Mushrooms. He gives 5 to Mario. How many Super Mushrooms does Luigi have left?",
+                        "choices": ["5", "6", "7", "8"],
+                        "answer": "7",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Princess Peach baked 15 star cookies. Toad ate 6 of them. How many star cookies are left?",
+                        "choices": ["7", "8", "9", "10"],
+                        "answer": "9",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ],
+                "Medium": [
+                    {
+                        "question": "Mario jumped on 4 rows of Goombas with 6 Goombas in each row. How many Goombas did he defeat in total?",
+                        "choices": ["18", "20", "24", "28"],
+                        "answer": "24",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Yoshi collected 27 coins. He wants to share them equally with Mario and Luigi. How many coins will each character get?",
+                        "choices": ["6", "7", "8", "9"],
+                        "answer": "9",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Bowser has 32 minions. If 19 minions are Goombas, how many minions are not Goombas?",
+                        "choices": ["11", "12", "13", "14"],
+                        "answer": "13",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ],
+                "Hard": [
+                    {
+                        "question": "Mario needs 50 coins to get an extra life. He has already collected 27 coins. How many more coins does he need?",
+                        "choices": ["13", "17", "23", "33"],
+                        "answer": "23",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "Luigi collected 45 coins, which is 15 coins more than Mario collected. How many coins did Mario collect?",
+                        "choices": ["25", "30", "35", "40"],
+                        "answer": "30",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    },
+                    {
+                        "question": "In a go-kart race, Bowser completed 6 laps in 42 minutes. How many minutes did it take him to complete each lap on average?",
+                        "choices": ["5", "6", "7", "8"],
+                        "answer": "7",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Calculations"
+                    }
+                ]
+            }
         },
         "English": {
             "Easy": [
@@ -445,7 +659,78 @@ FALLBACK_QUESTIONS = {
                     "type": "reading-comprehension",
                     "sub_activity": "Reading Comprehension"
                 }
-            ]
+            ],
+            "Mushroom Kingdom Vocabulary": {
+                "Easy": [
+                    {
+                        "question": "Luigi feels frightened in haunted houses. What is another word for 'frightened'?",
+                        "choices": ["happy", "scared", "excited", "brave"],
+                        "answer": "scared",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Mario jumped ___ the flagpole to complete the level.",
+                        "choices": ["under", "over", "through", "beside"],
+                        "answer": "over",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Bowser's castle is ___ because of the lava and traps.",
+                        "choices": ["safe", "funny", "dangerous", "boring"],
+                        "answer": "dangerous",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ],
+                "Medium": [
+                    {
+                        "question": "Which word is the opposite of 'defeat' Bowser?",
+                        "choices": ["battle", "rescue", "victory", "challenge"],
+                        "answer": "victory",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "When Yoshi said the Super Star was 'rare', he meant it was:",
+                        "choices": ["common", "unusual", "bright", "heavy"],
+                        "answer": "unusual",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "Which word describes Princess Peach when she thanks Mario for saving her?",
+                        "choices": ["angry", "grateful", "confused", "sleepy"],
+                        "answer": "grateful",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ],
+                "Hard": [
+                    {
+                        "question": "In the sentence 'Bowser angrily stomped across the castle bridge', which word is an adverb?",
+                        "choices": ["Bowser", "angrily", "stomped", "castle"],
+                        "answer": "angrily",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "If Mario is 'exhausted' after defeating Bowser, what does he need?",
+                        "choices": ["a celebration", "a reward", "rest", "more enemies"],
+                        "answer": "rest",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    },
+                    {
+                        "question": "The Mushroom Kingdom is ___ because it has many different landscapes.",
+                        "choices": ["dangerous", "diverse", "difficult", "distant"],
+                        "answer": "diverse",
+                        "type": "multiple-choice",
+                        "sub_activity": "Mushroom Kingdom Vocabulary"
+                    }
+                ]
+            }
         }
     }
 }
@@ -818,20 +1103,147 @@ IMPORTANT: Always include all these fields exactly as shown."""
         logger.exception(e)  # Log the full stack trace
         return get_fallback_question(str(grade), subject, sub_activity, difficulty)
 
-def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
+def construct_mario_math_prompt(grade: int, difficulty: str) -> str:
     """
-    Construct a prompt for the AI model based on the given parameters.
+    Constructs a prompt for the Mushroom Kingdom Calculations math activity.
     
     Args:
-        grade: Student grade level (e.g., 2, 3)
-        subject: Subject area (Math, English)
-        sub_activity: Sub-activity type 
-        difficulty: Difficulty level (Easy, Medium, Hard)
-        question_type: Type of question (multiple-choice, direct-answer, reading-comprehension)
+        grade: Student grade level (2-3)
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
         
     Returns:
-        String prompt for the AI model
+        A prompt string for generating a Mario-themed math question
     """
+    # Get random Mario elements for the question
+    character1 = random.choice(MARIO_CHARACTERS)
+    character2 = random.choice([c for c in MARIO_CHARACTERS if c != character1])
+    items = random.choice(MARIO_ITEMS)
+    location = random.choice(MARIO_LOCATIONS)
+    activity = random.choice(MARIO_ACTIVITIES)
+    
+    # Determine number ranges based on grade and difficulty
+    if grade <= 2:
+        if difficulty == "Easy":
+            num_range = "1-10"
+            sum_range = "should not exceed 20"
+            diff_range = "should not go below 0"
+        elif difficulty == "Medium":
+            num_range = "1-20"
+            sum_range = "should not exceed 30"
+            diff_range = "should not go below 0"
+        else:  # Hard
+            num_range = "1-30"
+            sum_range = "should not exceed 50"
+            diff_range = "should not go below 0"
+    else:  # Grade 3
+        if difficulty == "Easy":
+            num_range = "1-20"
+            sum_range = "should not exceed 40"
+            diff_range = "should not go below 0"
+        elif difficulty == "Medium":
+            num_range = "1-50"
+            sum_range = "should not exceed 100"
+            diff_range = "should not go below 0"
+        else:  # Hard
+            num_range = "1-100"
+            sum_range = "should not exceed 200"
+            diff_range = "should not go below 0"
+    
+    # Random seed for uniqueness
+    random_seed = getRandomSeed()
+    
+    prompt = f"""
+    Generate a {difficulty.lower()} {grade}-grade level math question in a Mario and Luigi themed world for elementary students.
+    
+    Use the following Mario-themed elements in your question:
+    - Characters: {character1} and/or {character2}
+    - Items: {items}
+    - Location: {location}
+    - Activity: {activity}
+    
+    Number range should be {num_range} with results {sum_range}, {diff_range}.
+    
+    Use this random seed for variety: {random_seed}
+    
+    The question should be about math problems that Mario characters encounter, such as collecting coins, 
+    defeating enemies, calculating scores, or measuring distances in the Mushroom Kingdom.
+    Make the question fun and engaging for kids who love Mario games.
+    
+    The math should be appropriate for grade {grade} and should require basic operations 
+    (addition, subtraction, multiplication, or division depending on grade level).
+    
+    The correct answer must be one of the multiple choice options.
+    """
+    
+    return prompt
+
+def construct_mario_english_prompt(grade: int, difficulty: str) -> str:
+    """
+    Constructs a prompt for the Mushroom Kingdom Vocabulary English activity.
+    
+    Args:
+        grade: Student grade level (2-3)
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
+        
+    Returns:
+        A prompt string for generating a Mario-themed English question
+    """
+    # Get random Mario elements for the question
+    character1 = random.choice(MARIO_CHARACTERS)
+    character2 = random.choice([c for c in MARIO_CHARACTERS if c != character1])
+    items = random.choice(MARIO_ITEMS)
+    location = random.choice(MARIO_LOCATIONS)
+    
+    # Random seed for uniqueness
+    random_seed = getRandomSeed()
+    
+    prompt = f"""
+    Generate a {difficulty.lower()} {grade}-grade level English vocabulary question in a Mario and Luigi themed world for elementary students.
+    
+    Use the following Mario-themed elements in your question:
+    - Characters: {character1} and/or {character2}
+    - Items: {items}
+    - Location: {location}
+    
+    Use this random seed for variety: {random_seed}
+    
+    The question should focus on one of the following:
+    1. Word meanings/definitions in a Mario context
+    2. Synonyms/antonyms with Mario-themed examples
+    3. Completing sentences about Mario adventures with appropriate vocabulary
+    4. Identifying parts of speech in Mario-themed sentences
+    
+    Make the question fun and engaging for kids who love Mario games while teaching important English concepts.
+    
+    The vocabulary should be appropriate for grade {grade} students.
+    
+    The correct answer must be one of the multiple choice options.
+    """
+    
+    return prompt
+
+def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
+    """
+    Constructs a prompt based on the parameters for AI question generation.
+    
+    Args:
+        grade: Student grade level (2-3)
+        subject: Subject area ("Math" or "English")
+        sub_activity: Sub-activity type (e.g., "Addition/Subtraction", "Opposites/Antonyms")
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
+        question_type: Type of question ("multiple-choice", "direct-answer", "reading-comprehension")
+        
+    Returns:
+        A prompt string for generating an educational question
+    """
+    # Handle Mario-themed activities
+    if sub_activity == "Mushroom Kingdom Calculations" and subject == "Math":
+        return construct_mario_math_prompt(grade, difficulty)
+    
+    if sub_activity == "Mushroom Kingdom Vocabulary" and subject == "English":
+        return construct_mario_english_prompt(grade, difficulty)
+    
+    # Proceed with standard prompts for other activities...
     logger = logging.getLogger(__name__)
     logger.info(f"Constructing prompt for: Grade {grade}, {subject}, {sub_activity}, {difficulty}")
     

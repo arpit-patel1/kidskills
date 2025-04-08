@@ -5,8 +5,8 @@ export const QUESTIONS_PER_GAME = 100;
 
 // Define mapping of subjects to sub-activities
 const SUB_ACTIVITIES = {
-  Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
-  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction']
+  Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems', 'Mushroom Kingdom Calculations'],
+  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction', 'Mushroom Kingdom Vocabulary']
 };
 
 // Get default sub-activity for a subject

@@ -60,8 +60,8 @@ const GameSelectorDropdown = ({
   
   // Subject to sub-activity mapping
   const subActivities = {
-    Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
-    English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction']
+    Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems', 'Mushroom Kingdom Calculations'],
+    English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction', 'Mushroom Kingdom Vocabulary']
   };
   
   return (

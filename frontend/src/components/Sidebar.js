@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlayerSelection from './PlayerSelection';
 import GameSettings from './GameSettings';
 
@@ -12,6 +12,7 @@ const Sidebar = ({
   toggleContinuousMode
 }) => {
   const [showPlayers, setShowPlayers] = useState(!selectedPlayer);
+  const [subActivities, setSubActivities] = useState([]);
   
   const handlePlayerSelect = (player) => {
     onSelectPlayer(player);
@@ -21,6 +22,34 @@ const Sidebar = ({
   const handleChangePlayer = () => {
     setShowPlayers(true);
   };
+  
+  // Update sub-activities when subject changes
+  useEffect(() => {
+    if (settings.subject === 'Math') {
+      setSubActivities([
+        'Addition/Subtraction',
+        'Multiplication/Division',
+        'Word Problems',
+        'Mushroom Kingdom Calculations'
+      ]);
+    } else if (settings.subject === 'English') {
+      setSubActivities([
+        'Opposites/Antonyms',
+        'Reading Comprehension',
+        'Nouns/Pronouns',
+        'Grammar Correction',
+        'Mushroom Kingdom Vocabulary'
+      ]);
+    }
+    
+    // Update sub-activity to first option when subject changes
+    if (subActivities.length > 0) {
+      onUpdateSettings({
+        ...settings,
+        sub_activity: subActivities[0]
+      });
+    }
+  }, [settings.subject, settings, onUpdateSettings, subActivities]);
   
   return (
     <div className="sidebar">
