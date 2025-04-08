@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import logging
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 import random
-from ollama import chat as ollama_chat
 from ollama import AsyncClient
 
 # Load environment variables
@@ -1386,6 +1385,19 @@ def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
     logger.warning(f"Could not repair malformed JSON structure: {str(json_data)[:100]}...")
     return json_data
 
+def remove_think_tags(text: str) -> str:
+    """
+    Remove <think> tags and their content from the text.
+    
+    Args:
+        text: The text containing think tags
+        
+    Returns:
+        Text with think tags and their content removed
+    """
+    # Remove think tags and their content
+    return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+
 async def generate_grammar_feedback(question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
     """
     Generate detailed feedback for a grammar correction answer using Ollama.
@@ -1429,12 +1441,14 @@ Please provide a short, gentle response (2-3 sentences) explaining what grammar 
         start_time = time.time()
         
         # Make API call to Ollama for feedback
-        ollama_response = ollama_chat(
+        # use async client
+        ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a friendly, supportive elementary school teacher providing feedback on grammar corrections. Keep your responses short, simple, and encouraging."},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            options={"temperature": 0.5}
         )
         
         api_time = time.time() - start_time
@@ -1445,6 +1459,8 @@ Please provide a short, gentle response (2-3 sentences) explaining what grammar 
         feedback = ollama_response.message.content.strip()
         logger.info(f"[{request_id}] Generated feedback: {feedback[:100]}...")
         
+        feedback = remove_think_tags(feedback)
+
         return feedback
         
     except Exception as e:
@@ -1511,7 +1527,7 @@ Return your response in this JSON format:
         start_time = time.time()
         
         # Make API call to Ollama for evaluation
-        ollama_response = ollama_chat(
+        ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating grammar corrections. You judge answers based on whether the student fixed the main grammar issue, even if their wording differs from the expected answer. You provide constructive, encouraging feedback."},
@@ -1524,8 +1540,9 @@ Return your response in this JSON format:
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         
-        # Parse the JSON response
+        # Parse the JSON response and remove think tags from feedback
         evaluation_result = json.loads(ollama_response.message.content)
+        evaluation_result = remove_think_tags(evaluation_result)
         
         # Validate the required fields are present
         if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
@@ -1610,7 +1627,7 @@ Return your response in this JSON format:
         start_time = time.time()
         
         # Make API call to Ollama for evaluation
-        ollama_response = ollama_chat(
+        ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
             messages=[
                 {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating reading comprehension answers. You judge answers based on understanding rather than exact wording. You provide constructive, encouraging feedback."},
@@ -1625,7 +1642,7 @@ Return your response in this JSON format:
         
         # Parse the JSON response
         evaluation_result = json.loads(ollama_response.message.content)
-        
+        evaluation_result = remove_think_tags(evaluation_result)
         # Validate the required fields are present
         if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
             logger.error(f"[{request_id}] Missing required fields in evaluation result")
