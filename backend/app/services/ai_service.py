@@ -903,13 +903,14 @@ Your responses MUST be in valid JSON format with the following fields:
 
 Example format:
 {
-  "question": "What is 2 + 2?",
+  "question": "What is 2 + 2? 🔢",
   "choices": ["3", "4", "5", "6"],
   "answer": "4",
   "type": "multiple-choice"
 }
 
-IMPORTANT: Always include all these fields exactly as shown."""
+IMPORTANT: Always include all these fields exactly as shown.
+IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
 
     if subject == "Math":
         system_message += """
@@ -995,12 +996,13 @@ Your responses MUST be in valid JSON format with the following fields:
 
 Example format:
 {
-  "question": "What is the capital of France?",
+  "question": "What is the capital of France? 🗼",
   "answer": "Paris",
   "type": "direct-answer"
 }
 
-IMPORTANT: Always include all these fields exactly as shown."""
+IMPORTANT: Always include all these fields exactly as shown.
+IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
     
     if sub_activity == "Grammar Correction":
         system_message += """ For Grammar Correction, provide a sentence with a grammatical error that the student needs to correct.
@@ -1062,13 +1064,14 @@ Your responses MUST be in valid JSON format with the following fields:
 Example format:
 {
   "passage": "Sam has a red ball. He likes to play with it in the park.",
-  "question": "What color is Sam's ball?",
+  "question": "What color is Sam's ball? 🔴",
   "choices": ["Red", "Blue", "Green", "Yellow"],
   "answer": "Red",
   "type": "reading-comprehension"
 }
 
-IMPORTANT: Always include all these fields exactly as shown."""
+IMPORTANT: Always include all these fields exactly as shown.
+IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
     
     try:
         # Make API call
