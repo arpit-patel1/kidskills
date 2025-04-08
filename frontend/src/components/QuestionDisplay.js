@@ -156,6 +156,7 @@ const QuestionDisplay = ({
         <LoadingAnimation 
           subject={getAnimationSubject()}
           isVisible={loadingNextQuestion} 
+          previousQuestion={question}
         />
         
         <div className="score-progress-container">

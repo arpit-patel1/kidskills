@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 // Themed loading animations based on subject
-const LoadingAnimation = ({ subject, isVisible }) => {
+const LoadingAnimation = ({ subject, isVisible, previousQuestion = null }) => {
   const [animationKey, setAnimationKey] = useState(0);
   
   // Randomly select a different animation each time it's shown
@@ -18,7 +18,7 @@ const LoadingAnimation = ({ subject, isVisible }) => {
     if (subject === 'Math') {
       return mathAnimations[animationKey];
     } else if (subject === 'English') {
-      return englishAnimations[animationKey];
+      return englishAnimations(previousQuestion)[animationKey];
     } else if (subject === 'Mario') {
       return marioAnimations[animationKey];
     } else {
@@ -89,8 +89,8 @@ const mathAnimations = [
   </div>
 ];
 
-// English animations
-const englishAnimations = [
+// English animations - converted to a function to accept previousQuestion
+const englishAnimations = (previousQuestion) => [
   // Animation 1: Floating letters
   <div key="english-1" className="english-animation letters-float">
     {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((letter, i) => (
@@ -126,14 +126,50 @@ const englishAnimations = [
     </div>
   </div>,
   
-  // Animation 3: Sentence building
+  // Animation 3: Sentence building - uses words from the previous question if available
   <div key="english-3" className="english-animation sentence-build">
-    <div className="word" style={{ animationDelay: "0s" }}>The</div>
-    <div className="word" style={{ animationDelay: "0.5s" }}>quick</div>
-    <div className="word" style={{ animationDelay: "1s" }}>fox</div>
-    <div className="word" style={{ animationDelay: "1.5s" }}>jumps...</div>
+    {getAnimationWords(previousQuestion).map((word, i) => (
+      <div 
+        key={i} 
+        className="word" 
+        style={{ 
+          animationDelay: `${i * 0.3}s`,
+          backgroundColor: ['#ADD8E6', '#FFB6C1', '#B0E0E6', '#FFFFE0', '#E6E6FA', '#FFDAB9', '#E0FFFF', '#FFE4E1', '#F0FFF0', '#FFF0F5'][i % 10]
+        }}
+      >
+        {word}
+      </div>
+    ))}
   </div>
 ];
+
+// Helper function to extract words from the previous question
+const getAnimationWords = (question) => {
+  if (!question || !question.question) {
+    // Fallback to default sentence
+    return ["The", "quick", "fox", "jumps...", "over", "the", "lazy", "dog", "in", "style"];
+  }
+
+  // Split the question into words and filter out punctuation
+  const words = question.question
+    .split(/\s+/)
+    .filter(word => word.length > 0)
+    .map(word => word.replace(/[.,?!;:()]/g, ''));
+  
+  // Take up to 10 significant words (longer than 2 characters)
+  const significantWords = words.filter(word => word.length > 2).slice(0, 10);
+  
+  // If we don't have enough significant words, use what we have
+  // and fill remaining slots with words from the start of the question
+  if (significantWords.length < 10 && words.length > significantWords.length) {
+    const additionalWords = words
+      .filter(word => !significantWords.includes(word))
+      .slice(0, 10 - significantWords.length);
+    return [...significantWords, ...additionalWords];
+  }
+  
+  return significantWords.length >= 2 ? significantWords : words.slice(0, 10);
+};
 
 // Mario animations
 const marioAnimations = [

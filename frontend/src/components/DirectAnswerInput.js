@@ -300,6 +300,7 @@ const DirectAnswerInput = ({
       <LoadingAnimation 
         subject={getAnimationSubject()}
         isVisible={loadingNextQuestion} 
+        previousQuestion={question}
       />
       
       <div style={{ position: 'relative' }}>
