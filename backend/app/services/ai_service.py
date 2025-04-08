@@ -287,6 +287,20 @@ FALLBACK_QUESTIONS = {
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
+                    "question": "Which word means the same as 'happy'?",
+                    "choices": ["sad", "glad", "mad", "bad"],
+                    "answer": "glad",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'big'?",
+                    "choices": ["small", "tiny", "large", "short"],
+                    "answer": "large",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
                     "passage": "Tom has a red ball. He likes to play with it in the park. The ball is round and bouncy.",
                     "question": "What color is Tom's ball?",
                     "choices": ["blue", "green", "red", "yellow"],
@@ -304,13 +318,6 @@ FALLBACK_QUESTIONS = {
             ],
             "Medium": [
                 {
-                    "question": "Which word is a noun?",
-                    "choices": ["run", "happy", "book", "fast"],
-                    "answer": "book",
-                    "type": "multiple-choice",
-                    "sub_activity": "Nouns/Pronouns"
-                },
-                {
                     "question": "Which word means the opposite of 'happy'?",
                     "choices": ["sad", "glad", "mad", "bad"],
                     "answer": "sad",
@@ -318,36 +325,111 @@ FALLBACK_QUESTIONS = {
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "passage": "Sarah went to the store. She bought apples and oranges. She wanted to make a fruit salad for her friends.",
-                    "question": "Why did Sarah buy fruit?",
-                    "choices": ["To eat alone", "To make a fruit salad", "To give away", "To plant trees"],
-                    "answer": "To make a fruit salad",
-                    "type": "reading-comprehension",
-                    "sub_activity": "Reading Comprehension"
-                }
-            ],
-            "Hard": [
+                    "question": "Which word means the same as 'small'?",
+                    "choices": ["big", "large", "huge", "tiny"],
+                    "answer": "tiny",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
                 {
-                    "question": "Complete the sentence: 'She ____ to the store yesterday.'",
-                    "choices": ["go", "goes", "going", "went"],
-                    "answer": "went",
+                    "question": "Which word means the same as 'quick'?",
+                    "choices": ["slow", "fast", "quiet", "loud"],
+                    "answer": "fast",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
                     "type": "multiple-choice",
                     "sub_activity": "Nouns/Pronouns"
                 },
                 {
-                    "question": "Which word means the opposite of 'ancient'?",
-                    "choices": ["old", "antique", "modern", "historic"],
-                    "answer": "modern",
+                    "question": "Which word means the opposite of 'sad'?",
+                    "choices": ["happy", "glad", "mad", "bad"],
+                    "answer": "happy",
                     "type": "multiple-choice",
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "passage": "Lisa had a problem. Her bike was broken and she needed to get to school. She decided to ask her neighbor for help. Her neighbor drove her to school in his car.",
-                    "question": "How did Lisa get to school?",
-                    "choices": ["She walked", "She rode her bike", "She took the bus", "She rode in a car"],
-                    "answer": "She rode in a car",
-                    "type": "reading-comprehension",
-                    "sub_activity": "Reading Comprehension"
+                    "question": "Which word means the same as 'big'?",
+                    "choices": ["small", "tiny", "large", "short"],
+                    "answer": "large",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'quick'?",
+                    "choices": ["slow", "fast", "quiet", "loud"],
+                    "answer": "fast",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
+                }
+            ],
+            "Hard": [
+                {
+                    "question": "Which word means the opposite of 'beautiful'?",
+                    "choices": ["pretty", "lovely", "ugly", "nice"],
+                    "answer": "ugly",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
+                },
+                {
+                    "question": "Which word means the same as 'begin'?",
+                    "choices": ["end", "finish", "stop", "start"],
+                    "answer": "start",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'cold'?",
+                    "choices": ["hot", "warm", "chilly", "cool"],
+                    "answer": "chilly",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
+                },
+                {
+                    "question": "Which word means the opposite of 'sad'?",
+                    "choices": ["happy", "glad", "mad", "bad"],
+                    "answer": "happy",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
+                },
+                {
+                    "question": "Which word means the same as 'big'?",
+                    "choices": ["small", "tiny", "large", "short"],
+                    "answer": "large",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'quick'?",
+                    "choices": ["slow", "fast", "quiet", "loud"],
+                    "answer": "fast",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 }
             ],
             "Mushroom Kingdom Vocabulary": {
@@ -597,6 +679,20 @@ FALLBACK_QUESTIONS = {
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
+                    "question": "Which word means the same as 'little'?",
+                    "choices": ["big", "small", "tall", "wide"],
+                    "answer": "small",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'fast'?",
+                    "choices": ["slow", "quick", "lazy", "tired"],
+                    "answer": "quick",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
                     "question": "Which word is a pronoun in the sentence: 'She went to the store.'?",
                     "choices": ["She", "went", "to", "store"],
                     "answer": "She",
@@ -621,19 +717,53 @@ FALLBACK_QUESTIONS = {
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "Which word is a possessive pronoun?",
-                    "choices": ["they", "them", "their", "those"],
-                    "answer": "their",
+                    "question": "Which word means the same as 'beautiful'?",
+                    "choices": ["ugly", "pretty", "messy", "dirty"],
+                    "answer": "pretty",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'happy'?",
+                    "choices": ["sad", "angry", "joyful", "upset"],
+                    "answer": "joyful",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
                     "type": "multiple-choice",
                     "sub_activity": "Nouns/Pronouns"
                 },
                 {
-                    "passage": "Lily planted a garden. She planted carrots, tomatoes, and peppers. After six weeks, she was able to pick some vegetables for dinner.",
-                    "question": "How long did it take before Lily could pick vegetables?",
-                    "choices": ["two weeks", "four weeks", "six weeks", "eight weeks"],
-                    "answer": "six weeks",
-                    "type": "reading-comprehension",
-                    "sub_activity": "Reading Comprehension"
+                    "question": "Which word means the opposite of 'sad'?",
+                    "choices": ["happy", "glad", "mad", "bad"],
+                    "answer": "happy",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
+                },
+                {
+                    "question": "Which word means the same as 'big'?",
+                    "choices": ["small", "tiny", "large", "short"],
+                    "answer": "large",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'quick'?",
+                    "choices": ["slow", "fast", "quiet", "loud"],
+                    "answer": "fast",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 }
             ],
             "Hard": [
@@ -645,19 +775,53 @@ FALLBACK_QUESTIONS = {
                     "sub_activity": "Opposites/Antonyms"
                 },
                 {
-                    "question": "Choose the correct pronoun: '___ are going to the museum tomorrow.'",
-                    "choices": ["I", "He", "She", "We"],
-                    "answer": "We",
+                    "question": "Which word means the same as 'difficult'?",
+                    "choices": ["easy", "simple", "challenging", "fun"],
+                    "answer": "challenging",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'brave'?",
+                    "choices": ["scared", "timid", "afraid", "courageous"],
+                    "answer": "courageous",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
                     "type": "multiple-choice",
                     "sub_activity": "Nouns/Pronouns"
                 },
                 {
-                    "passage": "The science fair was on Friday. Jake worked on his project all week. He built a model of the solar system. Jake won first prize for his excellent work.",
-                    "question": "What did Jake build for the science fair?",
-                    "choices": ["a robot", "a model of the solar system", "a volcano", "a plant experiment"],
-                    "answer": "a model of the solar system",
-                    "type": "reading-comprehension",
-                    "sub_activity": "Reading Comprehension"
+                    "question": "Which word means the opposite of 'sad'?",
+                    "choices": ["happy", "glad", "mad", "bad"],
+                    "answer": "happy",
+                    "type": "multiple-choice",
+                    "sub_activity": "Opposites/Antonyms"
+                },
+                {
+                    "question": "Which word means the same as 'big'?",
+                    "choices": ["small", "tiny", "large", "short"],
+                    "answer": "large",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word means the same as 'quick'?",
+                    "choices": ["slow", "fast", "quiet", "loud"],
+                    "answer": "fast",
+                    "type": "multiple-choice",
+                    "sub_activity": "Synonyms"
+                },
+                {
+                    "question": "Which word is a noun?",
+                    "choices": ["run", "happy", "book", "fast"],
+                    "answer": "book",
+                    "type": "multiple-choice",
+                    "sub_activity": "Nouns/Pronouns"
                 }
             ],
             "Mushroom Kingdom Vocabulary": {
@@ -947,6 +1111,9 @@ Remember: Every question must be complete and solvable with the information prov
 
     if subject == "English" and sub_activity == "Opposites/Antonyms":
         system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
+    
+    if subject == "English" and sub_activity == "Synonyms":
+        system_message += " When asked to use a specific word in a question about synonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
     
     try:
         # Make API call
@@ -1447,6 +1614,52 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             
             return prompt
         
+        elif sub_activity == "Synonyms":
+            # Get random elements for variety
+            target_words = [word for word in ENGLISH_ADJECTIVES if word != "big"]  # Exclude 'big' to avoid repetition
+            target_word = random.choice(target_words)
+            random_seed = getRandomSeed()
+            prompt_templates = [
+                f"What is another word for '{target_word}'?",
+                f"Which word means the same as '{target_word}'?",
+                f"Select the word that has the same meaning as '{target_word}'.",
+                f"Choose the synonym for '{target_word}'.",
+                f"Which of these words is most similar in meaning to '{target_word}'?"
+            ]
+            prompt_template = random.choice(prompt_templates)
+            
+            if grade <= 2:  # Grade 1-2
+                prompt = f"""
+                Generate a {difficulty.lower()} {grade}-grade level English question about synonyms or similar words.
+                
+                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+                
+                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+                DO NOT use the word 'big' in your question - this word has been overused.
+                
+                Use this random seed for variety: {random_seed}
+                
+                The question should ask for a word with the same meaning as a simple word appropriate for this grade level.
+                """
+            else:  # Grade 3+
+                prompt = f"""
+                Generate a {difficulty.lower()} {grade}-grade level English question about synonyms or similar words.
+                
+                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+                
+                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+                DO NOT use the word 'big' in your question - this word has been overused.
+                
+                Use this random seed for variety: {random_seed}
+                
+                The question should ask for a word with the same meaning as a word appropriate for this grade level.
+                """
+            
+            # Log the enhanced prompt details
+            logger.info(f"Synonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
+            
+            return prompt
+        
         elif sub_activity == "Reading Comprehension":
             # Select random elements to create varied passages
             topic = random.choice(READING_TOPICS)
@@ -1598,7 +1811,8 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
         
         else:
             # Default english prompt if sub_activity is not recognized
-            return construct_prompt(grade, subject, "Opposites/Antonyms", difficulty, question_type)
+            # Don't override the sub_activity with Opposites/Antonyms - use the requested one
+            return prompt
     
     # Add the standard format instructions for the chosen question type
     if question_type == "multiple-choice":

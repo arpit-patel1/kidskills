@@ -1,10 +1,7 @@
 import React, { useMemo } from 'react';
+import { SUB_ACTIVITIES } from '../constants';
 
-// Define mapping of subjects to sub-activities
-const SUB_ACTIVITIES = {
-  Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems', 'Mushroom Kingdom Calculations'],
-  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction', 'Mushroom Kingdom Vocabulary']
-};
+// No need to define SUB_ACTIVITIES here anymore as we're importing it
 
 const GameSettings = ({ settings, onUpdateSettings }) => {
   const handleSubjectChange = (e) => {

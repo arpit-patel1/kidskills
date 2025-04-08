@@ -1,24 +1,13 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
+import { SUB_ACTIVITIES, getDefaultSubActivity } from '../constants';
 
 export const QUESTIONS_PER_GAME = 100;
 
-// Define mapping of subjects to sub-activities
-const SUB_ACTIVITIES = {
-  Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems', 'Mushroom Kingdom Calculations'],
-  English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction', 'Mushroom Kingdom Vocabulary']
-};
-
-// Get default sub-activity for a subject
-const getDefaultSubActivity = (subject) => {
-  const subjectKey = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
-  return SUB_ACTIVITIES[subjectKey]?.[0] || 'Addition/Subtraction';
-};
-
-const useGameState = () => {
+const useGameState = (initialPlayer = null) => {
   // Player state
   const [players, setPlayers] = useState([]);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(initialPlayer);
   
   // Game settings
   const [settings, setSettings] = useState({

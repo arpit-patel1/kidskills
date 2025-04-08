@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SUB_ACTIVITIES } from '../constants';
 
 const GameSelectorDropdown = ({ 
   selectedPlayer,
@@ -56,12 +57,6 @@ const GameSelectorDropdown = ({
     onStartGame(tempSettings);
     // Always keep dropdown open when starting a game to show the loading state
     // The dropdown will close when the question loads in the useEffect
-  };
-  
-  // Subject to sub-activity mapping
-  const subActivities = {
-    Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems', 'Mushroom Kingdom Calculations'],
-    English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction', 'Mushroom Kingdom Vocabulary']
   };
   
   return (
@@ -139,7 +134,7 @@ const GameSelectorDropdown = ({
                     onChange={handleSettingChange}
                     disabled={startGameLoading}
                   >
-                    {subActivities[tempSettings.subject]?.map(activity => (
+                    {SUB_ACTIVITIES[tempSettings.subject]?.map(activity => (
                       <option key={activity} value={activity}>{activity}</option>
                     ))}
                   </select>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PlayerSelection from './PlayerSelection';
 import GameSettings from './GameSettings';
+import { SUB_ACTIVITIES } from '../constants';
 
 const Sidebar = ({ 
   players, 
@@ -25,21 +26,8 @@ const Sidebar = ({
   
   // Update sub-activities when subject changes
   useEffect(() => {
-    if (settings.subject === 'Math') {
-      setSubActivities([
-        'Addition/Subtraction',
-        'Multiplication/Division',
-        'Word Problems',
-        'Mushroom Kingdom Calculations'
-      ]);
-    } else if (settings.subject === 'English') {
-      setSubActivities([
-        'Opposites/Antonyms',
-        'Reading Comprehension',
-        'Nouns/Pronouns',
-        'Grammar Correction',
-        'Mushroom Kingdom Vocabulary'
-      ]);
+    if (settings.subject in SUB_ACTIVITIES) {
+      setSubActivities(SUB_ACTIVITIES[settings.subject]);
     }
     
     // Update sub-activity to first option when subject changes
