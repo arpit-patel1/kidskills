@@ -225,7 +225,7 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
+IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter of the question."""
 
     if subject == "Math":
         system_message += """
@@ -320,7 +320,7 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
+IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter of the question."""
     
     if sub_activity == "Grammar Correction":
         system_message += """ For Grammar Correction, provide a sentence with a grammatical error that the student needs to correct.
@@ -381,7 +381,7 @@ Your responses MUST be in valid JSON format with the following fields:
 
 Example format:
 {
-  "passage": "Sam has a red ball. He likes to play with it in the park.",
+  "passage": "Sam has a red ball. 🔴 He likes to play with it in the park. 🌳 The ball bounces high when he throws it. ⬆️",
   "question": "What color is Sam's ball? 🔴",
   "choices": ["Red", "Blue", "Green", "Yellow"],
   "answer": "Red",
@@ -389,7 +389,8 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Choose emojis that relate to the subject matter of the question."""
+IMPORTANT: Always add appropriate emojis throughout the passage text to make it more engaging and visually interesting for children. Emojis can be placed in the middle or at the end of sentences.
+IMPORTANT: Also add appropriate emojis to the question text to make it more engaging. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter."""
     
     try:
         # Make API call
