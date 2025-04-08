@@ -185,24 +185,50 @@ export const getGrammarFeedback = async (question, userAnswer, correctAnswer, is
 };
 
 // Evaluate grammar correction answer using AI
-export const evaluateGrammarCorrection = async (question, userAnswer, correctAnswer) => {
+export const evaluateGrammarCorrection = async (question, userAnswer, correctAnswer, playerId) => {
   try {
     console.log("Evaluating grammar correction answer:", {
       question,
       user_answer: userAnswer,
-      correct_answer: correctAnswer
+      correct_answer: correctAnswer,
+      player_id: playerId
     });
     
-    const response = await api.post('/grammar/evaluate', {
+    const startTime = Date.now();
+    
+    // Create request payload 
+    const payload = {
       question,
       user_answer: userAnswer,
       correct_answer: correctAnswer
-    });
+    };
     
+    // Only add player_id if it's not null or undefined
+    if (playerId !== null && playerId !== undefined) {
+      payload.player_id = playerId;
+    }
+    
+    console.log("Sending request payload:", payload);
+    
+    // Add artificial delay of 1 second to make loading more visible
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const response = await api.post('/grammar/evaluate', payload);
+    
+    const duration = Date.now() - startTime;
+    console.log(`Grammar correction evaluation completed in ${duration}ms`);
     console.log("Grammar correction evaluation response:", response.data);
     return response.data;
   } catch (error) {
     console.error("Error evaluating grammar correction:", error);
+    console.error("Error response:", error.response ? error.response.data : "No response data");
+    console.error("Request details:", {
+      question,
+      user_answer: userAnswer,
+      correct_answer: correctAnswer,
+      player_id: playerId
+    });
+    
     // Provide fallback evaluation - simple string comparison
     const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
     return {

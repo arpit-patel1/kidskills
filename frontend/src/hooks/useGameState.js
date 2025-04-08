@@ -145,6 +145,9 @@ const useGameState = (initialPlayer = null) => {
         questionSubActivity: question.sub_activity
       });
       
+      // Add player_id to the question object for later use
+      question.player_id = selectedPlayer.id;
+      
       // Set current question after everything else is cleared
       setCurrentQuestion(question);
       
@@ -305,6 +308,9 @@ const useGameState = (initialPlayer = null) => {
           settings.sub_activity,
           settings.difficulty
         );
+        
+        // Add player_id to the question object for later use
+        newQuestion.player_id = selectedPlayer.id;
         
         // Set the new question after state is cleared
         setCurrentQuestion(newQuestion);

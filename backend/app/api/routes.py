@@ -86,6 +86,13 @@ async def submit_answer(
     """Submit an answer to a challenge."""
     print(f"Received answer submission: {request}")
     
+    # Get player information
+    player = db.query(Player).filter(Player.id == request.player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player with ID {request.player_id} not found")
+    
+    player_name = player.name
+    
     # Get the question details - in a real implementation, would fetch from the database
     question_data = ACTIVE_QUESTIONS.get(f"player_{request.player_id}_{request.question_id}")
     if not question_data:
@@ -126,19 +133,18 @@ async def submit_answer(
             evaluation_result = await evaluate_grammar_correction(
                 question=question_data.get("question", ""),
                 user_answer=user_answer,
-                correct_answer=correct_answer
+                correct_answer=correct_answer,
+                player_name=player_name
             )
             
             # Get the evaluation result
             is_correct = evaluation_result.get('is_correct', False)
+            ai_feedback = evaluation_result.get('feedback', '')
             
             # Set feedback based on AI evaluation
-            if is_correct:
-                feedback = "Correct! 🎉"
-            else:
-                feedback = f"Oops! The correct sentence is: {correct_answer}"
+            feedback = ai_feedback
                 
-            print(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {evaluation_result.get('feedback', '')}")
+            print(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {ai_feedback}")
         except Exception as e:
             print(f"Error during AI evaluation, falling back to string comparison: {str(e)}")
             # Fall back to string comparison if AI evaluation fails
@@ -148,9 +154,9 @@ async def submit_answer(
             
             # Create feedback message
             if is_correct:
-                feedback = "Correct! 🎉"
+                feedback = f"Great job, {player_name}! You corrected the sentence perfectly."
             else:
-                feedback = f"Oops! The correct sentence is: {correct_answer}"
+                feedback = f"Good try, {player_name}! Check your answer again for grammar errors."
     
     # For reading comprehension, use AI evaluation
     elif is_reading_comprehension:
@@ -309,27 +315,63 @@ async def get_grammar_feedback(request: GrammarFeedbackRequest):
 async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluationRequest):
     """Evaluate a grammar correction answer using AI."""
     try:
+        print(f"Grammar correction evaluation request received: {request}")
+        
+        # Get player name if player_id is provided
+        player_name = "student"
+        if hasattr(request, "player_id") and request.player_id is not None:
+            try:
+                print(f"Player ID found in request: {request.player_id}")
+                # Get the database session
+                db = next(get_db())
+                player = db.query(Player).filter(Player.id == request.player_id).first()
+                if player:
+                    player_name = player.name
+                    print(f"Found player name: {player_name}")
+                else:
+                    print(f"No player found with ID: {request.player_id}")
+            except Exception as e:
+                print(f"Error getting player name from DB: {str(e)}")
+        else:
+            print("No player_id in request or player_id is None")
+        
         # Generate evaluation using Ollama
         result = await evaluate_grammar_correction(
             question=request.question,
             user_answer=request.user_answer,
-            correct_answer=request.correct_answer
+            correct_answer=request.correct_answer,
+            player_name=player_name
         )
         
+        print(f"Grammar evaluation result: {result}")
         return result
     except Exception as e:
-        print(f"Error evaluating grammar correction: {str(e)}")
+        print(f"Error in grammar evaluation route: {str(e)}")
         # Provide fallback evaluation
         user_lower = request.user_answer.lower().strip()
         correct_lower = request.correct_answer.lower().strip()
         is_correct = user_lower == correct_lower
         
-        if is_correct:
-            feedback = "Great job! You fixed the grammar error correctly."
-        else:
-            feedback = "Good try! Check the sentence structure again."
+        # Use the enhanced fallback evaluation with varied feedback
+        player_name = "student"  # Default fallback
+        try:
+            if hasattr(request, "player_id") and request.player_id:
+                db = next(get_db())
+                player = db.query(Player).filter(Player.id == request.player_id).first()
+                if player:
+                    player_name = player.name
+        except Exception:
+            pass  # Silently continue with default player_name if error occurs
             
-        return {"is_correct": is_correct, "feedback": feedback}
+        fallback = get_fallback_grammar_evaluation(
+            question=request.question,
+            user_answer=request.user_answer,
+            correct_answer=request.correct_answer,
+            player_name=player_name
+        )
+        
+        print(f"Using fallback evaluation: {fallback}")
+        return fallback
 
 @router.post("/reading/evaluate", response_model=ReadingComprehensionEvaluationResponse)
 async def evaluate_reading_comprehension_route(request: ReadingComprehensionEvaluationRequest):

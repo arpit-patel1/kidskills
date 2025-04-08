@@ -1217,7 +1217,7 @@ def getRandomSeed() -> int:
     """Generate a random seed for AI prompts to increase variety."""
     return random.randint(1000, 9999)
 
-async def evaluate_grammar_correction(question: str, user_answer: str, correct_answer: str) -> dict:
+async def evaluate_grammar_correction(question: str, user_answer: str, correct_answer: str, player_name: str = "student") -> dict:
     """
     Evaluate a grammar correction answer using Ollama API and provide detailed feedback.
     
@@ -1225,6 +1225,7 @@ async def evaluate_grammar_correction(question: str, user_answer: str, correct_a
         question: The original question (incorrect sentence)
         user_answer: The student's corrected answer
         correct_answer: The expected correct answer
+        player_name: The name of the player to address in the feedback
         
     Returns:
         Dictionary with is_correct (bool) and feedback (str)
@@ -1245,6 +1246,9 @@ EXPECTED CORRECT ANSWER:
 STUDENT'S ANSWER:
 {user_answer}
 
+STUDENT'S NAME:
+{player_name}
+
 First, determine if the student's answer is essentially correct. Consider:
 1. Did they fix the primary grammar issue(s)?
 2. Is their sentence grammatically correct, even if worded differently than the expected answer?
@@ -1253,11 +1257,18 @@ First, determine if the student's answer is essentially correct. Consider:
 Be somewhat lenient - if they fixed the main grammar issue but made a minor spelling mistake, still consider it correct.
 
 Then provide brief, encouraging feedback (2-3 sentences) appropriate for an elementary school student.
+IMPORTANT: Your feedback should:
+- Address the student by their name ({player_name})
+- Avoid overused phrases like "fantastic work" or "great job" at the beginning of every response
+- Be specific about what grammar rule was applied correctly/incorrectly
+- Vary your tone, word choice, and sentence structure
+- Use age-appropriate language but don't oversimplify
+- Sometimes ask a follow-up question to encourage further learning
 
 Return your response in this JSON format:
 {{
   "is_correct": true/false,
-  "feedback": "Your feedback here"
+  "feedback": "Your varied, personalized feedback here"
 }}
 """
     
@@ -1269,7 +1280,18 @@ Return your response in this JSON format:
         ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
             messages=[
-                {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating grammar corrections. You judge answers based on whether the student fixed the main grammar issue, even if their wording differs from the expected answer. You provide constructive, encouraging feedback."},
+                {"role": "system", "content": f"""You are a thoughtful, creative elementary school teacher evaluating grammar corrections. 
+You assess whether students fixed the main grammar issue, even if their wording differs from the expected answer.
+
+When providing feedback:
+1. Address the student by name ({player_name})
+2. Use varied openings and expressions (avoid repetitive phrases like "Great job!" or "That's fantastic work!")
+3. Be specific about the grammar rule that was applied or missed
+4. Vary your feedback style - sometimes be encouraging, sometimes curious, sometimes explanatory
+5. Occasionally include a simple grammar tip or a brief follow-up question
+6. Never address the student by names mentioned in the question text.
+
+Your feedback should sound natural and personalized, not formulaic."""},
                 {"role": "user", "content": prompt}
             ],
             format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}}
@@ -1281,12 +1303,20 @@ Return your response in this JSON format:
         
         # Parse the JSON response and remove think tags from feedback
         evaluation_result = json.loads(ollama_response.message.content)
-        evaluation_result = remove_think_tags(evaluation_result)
+        
+        # If evaluation_result is already a dict, use it directly
+        if isinstance(evaluation_result, dict):
+            # Remove think tags if any
+            if "feedback" in evaluation_result and isinstance(evaluation_result["feedback"], str):
+                evaluation_result["feedback"] = remove_think_tags(evaluation_result["feedback"])
+        else:
+            # Convert to dict if needed and remove think tags
+            evaluation_result = remove_think_tags(evaluation_result)
         
         # Validate the required fields are present
         if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
             logger.error(f"[{request_id}] Missing required fields in evaluation result")
-            return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+            return get_fallback_grammar_evaluation(question, user_answer, correct_answer, player_name)
         
         # Convert is_correct to boolean if it's a string
         if isinstance(evaluation_result["is_correct"], str):
@@ -1298,9 +1328,9 @@ Return your response in this JSON format:
             
     except Exception as e:
         logger.error(f"[{request_id}] Error evaluating grammar correction: {str(e)}")
-        return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
+        return get_fallback_grammar_evaluation(question, user_answer, correct_answer, player_name)
 
-def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_answer: str) -> dict:
+def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_answer: str, player_name: str = "student") -> dict:
     """Get fallback evaluation when the API fails."""
     # Simple string similarity to determine correctness as fallback
     user_lower = user_answer.lower().strip()
@@ -1309,10 +1339,27 @@ def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_ans
     # Very basic fallback evaluation - same as current system
     is_correct = user_lower == correct_lower
     
+    # More varied feedback options
+    correct_feedback_options = [
+        f"I like how you fixed that sentence, {player_name}! You identified the grammar error correctly.",
+        f"Nice work on the grammar correction, {player_name}! You spotted the error and fixed it well.",
+        f"{player_name}, you've got a good eye for grammar! Your correction makes the sentence much clearer.",
+        f"The sentence looks much better now, {player_name}. You fixed the grammar problem perfectly.",
+        f"You found the grammar mistake, {player_name}! Your correction makes the sentence grammatically correct."
+    ]
+    
+    incorrect_feedback_options = [
+        f"I see what you tried to do, {player_name}. Check the sentence again and look for grammar errors.",
+        f"{player_name}, you're on the right track! Look at the verb and subject to see if they match properly.",
+        f"Almost there, {player_name}! Read the sentence out loud and see if it sounds right.",
+        f"Try again, {player_name}. Look carefully at how the words work together in the sentence.",
+        f"Keep working on it, {player_name}! Consider whether the sentence uses the correct verb tense."
+    ]
+    
     if is_correct:
-        feedback = "Great job! You fixed the grammar error correctly."
+        feedback = random.choice(correct_feedback_options)
     else:
-        feedback = "Good effort! Take another look at the sentence and check for grammar errors."
+        feedback = random.choice(incorrect_feedback_options)
     
     return {
         "is_correct": is_correct,

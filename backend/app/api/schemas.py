@@ -87,6 +87,7 @@ class GrammarCorrectionEvaluationRequest(BaseModel):
     question: str = Field(..., description="The original question (incorrect sentence)")
     user_answer: str = Field(..., description="The user's answer (corrected sentence)")
     correct_answer: str = Field(..., description="The expected correct answer")
+    player_id: Optional[int] = Field(None, description="Player ID for personalized feedback")
 
 
 class GrammarCorrectionEvaluationResponse(BaseModel):
