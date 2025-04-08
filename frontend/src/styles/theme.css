@@ -299,6 +299,8 @@ h1, h2, h3, h4, h5, h6 {
 .choice-btn:hover:not(:disabled) {
   background-color: #e8f4fa;
   z-index: 2;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .choice-btn:hover:not(:disabled) .choice-letter {
@@ -762,10 +764,6 @@ h1, h2, h3, h4, h5, h6 {
 /* Apply animations to elements */
 .question-text {
   animation: fadeIn 0.5s ease-in;
-}
-
-.choice-btn:hover {
-  animation: pulse 0.5s infinite;
 }
 
 /* Enhanced styles for player selection */
