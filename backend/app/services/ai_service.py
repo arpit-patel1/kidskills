@@ -295,13 +295,13 @@ async def generate_multiple_choice_question(grade: int, subject: str, sub_activi
     
     # Construct prompt specifically for multiple choice
     prompt = construct_prompt(grade, subject, sub_activity, difficulty, "multiple-choice")
-    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
+    logger.info(f"[{request_id}] Constructed prompt: {prompt}")
     
     # Create system message with explicit format requirements
     system_message = """You are an AI that generates educational multiple-choice questions for elementary school students.
 Your responses MUST be in valid JSON format with the following fields:
 1. 'question': The question text
-2. 'choices': An array of 3-4 possible answers
+2. 'choices': An array of EXACTLY 4 possible answers
 3. 'answer': The correct answer (which must be one of the choices)
 4. 'type': Must be exactly "multiple-choice"
 
@@ -314,6 +314,7 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
+IMPORTANT: Always provide EXACTLY 4 choices for the multiple-choice question. No more, no less.
 IMPORTANT: Always add appropriate emojis to the question text to make it more engaging for children. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter of the question."""
 
     if subject == "Math":
@@ -526,6 +527,10 @@ I will be testing your understanding of the difference between synonyms and anto
                 options={"temperature": temperature}
             )
             final_content = ollama_response.message.content
+            
+            # Log the raw response for debugging, especially for English questions
+            if subject == "English":
+                logger.info(f"[{request_id}] Raw API response for {subject} - {sub_activity}: {final_content[:500]}...")
         
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s with {tool_call_count} tool calls")
@@ -538,6 +543,14 @@ I will be testing your understanding of the difference between synonyms and anto
             if "question" not in json_data or "choices" not in json_data or "answer" not in json_data:
                 logger.warning(f"[{request_id}] Incomplete JSON response: {final_content}")
                 return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+            
+            # Log the complete parsed response for debugging
+            logger.info(f"[{request_id}] Parsed JSON response: {json.dumps(json_data, indent=2)}")
+            
+            # Check the number of choices and log it
+            choices = json_data.get("choices", [])
+            logger.info(f"[{request_id}] Number of choices: {len(choices)}")
+            logger.info(f"[{request_id}] Choices: {choices}")
             
             # Ensure type field is set correctly
             json_data["type"] = "multiple-choice"
@@ -568,6 +581,58 @@ I will be testing your understanding of the difference between synonyms and anto
                         logger.info(f"[{request_id}] Created new choices with answer: {choices}")
                     
                     # Update the JSON data
+                    json_data["choices"] = choices
+            
+            # Validation for English activities, especially Mushroom Kingdom Vocabulary
+            if subject == "English":
+                answer = json_data["answer"]
+                choices = json_data["choices"]
+                question = json_data["question"]
+                
+                # Check if the choices appear to be in the question text
+                choice_markers = ["A)", "B)", "C)", "D)", "1)", "2)", "3)", "4)", "a)", "b)", "c)", "d)"]
+                has_choice_markers = any(marker in question for marker in choice_markers)
+                
+                if has_choice_markers:
+                    logger.warning(f"[{request_id}] Choices may be included in question text: {question}")
+                    
+                    # Try to extract just the question part by looking for the first choice marker
+                    for marker in choice_markers:
+                        if marker in question:
+                            # Split at the first marker
+                            parts = question.split(marker, 1)
+                            cleaned_question = parts[0].strip()
+                            logger.info(f"[{request_id}] Cleaned question: {cleaned_question}")
+                            json_data["question"] = cleaned_question
+                            break
+                
+                # Check if the answer is in the choices
+                if answer not in choices:
+                    logger.warning(f"[{request_id}] English question: Answer '{answer}' not in choices {choices}")
+                    
+                    # Add the answer to the choices if it's not there
+                    if len(choices) > 0:
+                        choices[-1] = answer
+                        logger.info(f"[{request_id}] Fixed English choices to include answer: {choices}")
+                    else:
+                        logger.warning(f"[{request_id}] No choices provided for English question")
+                        # Create some basic choices for fallback
+                        choices = ["Option A", "Option B", answer, "Option C"]
+                        logger.info(f"[{request_id}] Created fallback choices: {choices}")
+                    
+                    json_data["choices"] = choices
+                
+                # Ensure we have at least 4 choices for multiple choice questions
+                if len(choices) < 4:
+                    logger.warning(f"[{request_id}] Too few choices ({len(choices)}) for {sub_activity}")
+                    
+                    # Add additional choices to reach 4 if needed
+                    while len(choices) < 4:
+                        new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                        if new_choice not in choices and new_choice != answer:
+                            choices.append(new_choice)
+                            logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+                    
                     json_data["choices"] = choices
             
             # We are removing all synonym validation to rely on better prompt instructions
@@ -640,7 +705,16 @@ Example for Grammar Correction:
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        json_data = json.loads(ollama_response.message.content)
+        
+        # Log the raw response content for debugging
+        content = ollama_response.message.content
+        logger.info(f"[{request_id}] Raw API response for direct-answer ({sub_activity}): {content[:500]}...")
+        
+        json_data = json.loads(content)
+        
+        # Log the parsed response
+        logger.info(f"[{request_id}] Parsed direct-answer response: {json.dumps(json_data, indent=2)}")
+        
         return json_data
         
     except Exception as e:
@@ -665,7 +739,7 @@ async def generate_reading_comprehension_question(grade: int, subject: str, sub_
 Your responses MUST be in valid JSON format with the following fields:
 1. 'passage': A short reading text appropriate for the grade level
 2. 'question': A question about the passage
-3. 'choices': An array of 3-4 possible answers
+3. 'choices': An array of EXACTLY 4 possible answers
 4. 'answer': The correct answer (which must be one of the choices)
 5. 'type': Must be exactly "reading-comprehension"
 
@@ -679,6 +753,7 @@ Example format:
 }
 
 IMPORTANT: Always include all these fields exactly as shown.
+IMPORTANT: Always provide EXACTLY 4 choices for the question. No more, no less.
 IMPORTANT: Always add appropriate emojis throughout the passage text to make it more engaging and visually interesting for children. Emojis can be placed in the middle or at the end of sentences.
 IMPORTANT: Also add appropriate emojis to the question text to make it more engaging. Emojis can be placed anywhere in the question - in the middle or at the end of the text. Choose emojis that relate to the subject matter."""
     
@@ -698,10 +773,84 @@ IMPORTANT: Also add appropriate emojis to the question text to make it more enga
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         api_time = time.time() - start_time
         logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        json_data = json.loads(ollama_response.message.content)
+        
+        # Log the raw response content for debugging
+        content = ollama_response.message.content
+        logger.info(f"[{request_id}] Raw API response for reading comprehension: {content[:500]}...")
+        
+        json_data = json.loads(content)
         
         # Ensure type is set correctly
         json_data["type"] = "reading-comprehension"
+        
+        # Validate and fix the choices
+        choices = json_data.get("choices", [])
+        logger.info(f"[{request_id}] Reading comprehension - Number of choices: {len(choices)}")
+        logger.info(f"[{request_id}] Reading comprehension - Choices: {choices}")
+        
+        # Check if choices are in the question text
+        question = json_data.get("question", "")
+        choice_markers = ["A)", "B)", "C)", "D)", "1)", "2)", "3)", "4)", "a)", "b)", "c)", "d)"]
+        has_choice_markers = any(marker in question for marker in choice_markers)
+        
+        if has_choice_markers:
+            logger.warning(f"[{request_id}] Reading comprehension - Choices may be included in question text: {question}")
+            
+            # Try to extract just the question part by looking for the first choice marker
+            for marker in choice_markers:
+                if marker in question:
+                    # Split at the first marker
+                    parts = question.split(marker, 1)
+                    cleaned_question = parts[0].strip()
+                    logger.info(f"[{request_id}] Reading comprehension - Cleaned question: {cleaned_question}")
+                    json_data["question"] = cleaned_question
+                    break
+        
+        # Check if the answer is in the choices
+        answer = json_data.get("answer", "")
+        if answer and answer not in choices:
+            logger.warning(f"[{request_id}] Reading comprehension - Answer '{answer}' not in choices {choices}")
+            
+            # Add the answer to the choices if not already present
+            if len(choices) > 0:
+                choices[-1] = answer
+                logger.info(f"[{request_id}] Fixed reading comprehension choices to include answer: {choices}")
+            else:
+                logger.warning(f"[{request_id}] No choices provided for reading comprehension question")
+                choices = ["Option A", "Option B", answer, "Option C"]
+                logger.info(f"[{request_id}] Created fallback choices: {choices}")
+            
+            json_data["choices"] = choices
+        
+        # Ensure we have exactly 4 choices
+        if len(choices) < 4:
+            logger.warning(f"[{request_id}] Too few choices ({len(choices)}) for reading comprehension")
+            
+            # Add additional choices to reach 4
+            while len(choices) < 4:
+                new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                if new_choice not in choices and new_choice != answer:
+                    choices.append(new_choice)
+                    logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+            
+            json_data["choices"] = choices
+        elif len(choices) > 4:
+            logger.warning(f"[{request_id}] Too many choices ({len(choices)}) for reading comprehension")
+            
+            # Keep the first 3 choices plus the correct answer
+            if answer in choices:
+                # Remove the answer temporarily
+                choices.remove(answer)
+                # Keep only the first 3 other choices
+                choices = choices[:3]
+                # Add the answer back
+                choices.append(answer)
+            else:
+                # Just keep the first 4 choices
+                choices = choices[:4]
+            
+            logger.info(f"[{request_id}] Reduced choices to: {choices}")
+            json_data["choices"] = choices
         
         # Add metadata
         json_data["sub_activity"] = sub_activity
@@ -844,7 +993,11 @@ def construct_mario_english_prompt(grade: int, difficulty: str) -> str:
     
     The vocabulary should be appropriate for grade {grade} students.
     
-    The correct answer must be one of the multiple choice options.
+    IMPORTANT REQUIREMENTS:
+    - The correct answer must be one of the multiple choice options
+    - You MUST provide EXACTLY 4 choices in your answer
+    - The question and choices should be clearly separate (don't include choices as part of the question text)
+    - Make sure all 4 choices are realistic and appropriate for the grade level
     """
     
     return prompt
@@ -1098,6 +1251,12 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 Use this random seed for variety: {random_seed}
                 
                 The question should ask for the opposite of a simple word appropriate for this grade level.
+                
+                IMPORTANT REQUIREMENTS:
+                - Provide EXACTLY 4 multiple choice options (no more, no less)
+                - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
+                - Make all choices grade-appropriate
+                - Keep the choices separate from the question text
                 """
             else:  # Grade 3+
                 prompt = f"""
@@ -1111,6 +1270,12 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 Use this random seed for variety: {random_seed}
                 
                 The question should ask for the opposite of a word appropriate for this grade level.
+                
+                IMPORTANT REQUIREMENTS:
+                - Provide EXACTLY 4 multiple choice options (no more, no less)
+                - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
+                - Make all choices grade-appropriate
+                - Keep the choices separate from the question text
                 """
             
             # Log the enhanced prompt details
@@ -1149,7 +1314,7 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 
                 Follow these steps carefully:
                 1. Create a question asking for a synonym of '{target_word}'
-                2. Generate 3-4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+                2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
                 3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
                 4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
                 5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
@@ -1181,7 +1346,7 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 
                 Follow these steps carefully:
                 1. Create a question asking for a synonym of '{target_word}'
-                2. Generate 3-4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+                2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
                 3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
                 4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
                 5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
@@ -1255,6 +1420,12 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             - Vary between descriptive, narrative, or informative styles
             
             Your question should be thoughtful and require students to really understand the passage.
+            
+            IMPORTANT REQUIREMENTS:
+            - Provide EXACTLY 4 multiple choice options (no more, no less)
+            - Ensure the correct answer is one of the 4 choices
+            - Make all choices reasonable so the answer isn't too obvious
+            - Keep the choices separate from the question text
             
             Return as a JSON object with 'passage', 'question', 'choices' (array of 4 options), and 'answer' (correct choice).
             """

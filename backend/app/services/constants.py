@@ -32,7 +32,8 @@ NAMES = [
     "Tao", "Xiu", "Feng", "Mei-Lin", "Jun", "Hui-Ying", "Bo", "Jia", "Chang", "An",
     "Olga", "Dmitri", "Anastasia", "Ivan", "Tatiana", "Mikhail", "Natalya", "Alexei", "Svetlana", "Nikolai",
     "Kwesi", "Ama", "Abena", "Kofi", "Efua", "Kwabena", "Esi", "Kwaku", "Akua", "Kojo",
-    "Lakshmi", "Vijay", "Deepa", "Ajith", "Kavitha", "Rajiv", "Pooja", "Sunil", "Sarita", "Amit"
+    "Lakshmi", "Vijay", "Deepa", "Ajith", "Kavitha", "Rajiv", "Pooja", "Sunil", "Sarita", "Amit", 
+    "Keya", "Kavya", "Riya", "Khush", "Tulsi", "Om", "Vansh", "Tanvi"
 ]
 
 # Using full names list for math questions too
