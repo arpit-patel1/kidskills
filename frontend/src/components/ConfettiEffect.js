@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactConfetti from 'react-confetti';
 
-const ConfettiEffect = ({ show }) => {
+const ConfettiEffect = ({ show, continuous = false }) => {
   if (!show) {
     return null;
   }
@@ -12,7 +12,7 @@ const ConfettiEffect = ({ show }) => {
         width={window.innerWidth}
         height={window.innerHeight}
         numberOfPieces={1500}
-        recycle={false}
+        recycle={continuous}
         tweenDuration={4000}
         gravity={0.1}
         initialVelocityY={10}

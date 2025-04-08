@@ -192,9 +192,6 @@ const useGameState = (initialPlayer = null) => {
   const triggerConfetti = () => {
     console.log('Showing confetti for correct answer');
     setShowConfetti(true);
-    setTimeout(() => {
-      setShowConfetti(false);
-    }, 3000);
   };
   
   // Handle answer submission
@@ -287,6 +284,7 @@ const useGameState = (initialPlayer = null) => {
   // Move to next question
   const nextQuestion = () => {
     setLoadingNextQuestion(true);
+    setShowConfetti(false); // Hide confetti when moving to next question
     
     // Use a promise-based approach with proper state clearing
     setTimeout(async () => {

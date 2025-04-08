@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './styles/theme.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -35,6 +35,7 @@ function App() {
   } = useGameState();
 
   // Function to start a game with predefined settings
+  // eslint-disable-next-line no-unused-vars
   const handleQuickStart = (quickSettings) => {
     // Update the settings in state
     updateSettings(quickSettings);
@@ -44,7 +45,7 @@ function App() {
 
   return (
     <div className="app">
-      <ConfettiEffect show={showConfetti} />
+      <ConfettiEffect show={showConfetti} continuous={true} />
       
       <header className="app-header">
         <h1><span className="pink-text">Kid</span><span className="blue-text">Skills</span> <i className="bi bi-stars"></i></h1>
