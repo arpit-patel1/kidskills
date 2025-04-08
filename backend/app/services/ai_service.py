@@ -250,6 +250,18 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         logger.warning(f"[{request_id}] Invalid difficulty: {difficulty}, defaulting to Easy")
         difficulty_norm = "Easy"
     
+    # Define valid sub-activities for each subject
+    math_activities = ["Addition/Subtraction", "Multiplication/Division", "Word Problems", "Mushroom Kingdom Calculations"]
+    english_activities = ["Opposites/Antonyms", "Synonyms", "Reading Comprehension", "Nouns/Pronouns", "Grammar Correction", "Mushroom Kingdom Vocabulary"]
+    
+    # Validate sub-activity against subject and provide default if invalid
+    if subject_norm == "Math" and sub_activity_norm not in math_activities:
+        logger.warning(f"[{request_id}] Invalid Math sub-activity: {sub_activity_norm}, defaulting to Addition/Subtraction")
+        sub_activity_norm = "Addition/Subtraction"
+    elif subject_norm == "English" and sub_activity_norm not in english_activities:
+        logger.warning(f"[{request_id}] Invalid English sub-activity: {sub_activity_norm}, defaulting to Opposites/Antonyms")
+        sub_activity_norm = "Opposites/Antonyms"
+    
     # For Grammar Correction, always use direct-answer
     if sub_activity_norm == "Grammar Correction":
         logger.info(f"[{request_id}] Grammar Correction activity detected, forcing direct-answer question type")
@@ -422,6 +434,10 @@ I will be testing your understanding of the difference between synonyms and anto
         
         model = os.getenv("OLLAMA_MATH_MODEL") if subject == "Math" else os.getenv("OLLAMA_MODEL")
         
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        logger.info(f"[{request_id}] Using random seed: {random_seed}")
+        
         # Available functions for tool calling
         available_functions = {
             "calculator": calculator
@@ -476,7 +492,7 @@ I will be testing your understanding of the difference between synonyms and anto
             ollama_response = await ollama_async_client.chat(
                 model=model,
                 messages=messages,
-                options={"temperature": temperature},
+                options={"temperature": temperature, "seed": random_seed},
                 tools=tools if subject == "Math" and ENABLE_MATH_TOOLS else None,
                 stream=False
             )
@@ -524,7 +540,7 @@ I will be testing your understanding of the difference between synonyms and anto
                 model=model,
                 messages=messages,
                 format=MultipleChoiceQuestion.model_json_schema(),
-                options={"temperature": temperature}
+                options={"temperature": temperature, "seed": random_seed}
             )
             final_content = ollama_response.message.content
             
@@ -692,6 +708,10 @@ Example for Grammar Correction:
 
         # Make API call
         start_time = time.time()
+        
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        logger.info(f"[{request_id}] Using random seed: {random_seed} for direct answer")
 
         ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
             messages=[
@@ -699,7 +719,7 @@ Example for Grammar Correction:
                 {"role": "user", "content": prompt}
             ],
             format=DirectAnswerQuestion.model_json_schema(),
-            options={"temperature": temperature},
+            options={"temperature": temperature, "seed": random_seed},
         )
 
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
@@ -760,6 +780,10 @@ IMPORTANT: Also add appropriate emojis to the question text to make it more enga
     try:
         # Make API call
         start_time = time.time()
+        
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        logger.info(f"[{request_id}] Using random seed: {random_seed} for reading comprehension")
 
         ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
             messages=[
@@ -767,7 +791,7 @@ IMPORTANT: Also add appropriate emojis to the question text to make it more enga
                 {"role": "user", "content": prompt}
             ],
             format=ReadingComprehensionQuestion.model_json_schema(),
-            options={"temperature": temperature},
+            options={"temperature": temperature, "seed": random_seed},
         )
 
         logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
@@ -924,8 +948,6 @@ def construct_mario_math_prompt(grade: int, difficulty: str) -> str:
     
     Number range should be {num_range} with results {sum_range}, {diff_range}.
     
-    Use this random seed for variety: {random_seed}
-    
     The question should be about math problems that Mario characters encounter, such as collecting coins, 
     defeating enemies, calculating scores, or measuring distances in the Mushroom Kingdom.
     Make the question fun and engaging for kids who love Mario games.
@@ -980,8 +1002,6 @@ def construct_mario_english_prompt(grade: int, difficulty: str) -> str:
     - Characters: {character1} and/or {character2}
     - Items: {items}
     - Location: {location}
-    
-    Use this random seed for variety: {random_seed}
     
     The question should focus on one of the following:
     1. Word meanings/definitions in a Mario context
@@ -1083,8 +1103,6 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             Generate a {difficulty.lower()} {grade}-grade level math question about {operation} for elementary students.
             
             Number range should be {num_range} with results {sum_range}, {diff_range}.
-            
-            Use this random seed for variety: {random_seed}
             
             You can optionally incorporate these elements to make the question more interesting:
             - Names: {person1} and/or {person2}
@@ -1740,6 +1758,9 @@ Please provide a short, gentle response (2-3 sentences) explaining what grammar 
         logger.info(f"[{request_id}] Generating grammar feedback")
         start_time = time.time()
         
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        
         # Make API call to Ollama for feedback
         # use async client
         ollama_response = await ollama_async_client.chat(
@@ -1748,7 +1769,7 @@ Please provide a short, gentle response (2-3 sentences) explaining what grammar 
                 {"role": "system", "content": "You are a friendly, supportive elementary school teacher providing feedback on grammar corrections. Keep your responses short, simple, and encouraging."},
                 {"role": "user", "content": prompt}
             ],
-            options={"temperature": 0.5}
+            options={"temperature": 0.5, "seed": random_seed}
         )
         
         api_time = time.time() - start_time
@@ -1837,6 +1858,9 @@ Return your response in this JSON format:
         logger.info(f"[{request_id}] Evaluating grammar correction answer")
         start_time = time.time()
         
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        
         # Make API call to Ollama for evaluation
         ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
@@ -1855,7 +1879,8 @@ When providing feedback:
 Your feedback should sound natural and personalized, not formulaic."""},
                 {"role": "user", "content": prompt}
             ],
-            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}}
+            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}},
+            options={"temperature": 0.5, "seed": random_seed}
         )
         
         api_time = time.time() - start_time
@@ -1973,14 +1998,27 @@ Return your response in this JSON format:
         logger.info(f"[{request_id}] Evaluating reading comprehension answer")
         start_time = time.time()
         
+        # Generate a random seed for variety
+        random_seed = getRandomSeed()
+        
         # Make API call to Ollama for evaluation
         ollama_response = await ollama_async_client.chat(
             model=os.getenv("OLLAMA_MODEL"),
             messages=[
-                {"role": "system", "content": "You are a helpful, supportive elementary school teacher evaluating reading comprehension answers. You judge answers based on understanding rather than exact wording. You provide constructive, encouraging feedback."},
+                {"role": "system", "content": f"""You are evaluating a student's reading comprehension answer. 
+Be fair and consider the meaning and understanding, not just exact word matching.
+
+Provide feedback that is:
+1. Age-appropriate for elementary students
+2. Encouraging and specific
+3. Brief (2-3 sentences)
+4. Varied in tone and structure (avoid repetitive phrases like "Great job!" at the beginning of every response)
+
+Your evaluation should focus on how well the student understood the main ideas in the passage."""},
                 {"role": "user", "content": prompt}
             ],
-            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}}
+            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}},
+            options={"temperature": 0.7, "seed": random_seed}
         )
         
         api_time = time.time() - start_time

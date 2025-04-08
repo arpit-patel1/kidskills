@@ -12,7 +12,6 @@ const GameSelectorDropdown = ({
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
-  const [previousQuestionState, setPreviousQuestionState] = useState(!!currentQuestion);
   const [previousStartGameLoading, setPreviousStartGameLoading] = useState(startGameLoading);
   
   // Reset temp settings when actual settings change
@@ -24,7 +23,6 @@ const GameSelectorDropdown = ({
   // or when loading starts/finishes
   useEffect(() => {
     // Only track previous states, don't manipulate dropdown
-    setPreviousQuestionState(!!currentQuestion);
     setPreviousStartGameLoading(startGameLoading);
     
     // Close dropdown ONLY when a question has been successfully loaded
@@ -42,19 +40,47 @@ const GameSelectorDropdown = ({
   
   const handleSettingChange = (e) => {
     const { name, value } = e.target;
-    setTempSettings(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // If changing subject, we need to update sub-activity as well
+    if (name === 'subject') {
+      const newSubject = value;
+      const validSubActivities = SUB_ACTIVITIES[newSubject] || [];
+      const defaultSubActivity = validSubActivities[0] || 'Addition/Subtraction';
+      
+      console.log(`Subject changed to ${newSubject}, updating sub-activity to ${defaultSubActivity}`);
+      
+      // Update both subject and sub-activity together
+      setTempSettings(prev => ({
+        ...prev,
+        subject: newSubject,
+        sub_activity: defaultSubActivity
+      }));
+    } else {
+      // For other settings, just update the one that changed
+      setTempSettings(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
     console.log(`Changed setting ${name} to ${value}`);
   };
 
   const handleStartGame = () => {
-    console.log("Starting new game with settings:", tempSettings);
+    console.log("======= STARTING NEW GAME =======");
+    console.log("Current settings state:", settings);
+    console.log("Temporary settings state:", tempSettings);
+    
     // Apply temp settings to actual settings
     onUpdateSettings(tempSettings);
-    // Start the game with these settings
-    onStartGame(tempSettings);
+    
+    // Add delay to verify settings are applied before starting the game
+    setTimeout(() => {
+      console.log("Settings after update, before starting game:", tempSettings);
+      // Start the game with these settings
+      onStartGame(tempSettings);
+    }, 0);
+    
     // Always keep dropdown open when starting a game to show the loading state
     // The dropdown will close when the question loads in the useEffect
   };

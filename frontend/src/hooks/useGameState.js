@@ -19,13 +19,32 @@ const useGameState = (initialPlayer = null) => {
   // Update sub-activity when subject changes
   useEffect(() => {
     if (settings.subject) {
-      const defaultSubActivity = getDefaultSubActivity(settings.subject);
-      if (settings.sub_activity !== defaultSubActivity && 
-          !SUB_ACTIVITIES[settings.subject]?.includes(settings.sub_activity)) {
-        setSettings(prev => ({
-          ...prev,
-          sub_activity: defaultSubActivity
-        }));
+      // Get all valid activities for this subject
+      const validSubActivities = SUB_ACTIVITIES[settings.subject] || [];
+      
+      // Check if current sub-activity is valid for the current subject
+      const isSubActivityValid = validSubActivities.includes(settings.sub_activity);
+      
+      // Always log the current state for debugging
+      console.log("Subject/Activity validation:", {
+        subject: settings.subject, 
+        subActivity: settings.sub_activity, 
+        isValid: isSubActivityValid,
+        validOptions: validSubActivities
+      });
+      
+      // If not valid, set to the default sub-activity for this subject
+      if (!isSubActivityValid) {
+        const defaultSubActivity = getDefaultSubActivity(settings.subject);
+        console.log(`Correcting invalid sub-activity "${settings.sub_activity}" to "${defaultSubActivity}" for subject "${settings.subject}"`);
+        
+        // Use setTimeout to ensure this runs after current render cycle
+        setTimeout(() => {
+          setSettings(prev => ({
+            ...prev,
+            sub_activity: defaultSubActivity
+          }));
+        }, 0);
       }
     }
   }, [settings.subject, settings.sub_activity]);
@@ -106,7 +125,36 @@ const useGameState = (initialPlayer = null) => {
       
       // Use provided settings or current settings
       const gameSettings = customSettings || settings;
-      console.log("Starting game with settings:", gameSettings);
+      
+      console.log("=== GAME START FLOW ===");
+      console.log("1. Current state settings:", settings);
+      console.log("2. Custom settings provided:", customSettings);
+      console.log("3. Final gameSettings to use:", gameSettings);
+      
+      // Explicitly verify the subject and sub-activity are aligned
+      const subActivitiesForSubject = SUB_ACTIVITIES[gameSettings.subject] || [];
+      const isValidSubActivity = subActivitiesForSubject.includes(gameSettings.sub_activity);
+      
+      if (!isValidSubActivity) {
+        console.warn(`MISMATCH: sub-activity "${gameSettings.sub_activity}" is not valid for subject "${gameSettings.subject}"`);
+        console.warn("Valid activities for this subject are:", subActivitiesForSubject);
+        
+        // Force correction of the sub-activity
+        const correctedSettings = {
+          ...gameSettings,
+          sub_activity: subActivitiesForSubject[0] || "Addition/Subtraction" // Fallback in case array is empty
+        };
+        
+        console.log("4. CORRECTING SETTINGS to:", correctedSettings);
+        
+        // Update the state immediately
+        setSettings(correctedSettings);
+        
+        // Use corrected settings for the game
+        gameSettings.sub_activity = correctedSettings.sub_activity;
+      } else {
+        console.log("4. Subject and sub-activity are valid together");
+      }
       
       // Small delay to ensure loading state is visible before resetting
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -128,7 +176,7 @@ const useGameState = (initialPlayer = null) => {
       // Add a small delay to ensure state is completely cleared before fetching
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      console.log("After reset, using settings for API call:", gameSettings);
+      console.log("5. After reset, using settings for API call:", gameSettings);
       
       // Now that we're sure state is reset, fetch the new question
       const question = await api.getQuestion(
@@ -138,11 +186,16 @@ const useGameState = (initialPlayer = null) => {
         gameSettings.difficulty
       );
       
-      console.log("Question received for settings:", { 
-        subject: gameSettings.subject, 
+      console.log("6. Question received:", {
+        questionId: question.id,
+        subject: gameSettings.subject,
         sub_activity: gameSettings.sub_activity,
         questionSubject: question.subject,
-        questionSubActivity: question.sub_activity
+        questionSubActivity: question.sub_activity,
+        mismatch: (
+          question.subject !== gameSettings.subject || 
+          question.sub_activity !== gameSettings.sub_activity
+        )
       });
       
       // Add player_id to the question object for later use

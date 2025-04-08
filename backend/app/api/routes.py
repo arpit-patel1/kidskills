@@ -43,12 +43,34 @@ async def get_challenge(
     # Check if this is a new game request (indicated by timestamp parameter)
     is_new_game = "timestamp" in request.dict() and request.dict()["timestamp"] is not None
     
+    # Track if player has previous questions and their settings
+    previous_settings = None
+    active_keys = list(ACTIVE_QUESTIONS.keys())
+    player_keys = [key for key in active_keys if key.startswith(f"player_{request.player_id}_")]
+    
+    if player_keys:
+        # Get the most recent question details for this player
+        last_question_key = player_keys[-1]
+        last_question = ACTIVE_QUESTIONS.get(last_question_key, {})
+        if last_question:
+            previous_settings = {
+                "subject": last_question.get("subject"),
+                "sub_activity": last_question.get("sub_activity")
+            }
+    
+    # Check if subject or sub-activity changed
+    settings_changed = previous_settings and (
+        previous_settings["subject"] != request.subject or 
+        previous_settings["sub_activity"] != request.sub_activity
+    )
+    
     # Clear previous questions for this player if it's a new game request or subject/activity changed
-    if is_new_game:
-        active_keys = list(ACTIVE_QUESTIONS.keys())
-        for key in active_keys:
-            if key.startswith(f"player_{request.player_id}_"):
-                del ACTIVE_QUESTIONS[key]
+    if is_new_game or settings_changed:
+        if settings_changed:
+            print(f"Settings changed from {previous_settings} to {{'subject': '{request.subject}', 'sub_activity': '{request.sub_activity}'}} - clearing previous questions")
+        
+        for key in player_keys:
+            del ACTIVE_QUESTIONS[key]
     
     # Generate a question
     question_data = await generate_question(
