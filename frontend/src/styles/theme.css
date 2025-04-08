@@ -547,9 +547,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Fixed position score and streak displays */
 .score-circle {
-  position: absolute;
-  top: 15px;
-  left: 15px;
+  position: relative; /* Changed from absolute */
   background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
   color: var(--white);
   border-radius: 50%;
@@ -564,6 +562,35 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Add styles for progress bar to ensure it stays behind the score circle */
+.progress {
+  position: relative;
+  z-index: 100;
+}
+
+/* Score and progress container styles */
+.score-progress-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 5px;
+}
+
+.progress-container {
+  flex: 1;
+  margin-left: 20px;
+  max-width: calc(100% - 90px);
+}
+
+.progress-container .progress {
+  margin-bottom: 5px;
+}
+
+.progress-container .small {
+  text-align: right;
+  opacity: 0.8;
 }
 
 /* Remove fixed-streak-display */
@@ -590,8 +617,15 @@ h1, h2, h3, h4, h5, h6 {
     width: 50px;
     height: 50px;
     font-size: 1.1rem;
-    top: 10px;
-    left: 10px;
+  }
+  
+  .progress-container {
+    margin-left: 15px;
+    max-width: calc(100% - 70px);
+  }
+  
+  .progress-container .small {
+    font-size: 0.7rem;
   }
   
   .fixed-score-display {

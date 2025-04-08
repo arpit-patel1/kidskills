@@ -118,23 +118,27 @@ const QuestionDisplay = ({
   return (
     <div className="question-display">
       <div className={`question-card ${loadingNextQuestion ? 'loading-transition' : ''}`}>
-        <div className="score-circle">
-          {score}
-        </div>
-        
-        {/* Progress bar for 1000 question game */}
-        <div className="progress mb-3" style={{ height: "8px" }}>
-          <div 
-            className="progress-bar" 
-            role="progressbar" 
-            style={{ width: `${progressPercentage}%` }} 
-            aria-valuenow={progressPercentage} 
-            aria-valuemin="0" 
-            aria-valuemax="100">
+        <div className="score-progress-container">
+          <div className="score-circle">
+            {score}
           </div>
-        </div>
-        <div className="text-center mb-2 small text-muted">
-          Question {questionCount} of {QUESTIONS_PER_GAME}
+          
+          {/* Progress bar for questions - moved to be beside score */}
+          <div className="progress-container">
+            <div className="progress" style={{ height: "8px" }}>
+              <div 
+                className="progress-bar" 
+                role="progressbar" 
+                style={{ width: `${progressPercentage}%` }} 
+                aria-valuenow={progressPercentage} 
+                aria-valuemin="0" 
+                aria-valuemax="100">
+              </div>
+            </div>
+            <div className="small text-muted">
+              Question {questionCount} of {QUESTIONS_PER_GAME}
+            </div>
+          </div>
         </div>
         
         {isReadingComprehension && question.passage && (

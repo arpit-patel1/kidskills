@@ -241,8 +241,8 @@ const useGameState = () => {
           console.log('Correct answer! Updating score.');
           // Celebrate with confetti
           triggerConfetti();
-          // Base points: 10 for correct answer
-          setScore(score + 10);
+          // Base points: 1 for correct answer
+          setScore(score + 1);
         }
         
         // Update question count
@@ -272,8 +272,8 @@ const useGameState = () => {
         if (result.is_correct) {
           // Celebrate with confetti
           triggerConfetti();
-          // Base points: 10 for correct answer
-          setScore(score + 10);
+          // Base points: 1 for correct answer
+          setScore(score + 1);
         }
         
         // Update question count

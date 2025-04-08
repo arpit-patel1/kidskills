@@ -38,7 +38,7 @@ const MainContent = ({
   if (gameCompleted) {
     // Calculate accuracy percentage
     const accuracyPercentage = questionCount > 0 
-      ? Math.round((score / (questionCount * 10)) * 100) 
+      ? Math.round((score / questionCount) * 100) 
       : 0;
     
     // Determine achievement level based on score and questions
