@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import DirectAnswerInput from './DirectAnswerInput';
 import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
+import LoadingAnimation from './animations/LoadingAnimation';
+import '../styles/animations.css';
 
 const QuestionDisplay = ({ 
   question,
@@ -18,6 +20,7 @@ const QuestionDisplay = ({
 }) => {
   const [localSelectedChoice, setLocalSelectedChoice] = useState(null);
   const [localSubmitted, setLocalSubmitted] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   
   // Use either local submission state or the prop passed from parent
   const isSubmitted = submitted || localSubmitted;
@@ -30,6 +33,7 @@ const QuestionDisplay = ({
     console.log("Question changed, resetting local state");
     setLocalSelectedChoice(null);
     setLocalSubmitted(false);
+    setIsEvaluating(false);
     
     // Add a log to help debug question transitions
     if (question) {
@@ -51,11 +55,31 @@ const QuestionDisplay = ({
   const handleSubmit = async () => {
     if (!selectedChoice || loading || isSubmitted) return;
     
-    setLocalSubmitted(true);
+    // Set evaluating state to show the animation
+    setIsEvaluating(true);
+    
+    // Add a minimum delay to ensure the animation is visible
+    const startTime = Date.now();
+    const minAnimationTime = 3000; // 3 seconds minimum
     
     // Send the answer to the parent component (useGameState hook)
     // which will call the API and get the result
     onAnswer(selectedChoice);
+    
+    // Set submitted state after a delay to ensure animation is visible
+    setTimeout(() => {
+      setLocalSubmitted(true);
+      
+      // Keep animation visible for minimum time
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < minAnimationTime) {
+        setTimeout(() => {
+          setIsEvaluating(false);
+        }, minAnimationTime - elapsedTime);
+      } else {
+        setIsEvaluating(false);
+      }
+    }, 500); // Short delay to let the API call start
   };
   
   const handleNextQuestion = () => {
@@ -115,9 +139,25 @@ const QuestionDisplay = ({
   // Calculate progress percentage (for 1000 question game)
   const progressPercentage = (questionCount / QUESTIONS_PER_GAME) * 100;
   
+  // Function to get the subject for the loading animation
+  const getAnimationSubject = () => {
+    if (!question) return 'default';
+    
+    if (question.subject === 'Math') return 'Math';
+    if (question.subject === 'English') return 'English';
+    if (question.sub_activity && question.sub_activity.includes('Mario')) return 'Mario';
+    
+    return 'default';
+  };
+  
   return (
     <div className="question-display">
       <div className={`question-card ${loadingNextQuestion ? 'loading-transition' : ''}`}>
+        <LoadingAnimation 
+          subject={getAnimationSubject()}
+          isVisible={loadingNextQuestion} 
+        />
+        
         <div className="score-progress-container">
           <div className="score-circle">
             {score}
@@ -160,6 +200,7 @@ const QuestionDisplay = ({
             submitted={isSubmitted}
             feedback={feedback}
             onNextQuestion={onNextQuestion}
+            loadingNextQuestion={loadingNextQuestion}
           />
         ) : (
           <>
@@ -180,36 +221,48 @@ const QuestionDisplay = ({
             <div className="action-container">
               {!isSubmitted ? (
                 <button 
-                  className="btn btn-primary btn-lg submit-btn"
+                  className={`btn btn-primary btn-lg submit-btn ${isEvaluating ? 'evaluating' : ''}`}
                   onClick={handleSubmit}
-                  disabled={!selectedChoice || loading || isSubmitted || loadingNextQuestion}
-                  style={{ marginTop: '10px' }}
+                  disabled={!selectedChoice || loading || isSubmitted || isEvaluating || loadingNextQuestion}
                 >
-                  <i className="bi bi-check-circle"></i> Submit Answer
+                  {isEvaluating ? (
+                    <span>Checking Answer...</span>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-circle me-2"></i>
+                      <span>Submit Answer</span>
+                    </>
+                  )}
                 </button>
               ) : (
                 <button 
-                  className="btn btn-success btn-lg submit-btn"
+                  className={`btn btn-success btn-lg submit-btn ${loadingNextQuestion ? 'loading' : ''}`}
                   onClick={handleNextQuestion}
                   disabled={loading || loadingNextQuestion}
-                  style={{ marginTop: '10px' }}
+                  style={{ minWidth: '280px', minHeight: '60px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <i className="bi bi-arrow-right-circle"></i> Next Question
+                  {loadingNextQuestion ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', width: '100%' }}>
+                      <div className="theme-spinner"></div>
+                      <span className="loading-message">Next Question</span>
+                      <div className="floating-icons">
+                        <span className="icon">💖</span>
+                        <span className="icon">✨</span>
+                        <span className="icon">🌟</span>
+                        <span className="icon">💫</span>
+                        <span className="icon">💕</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <i className="bi bi-arrow-right-circle me-2"></i>
+                      <span>Next Question</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </>
-        )}
-        
-        {/* Overlay for loading next question */}
-        {loadingNextQuestion && (
-          <div className="loading-overlay">
-            <div className="loading-overlay-content">
-              <div className="spinner"></div>
-              <div className="timer-counter">{nextQuestionTimer}s</div>
-              <div className="loading-text">Loading next question...</div>
-            </div>
-          </div>
         )}
       </div>
       

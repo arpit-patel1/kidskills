@@ -1,5 +1,6 @@
 import React from 'react';
 import './styles/theme.css';
+import './styles/animations.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import useGameState from './hooks/useGameState';

@@ -1,14 +1,16 @@
 import os
 import json
 import time
-import re
-from typing import Dict, Any, Optional, List, Literal
-from dotenv import load_dotenv
-import logging
-from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 import random
+import re
+import logging
+from typing import Dict, Any, Optional, List, Literal, Union, Callable
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 from ollama import AsyncClient
 from .fallback_questions import get_fallback_question as get_fallback
+import math
+import operator
 
 # Load environment variables
 load_dotenv()
@@ -16,9 +18,16 @@ load_dotenv()
 # Get Ollama configuration from env
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+ENABLE_MATH_TOOLS = os.getenv("ENABLE_MATH_TOOLS", "true").lower() == "true"
 
 # Initialize Ollama client with configured base URL
 ollama_async_client = AsyncClient(host=OLLAMA_BASE_URL)
+
+# Log configuration settings
+logger = logging.getLogger(__name__)
+logger.info(f"OLLAMA_MODEL: {OLLAMA_MODEL}")
+logger.info(f"OLLAMA_BASE_URL: {OLLAMA_BASE_URL}")
+logger.info(f"ENABLE_MATH_TOOLS: {ENABLE_MATH_TOOLS}")
 
 # Import constants from constants.py
 from .constants import (
@@ -52,6 +61,78 @@ logger.info(f"Logging to {log_file}")
 
 # Get Ollama model from env or use default
 logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
+
+# Define math calculation tool for the LLM
+async def calculator(expression: str, question: str) -> str:
+    """
+    Evaluates a mathematical expression and returns the result.
+    Handles basic arithmetic operations, simple fractions, and functions.
+    
+    Args:
+        expression: A mathematical expression as a string
+        question: The question being solved (for context)
+        
+    Returns:
+        The result of the calculation as a string
+    """
+    logger.info(f"Calculator tool received: {expression}")
+    logger.info(f"Question context: {question}")
+    
+    try:
+        # Clean the expression
+        expression = expression.strip()
+        
+        # Define safe operations
+        safe_dict = {
+            'abs': abs,
+            'round': round,
+            'min': min,
+            'max': max,
+            'sum': sum,
+            'pow': pow,
+            'int': int,
+            'float': float,
+            'sqrt': math.sqrt,
+            'sin': math.sin,
+            'cos': math.cos,
+            'tan': math.tan,
+            'floor': math.floor,
+            'ceil': math.ceil,
+            'pi': math.pi,
+            'e': math.e
+        }
+        
+        # Add basic operators
+        safe_dict.update({
+            '+': operator.add,
+            '-': operator.sub,
+            '*': operator.mul,
+            '/': operator.truediv,
+            '//': operator.floordiv,
+            '%': operator.mod,
+            '**': operator.pow
+        })
+        
+        # Evaluate the expression
+        result = eval(expression, {"__builtins__": {}}, safe_dict)
+        
+        # Format the result
+        if isinstance(result, int) or result.is_integer():
+            formatted_result = str(int(result))
+        else:
+            # Round to 4 decimal places for readability
+            formatted_result = str(round(result, 4))
+            # Remove trailing zeros
+            if '.' in formatted_result:
+                formatted_result = formatted_result.rstrip('0').rstrip('.')
+        
+        logger.info(f"Calculator result: {formatted_result}")
+        return formatted_result
+    
+    except Exception as e:
+        error_msg = f"Error calculating expression '{expression}': {str(e)}"
+        logger.error(error_msg)
+        return f"Error: {str(e)}"
 
 # Define Pydantic models for structured output
 class MultipleChoiceQuestion(BaseModel):
@@ -191,7 +272,12 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
         return get_fallback_question(grade_str, subject_norm, sub_activity_norm, difficulty_norm)
 
 async def generate_multiple_choice_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
-    """Generate a multiple choice question."""
+    """
+    Generate a multiple choice question.
+    
+    The calculator tool for math questions can be enabled/disabled by setting the
+    ENABLE_MATH_TOOLS environment variable to "true" or "false" in the .env file.
+    """
     logger.info(f"[{request_id}] Generating multiple-choice question")
     
     # Determine temperature based on subject/activity
@@ -200,6 +286,9 @@ async def generate_multiple_choice_question(grade: int, subject: str, sub_activi
         if sub_activity == "Opposites/Antonyms":
             temperature = 0.9
             logger.info(f"[{request_id}] Using higher temperature of {temperature} for Opposites/Antonyms")
+        elif sub_activity == "Synonyms":
+            temperature = 0.8
+            logger.info(f"[{request_id}] Using higher temperature of {temperature} for Synonyms")
         else:
             temperature = 0.7
             logger.info(f"[{request_id}] Using higher temperature of {temperature} for {sub_activity}")
@@ -258,34 +347,235 @@ For math questions, follow these CRITICAL rules:
    - Double-check that the question is solvable with the given information
    - Verify that the correct answer is one of the choices
 
+5. IMPORTANT - Use Calculator Tool When Needed:
+   - When you need to calculate any math operation (addition, subtraction, multiplication, division, etc.), 
+     use the 'calculator' tool provided to you
+   - This ensures your calculations are accurate
+   - ALWAYS provide both the 'expression' and the 'question' parameters:
+     - 'expression': The mathematical expression to calculate (e.g., "28 + 35")
+     - 'question': The actual question you're solving (e.g., "If Sam has 28 apples and gets 35 more, how many does he have in total?")
+   - Providing the question helps maintain context between your questions and calculations
+   - Use the calculator tool for generating answer choices too, to ensure they're mathematically sound
+
+6. CRITICAL - Answer Validation Process:
+   - Step 1: Design your question first (e.g., "5 + 9 = ?")
+   - Step 2: Use the calculator tool to compute the EXACT answer (e.g., "5 + 9" → 14)
+   - Step 3: Use this calculator result as your correct answer
+   - Step 4: Create choices that MUST include this exact calculator result
+   - Step 5: Double-check that the "answer" field matches one of the choices
+   - Step 6: NEVER include a correct answer that wasn't one of the choices
+
+7. CRITICAL - Choice Selection Requirements:
+   - You MUST include the calculated answer in the choices array
+   - Example: If calculator says 14, then "14" MUST be in choices
+   - NEVER set an answer that is not in the choices
+   - Before finalizing, verify that answer appears in choices
+
 Remember: Every question must be complete and solvable with the information provided. If you're unsure, use simpler numbers or a different question type."""
 
     if subject == "English" and sub_activity == "Opposites/Antonyms":
         system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
     
     if subject == "English" and sub_activity == "Synonyms":
-        system_message += " When asked to use a specific word in a question about synonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
+        system_message += """
+CRITICAL INSTRUCTIONS FOR SYNONYM QUESTIONS - READ CAREFULLY:
+
+1. Synonyms vs Antonyms: 
+   - Synonyms have SIMILAR meanings (like "happy" and "joyful")
+   - Antonyms have OPPOSITE meanings (like "happy" and "sad")
+   - This question is about SYNONYMS (similar meanings), NOT antonyms
+
+2. Examples of correct synonym pairs:
+   - big → large, huge, enormous, gigantic
+   - small → tiny, little, miniature, petite
+   - happy → joyful, glad, cheerful, delighted
+   - sad → unhappy, gloomy, miserable, downcast
+   - clean → tidy, spotless, immaculate, pristine
+   - dirty → filthy, grimy, soiled, unclean
+   - cold → chilly, cool, frosty, frigid
+   - hot → warm, heated, burning, fiery
+
+3. Examples of INCORRECT answers (these are antonym pairs, NOT synonyms):
+   - big ≠ small (these are opposites, not synonyms)
+   - happy ≠ sad (these are opposites, not synonyms)
+   - clean ≠ dirty (these are opposites, not synonyms)
+   - hot ≠ cold (these are opposites, not synonyms)
+   - dark ≠ light (these are opposites, not synonyms)
+
+4. Words with 'un', 'in', 'im', 'dis' prefixes are usually antonyms:
+   - clean vs unclean (these are opposites, not synonyms)
+   - happy vs unhappy (these are opposites, not synonyms)
+   - possible vs impossible (these are opposites, not synonyms)
+
+5. Double-check your answer:
+   - Make sure the correct answer has a SIMILAR meaning to the word in the question
+   - Verify your answer is NOT an opposite/antonym of the word in the question
+   - If you're asked for a synonym of "clean," the answer should be a word like "tidy" (similar meaning), NOT "dirty" or "unclean" (opposite meaning)
+
+I will be testing your understanding of the difference between synonyms and antonyms. You MUST ensure your answer is a true synonym (similar meaning), not an antonym (opposite meaning).
+"""
     
     try:
         # Make API call
         start_time = time.time()
         
-        model = os.getenv("OLLAMA_MODEL") if subject != "Math" else os.getenv("OLLAMA_MATH_MODEL")
-
-        ollama_response = await ollama_async_client.chat(model=model,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
-            ],
-            format=MultipleChoiceQuestion.model_json_schema(),
-            options={"temperature": temperature},
-        )
+        model = os.getenv("OLLAMA_MATH_MODEL") if subject == "Math" else os.getenv("OLLAMA_MODEL")
         
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
+        # Available functions for tool calling
+        available_functions = {
+            "calculator": calculator
+        }
+        
+        # Set up tools for math questions
+        tools = None
+        if subject == "Math" and ENABLE_MATH_TOOLS:
+            # Define calculator tool
+            calculator_tool = {
+                "type": "function",
+                "function": {
+                    "name": "calculator",
+                    "description": "Calculate the result of a mathematical expression",
+                    "parameters": {
+                        "type": "object",
+                        "required": ["expression", "question"],
+                        "properties": {
+                            "expression": {
+                                "type": "string", 
+                                "description": "The mathematical expression to calculate (e.g., '2+2', '5*3', etc.)"
+                            },
+                            "question": {
+                                "type": "string",
+                                "description": "The mathematical question being solved (provides context for the calculation)"
+                            }
+                        }
+                    }
+                }
+            }
+            tools = [calculator_tool]
+            logger.info(f"[{request_id}] Adding calculator tool for math question")
+        elif subject == "Math" and not ENABLE_MATH_TOOLS:
+            logger.info(f"[{request_id}] Math tools disabled by ENABLE_MATH_TOOLS setting")
+        
+        # Initialize messages array with system and user message
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt}
+        ]
+        
+        # Flag to track if we're doing a conversation with tool calls
+        using_tools = subject == "Math" and ENABLE_MATH_TOOLS
+        max_tool_calls = 5  # Limit the number of tool calls to avoid infinite loops
+        tool_call_count = 0
+        final_content = None
+        final_output = None
+        
+        # If we're using tools, we need to have a conversation that could involve multiple turns
+        while using_tools and tool_call_count < max_tool_calls:
+            # Make API call
+            ollama_response = await ollama_async_client.chat(
+                model=model,
+                messages=messages,
+                options={"temperature": temperature},
+                tools=tools if subject == "Math" and ENABLE_MATH_TOOLS else None,
+                stream=False
+            )
+            
+            # Log the response
+            logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
+            
+            # Check if there are any tool calls in the response
+            if ollama_response.message.tool_calls:
+                tool_call_count += 1
+                
+                # Process each tool call
+                for tool in ollama_response.message.tool_calls:
+                    # Ensure the function is available, and then call it
+                    if function_to_call := available_functions.get(tool.function.name):
+                        logger.info(f"[{request_id}] Calling function: {tool.function.name}")
+                        logger.info(f"[{request_id}] Arguments: {tool.function.arguments}")
+                        
+                        try:
+                            # Call the function with the arguments
+                            output = await function_to_call(**tool.function.arguments)
+                            logger.info(f"[{request_id}] Function output: {output}")
+                            final_output = output
+                        except Exception as e:
+                            error_msg = f"Error calling function {tool.function.name}: {str(e)}"
+                            logger.error(f"[{request_id}] {error_msg}")
+                            output = f"Error: {str(e)}"
+                            final_output = output
+                    else:
+                        logger.error(f"[{request_id}] Function {tool.function.name} not found")
+                        output = f"Error: Function {tool.function.name} not found"
+                        final_output = output
+                
+                # Add the function response to messages for the model to use
+                messages.append(ollama_response.message)
+                messages.append({"role": "tool", "content": str(final_output), "name": tool.function.name})
+            else:
+                # No more tool calls, we're done
+                final_content = ollama_response.message.content
+                break
+        
+        # For non-math subjects or when tool calls are complete, just get the final content
+        if not using_tools:
+            ollama_response = await ollama_async_client.chat(
+                model=model,
+                messages=messages,
+                format=MultipleChoiceQuestion.model_json_schema(),
+                options={"temperature": temperature}
+            )
+            final_content = ollama_response.message.content
+        
         api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        json_data = json.loads(ollama_response.message.content)
-        return json_data
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s with {tool_call_count} tool calls")
+        
+        try:
+            # Try to parse the final content as JSON
+            json_data = json.loads(final_content)
+            
+            # Ensure that the returned JSON has the proper structure
+            if "question" not in json_data or "choices" not in json_data or "answer" not in json_data:
+                logger.warning(f"[{request_id}] Incomplete JSON response: {final_content}")
+                return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+            
+            # Ensure type field is set correctly
+            json_data["type"] = "multiple-choice"
+            
+            # For math questions, validate that the answer is in the choices
+            if subject == "Math":
+                answer = json_data["answer"]
+                choices = json_data["choices"]
+                
+                # Check if the answer is in the choices
+                if answer not in choices:
+                    logger.warning(f"[{request_id}] Answer '{answer}' not in choices {choices}")
+                    
+                    # Add the answer to the choices, replacing one of the options
+                    if len(choices) > 0:
+                        # If there are choices, replace the last one with the correct answer
+                        choices[-1] = answer
+                        logger.info(f"[{request_id}] Fixed choices to include answer: {choices}")
+                    else:
+                        # If there are no choices, create a basic set with the answer
+                        num_answer = float(answer) if answer.replace('.', '', 1).isdigit() else 0
+                        choices = [
+                            str(int(num_answer - 2) if num_answer - 2 >= 0 else int(num_answer + 2)),
+                            str(int(num_answer - 1) if num_answer - 1 >= 0 else int(num_answer + 3)),
+                            answer,
+                            str(int(num_answer + 1))
+                        ]
+                        logger.info(f"[{request_id}] Created new choices with answer: {choices}")
+                    
+                    # Update the JSON data
+                    json_data["choices"] = choices
+            
+            # We are removing all synonym validation to rely on better prompt instructions
+            
+            return json_data
+        except json.JSONDecodeError:
+            logger.error(f"[{request_id}] Failed to parse JSON from response: {final_content[:200]}...")
+            return get_fallback_question(str(grade), subject, sub_activity, difficulty)
         
     except Exception as e:
         logger.error(f"[{request_id}] Error generating multiple-choice question: {str(e)}")
@@ -495,6 +785,21 @@ def construct_mario_math_prompt(grade: int, difficulty: str) -> str:
     (addition, subtraction, multiplication, or division depending on grade level).
     
     The correct answer must be one of the multiple choice options.
+    
+    IMPORTANT: After creating the Mario-themed math problem:
+    1. Use the calculator tool to compute the exact answer
+    2. Use the calculator tool to create reasonable wrong answers
+    3. Verify all calculations are correct using the calculator tool
+    4. Ensure the choices are appropriate for the grade level and the correct answer is included
+    
+    CRITICAL WORKFLOW:
+    1. FIRST, design your Mario math problem with explicit numbers
+    2. SECOND, use the calculator tool to compute the exact answer:
+       - Pass the mathematical expression (e.g., "8 + 12" for collecting coins)
+       - ALSO pass the full Mario-themed question as the "question" parameter
+    3. THIRD, include this exact calculator result in your choices
+    4. FOURTH, set this calculator result as the "answer" field
+    5. VERIFY that your "answer" value appears in the "choices" array
     """
     
     return prompt
@@ -637,6 +942,23 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             Make sure to generate a DIFFERENT question than ones you've generated before.
             
             The correct answer must be one of the multiple choice options.
+            
+            IMPORTANT: After creating the addition or subtraction problem:
+            1. Use the calculator tool to compute the exact answer:
+               - Pass the mathematical expression (e.g., "7 + 3")
+               - ALSO pass the full question as the context parameter
+            2. Use the calculator tool to generate plausible wrong answers (by adding or subtracting 1, 2, or 10 from the correct answer)
+            3. Double-check that all calculations are correct using the calculator tool
+            4. Make sure the correct answer is included in the choices
+            
+            CRITICAL WORKFLOW:
+            1. FIRST, design your math problem (e.g., "7 + 3" or "8 - 5")
+            2. SECOND, use the calculator tool to compute the exact answer:
+               - Pass the mathematical expression (e.g., "7 + 3")
+               - ALSO pass the full question as the context parameter
+            3. THIRD, include this exact calculator result in your choices
+            4. FOURTH, set this calculator result as the "answer" field
+            5. VERIFY that your "answer" value appears in the "choices" array
             """
             
         elif sub_activity == "Multiplication/Division":
@@ -673,6 +995,21 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             Make sure to generate a DIFFERENT question than ones you've generated before.
             
             The correct answer must be one of the multiple choice options.
+            
+            IMPORTANT: After creating the multiplication or division problem:
+            1. Use the calculator tool to compute the correct answer
+            2. Use the calculator tool to generate plausible wrong answers by creating variations of the calculation
+            3. Double-check all calculations with the calculator tool
+            4. Make sure choices are appropriate for the grade level
+            
+            CRITICAL WORKFLOW:
+            1. FIRST, design your math problem (e.g., "3 × 4" or "10 ÷ 2")
+            2. SECOND, use the calculator tool to compute the exact answer:
+               - Pass the mathematical expression (e.g., "3 * 4" or "10 / 2")
+               - ALSO pass the full question as the "question" parameter
+            3. THIRD, include this exact calculator result in your choices
+            4. FOURTH, set this calculator result as the "answer" field
+            5. VERIFY that your "answer" value appears in the "choices" array
             """
             
         elif sub_activity == "Word Problems":
@@ -713,6 +1050,21 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
             Create a DIFFERENT problem than ones you've generated before.
             
             The correct answer must be one of the multiple choice options.
+            
+            IMPORTANT: After creating the word problem:
+            1. Use the calculator tool to solve the problem step-by-step
+            2. Ensure the correct answer is included in the choices
+            3. Use the calculator tool to generate plausible wrong answers that are mathematically different from the correct answer
+            4. Double-check your solution with the calculator tool before finalizing
+            
+            CRITICAL WORKFLOW:
+            1. FIRST, design your word problem with explicit numbers
+            2. SECOND, use the calculator tool to compute the exact answer:
+               - Pass the mathematical expression (e.g., "5 * 4" for "5 boxes with 4 apples each")
+               - ALSO pass the full word problem as the "question" parameter
+            3. THIRD, include this exact calculator result in your choices
+            4. FOURTH, set this calculator result as the "answer" field
+            5. VERIFY that your "answer" value appears in the "choices" array
             """
         
         # Log the enhanced prompt details
@@ -791,7 +1143,26 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 
                 Use this random seed for variety: {random_seed}
                 
-                The question should ask for a word with the same meaning as a simple word appropriate for this grade level.
+                CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
+                
+                This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
+                
+                Follow these steps carefully:
+                1. Create a question asking for a synonym of '{target_word}'
+                2. Generate 3-4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+                3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
+                4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
+                5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
+                
+                Examples of correct synonym pairings:
+                - clean → spotless, tidy, pristine (these all have similar meanings)
+                - dirty → filthy, grimy, soiled (these all have similar meanings)
+                - cold → chilly, cool, frigid (these all have similar meanings)
+                - hot → warm, heated, burning (these all have similar meanings)
+                
+                ESPECIALLY AVOID THIS ERROR: Do not mark words with opposite meanings as synonyms.
+                For example, do NOT mark 'clean' and 'dirty' as synonyms - they are antonyms!
+                Do NOT mark 'unclean' as a synonym of 'clean' - adding 'un' creates an antonym!
                 """
             else:  # Grade 3+
                 prompt = f"""
@@ -804,7 +1175,26 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
                 
                 Use this random seed for variety: {random_seed}
                 
-                The question should ask for a word with the same meaning as a word appropriate for this grade level.
+                CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
+                
+                This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
+                
+                Follow these steps carefully:
+                1. Create a question asking for a synonym of '{target_word}'
+                2. Generate 3-4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+                3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
+                4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
+                5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
+                
+                Examples of correct synonym pairings:
+                - clean → spotless, tidy, pristine (these all have similar meanings)
+                - dirty → filthy, grimy, soiled (these all have similar meanings)
+                - cold → chilly, cool, frigid (these all have similar meanings)
+                - hot → warm, heated, burning (these all have similar meanings)
+                
+                ESPECIALLY AVOID THIS ERROR: Do not mark words with opposite meanings as synonyms.
+                For example, do NOT mark 'clean' and 'dirty' as synonyms - they are antonyms!
+                Do NOT mark 'unclean' as a synonym of 'clean' - adding 'un' creates an antonym!
                 """
             
             # Log the enhanced prompt details

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getGrammarFeedback, evaluateGrammarCorrection, evaluateReadingComprehension } from '../services/api';
+import LoadingAnimation from './animations/LoadingAnimation';
+import '../styles/animations.css';
 
 const DirectAnswerInput = ({ 
   question,
@@ -7,13 +9,15 @@ const DirectAnswerInput = ({
   loading,
   submitted,
   feedback,
-  onNextQuestion
+  onNextQuestion,
+  loadingNextQuestion = false
 }) => {
   const [answer, setAnswer] = useState('');
   const [detailedFeedback, setDetailedFeedback] = useState('');
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [aiEvaluation, setAiEvaluation] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
   
   // Get the player ID from the question object or localStorage
   const getPlayerId = () => {
@@ -74,6 +78,7 @@ const DirectAnswerInput = ({
 
         // Otherwise, get feedback via API
         setLoadingFeedback(true);
+        setIsFeedbackLoading(true);
         try {
           // Get detailed AI feedback on why the answer was correct/incorrect
           const result = await getGrammarFeedback(
@@ -87,6 +92,7 @@ const DirectAnswerInput = ({
           console.error("Error getting detailed feedback:", error);
         } finally {
           setLoadingFeedback(false);
+          setIsFeedbackLoading(false);
         }
       }
     };
@@ -146,15 +152,31 @@ const DirectAnswerInput = ({
         // Pass the AI evaluation result to the parent component instead of raw answer
         console.log("About to call onAnswer and complete evaluation");
         onAnswer(answer, evaluation);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         console.log("Evaluation complete, setting isEvaluating to false");
         // Turn off loading indicator after everything is done
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       } catch (error) {
         console.error("Error in grammar evaluation:", error);
         // If evaluation fails, submit the answer without AI evaluation
         onAnswer(answer);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         // Turn off loading indicator
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       }
     } 
     else if (isReadingComprehension) {
@@ -178,12 +200,28 @@ const DirectAnswerInput = ({
         setAiEvaluation(evaluation);
         // Pass the AI evaluation result to the parent component
         onAnswer(answer, evaluation);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         // Turn off loading indicator
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       } catch (error) {
         console.error("Error in reading comprehension evaluation:", error);
         onAnswer(answer);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       }
     }
     else {
@@ -199,12 +237,28 @@ const DirectAnswerInput = ({
         }
         
         onAnswer(answer);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         // Turn off loading indicator
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       } catch (error) {
         console.error("Error in basic answer submission:", error);
         onAnswer(answer);
+        
+        // Set feedback loading state to create smoother transition
+        setIsFeedbackLoading(true);
+        
+        // Add a short delay before turning off the loading indicator to ensure feedback is rendered
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         setIsEvaluating(false);
+        setIsFeedbackLoading(false);
       }
     }
   };
@@ -230,8 +284,24 @@ const DirectAnswerInput = ({
     position: 'relative'
   };
   
+  // Function to get the subject for the loading animation
+  const getAnimationSubject = () => {
+    if (!question) return 'default';
+    
+    if (question.subject === 'Math') return 'Math';
+    if (question.subject === 'English') return 'English';
+    if (question.sub_activity && question.sub_activity.includes('Mario')) return 'Mario';
+    
+    return 'default';
+  };
+  
   return (
     <div className="direct-answer-container">
+      <LoadingAnimation 
+        subject={getAnimationSubject()}
+        isVisible={loadingNextQuestion} 
+      />
+      
       <div style={{ position: 'relative' }}>
         <textarea
           className={getInputClass()}
@@ -239,7 +309,7 @@ const DirectAnswerInput = ({
           onChange={(e) => setAnswer(e.target.value)}
           placeholder={isGrammarCorrection ? "Type the corrected sentence here..." : "Type your answer here..."}
           disabled={loading || submitted || isEvaluating}
-          rows={3}
+          rows={5}
           style={inputStyle}
         />
       </div>
@@ -247,81 +317,54 @@ const DirectAnswerInput = ({
       <div className="action-container">
         {!submitted ? (
           <button 
-            className="btn btn-lg btn-primary submit-btn"
+            className={`btn btn-lg btn-primary submit-btn ${isEvaluating || isFeedbackLoading ? 'evaluating' : ''}`}
             onClick={handleSubmit}
             disabled={!answer.trim() || loading || submitted || isEvaluating}
-            style={{
-              ...(isEvaluating ? {
-                background: '#ff1493',
-                color: 'white',
-                boxShadow: '0 0 20px rgba(255, 20, 147, 0.7)',
-                border: 'none',
-                position: 'relative',
-                overflow: 'hidden',
-                transform: 'scale(1.05)',
-                transition: 'all 0.3s ease'
-              } : {})
-            }}
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              zIndex: 2
-            }}>
-              {isEvaluating ? (
-                <>
-                  <div className="spinner-border text-white me-2" 
-                       role="status" 
-                       style={{
-                         width: '2rem',
-                         height: '2rem',
-                         borderWidth: '0.25rem'
-                       }}></div>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>Evaluating...</span>
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check-circle me-2"></i>
-                  <span>Submit Answer</span>
-                </>
-              )}
-            </div>
-            
-            {isEvaluating && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'linear-gradient(45deg, rgba(255,105,180,0.6) 25%, rgba(255,20,147,0.6) 25%, rgba(255,20,147,0.6) 50%, rgba(255,105,180,0.6) 50%, rgba(255,105,180,0.6) 75%, rgba(255,20,147,0.6) 75%, rgba(255,20,147,0.6))',
-                backgroundSize: '40px 40px',
-                animation: 'move-background 1s linear infinite',
-                zIndex: 1
-              }}></div>
+            {isEvaluating ? (
+              <span>Checking Answer...</span>
+            ) : (
+              <>
+                <i className="bi bi-check-circle me-2"></i>
+                <span>Submit Answer</span>
+              </>
             )}
           </button>
         ) : (
           <button 
-            className="btn btn-success btn-lg submit-btn"
+            className={`btn btn-success btn-lg submit-btn ${loadingNextQuestion ? 'loading' : ''}`}
             onClick={handleNextQuestion}
-            disabled={loading}
+            disabled={loading || loadingNextQuestion}
+            style={{ minWidth: '280px', minHeight: '60px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <i className="bi bi-arrow-right-circle"></i> Next Question
+            {loadingNextQuestion ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', width: '100%' }}>
+                <div className="theme-spinner"></div>
+                <span className="loading-message">Next Question</span>
+                <div className="floating-icons">
+                  <span className="icon">💖</span>
+                  <span className="icon">✨</span>
+                  <span className="icon">🌟</span>
+                  <span className="icon">💫</span>
+                  <span className="icon">💕</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <i className="bi bi-arrow-right-circle me-2"></i>
+                <span>Next Question</span>
+              </>
+            )}
           </button>
         )}
       </div>
       
       {submitted && feedback && (
         <div className={`feedback-container ${feedback.is_correct ? 'feedback-correct' : 'feedback-incorrect'}`}>
-          {!feedback.is_correct && !isGrammarCorrection && (
-            <div className="correct-answer-display">
-              <h4>Correct Answer:</h4>
-              <div className="correct-answer">{feedback.correct_answer}</div>
-            </div>
-          )}
+          <div className="correct-answer-display">
+            <h4>Correct Answer:</h4>
+            <div className="correct-answer">{feedback.correct_answer}</div>
+          </div>
           
           {isGrammarCorrection && (
             <div className="detailed-feedback">
