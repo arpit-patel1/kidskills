@@ -60,6 +60,12 @@ const DirectAnswerInput = ({
   
   // Get detailed feedback when receiving basic feedback
   useEffect(() => {
+    // Debug the feedback object whenever it changes
+    if (feedback) {
+      console.log("Feedback object received:", feedback);
+      console.log("Does feedback have correct_answer?", feedback.hasOwnProperty('correct_answer'));
+    }
+    
     const fetchDetailedFeedback = async () => {
       if (submitted && feedback && question.sub_activity === 'Grammar Correction') {
         // If we already have AI evaluation, use its feedback directly
@@ -126,13 +132,41 @@ const DirectAnswerInput = ({
     
     // Different evaluation based on question type
     if (isGrammarCorrection) {
+      // Define correctAnswer outside the try block so it's available in catch
+      const correctAnswer = question?.answer || question?.correct_answer || "";
+      console.log("DirectAnswerInput correctAnswer from question:", correctAnswer);
+      
       try {
+        // Validate required fields are present before making API call
+        if (!question || !question.question || !answer) {
+          console.error("Missing required fields for grammar evaluation:", {
+            "question": question,
+            "question.question": question?.question,
+            "answer": answer
+          });
+          
+          // Return fallback result
+          const fallbackEvaluation = {
+            is_correct: false,
+            feedback: "There was a problem evaluating your answer. Please try again.",
+            correct_answer: correctAnswer
+          };
+          
+          setAiEvaluation(fallbackEvaluation);
+          setDetailedFeedback(fallbackEvaluation.feedback);
+          onAnswer(answer, fallbackEvaluation);
+          setIsEvaluating(false);
+          return;
+        }
+        
         // For grammar correction, use AI grammar evaluation
         console.log("Starting grammar evaluation API call at:", new Date().toISOString());
+        console.log("Using correct answer:", correctAnswer);
+        
         const evaluation = await evaluateGrammarCorrection(
           question.question,      // Original incorrect sentence
           answer,                 // User's attempted correction
-          question.answer,        // Expected correct answer from the question object
+          correctAnswer,          // Expected correct answer from the question object
           getPlayerId()           // Player ID
         );
         console.log("Finished grammar evaluation API call at:", new Date().toISOString());
@@ -145,13 +179,21 @@ const DirectAnswerInput = ({
           await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
         }
         
-        setAiEvaluation(evaluation);
-        // Set detailed feedback directly from the evaluation
-        setDetailedFeedback(evaluation.feedback || '');
+        // Make sure evaluation includes the correct answer
+        const enhancedEvaluation = {
+          ...evaluation,
+          correct_answer: correctAnswer
+        };
         
-        // Pass the AI evaluation result to the parent component instead of raw answer
+        console.log("Enhanced evaluation with correct_answer:", enhancedEvaluation);
+        
+        setAiEvaluation(enhancedEvaluation);
+        // Set detailed feedback directly from the evaluation
+        setDetailedFeedback(enhancedEvaluation.feedback || '');
+        
+        // Pass the enhanced AI evaluation result to the parent component
         console.log("About to call onAnswer and complete evaluation");
-        onAnswer(answer, evaluation);
+        onAnswer(answer, enhancedEvaluation);
         
         // Set feedback loading state to create smoother transition
         setIsFeedbackLoading(true);
@@ -165,8 +207,15 @@ const DirectAnswerInput = ({
         setIsFeedbackLoading(false);
       } catch (error) {
         console.error("Error in grammar evaluation:", error);
-        // If evaluation fails, submit the answer without AI evaluation
-        onAnswer(answer);
+        // If evaluation fails, create a fallback evaluation with correct answer
+        const fallbackEvaluation = {
+          is_correct: false,
+          feedback: "There was a problem evaluating your answer. Please try again.",
+          correct_answer: correctAnswer
+        };
+        
+        // Submit with fallback evaluation
+        onAnswer(answer, fallbackEvaluation);
         
         // Set feedback loading state to create smoother transition
         setIsFeedbackLoading(true);
@@ -180,13 +229,38 @@ const DirectAnswerInput = ({
       }
     } 
     else if (isReadingComprehension) {
+      // Define correctAnswer outside the try block so it's available in catch
+      const correctAnswer = question?.answer || question?.correct_answer || "";
+      
       try {
+        // Validate required fields
+        if (!question || !question.question || !question.passage || !answer) {
+          console.error("Missing required fields for reading comprehension evaluation:", {
+            "question": question,
+            "question.question": question?.question,
+            "question.passage": question?.passage,
+            "answer": answer
+          });
+          
+          // Return fallback result
+          const fallbackEvaluation = {
+            is_correct: false,
+            feedback: "There was a problem evaluating your answer. Please try again.",
+            correct_answer: correctAnswer
+          };
+          
+          setAiEvaluation(fallbackEvaluation);
+          onAnswer(answer, fallbackEvaluation);
+          setIsEvaluating(false);
+          return;
+        }
+        
         // For reading comprehension, use AI reading evaluation
         const evaluation = await evaluateReadingComprehension(
           question.passage,       // Reading passage
           question.question,      // Question about the passage
           answer,                 // User's answer
-          question.answer         // Expected correct answer
+          correctAnswer           // Expected correct answer
         );
         
         // Ensure loading indicator shows for at least 3 seconds
@@ -197,9 +271,15 @@ const DirectAnswerInput = ({
           await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
         }
         
-        setAiEvaluation(evaluation);
-        // Pass the AI evaluation result to the parent component
-        onAnswer(answer, evaluation);
+        // Make sure evaluation includes the correct answer
+        const enhancedEvaluation = {
+          ...evaluation,
+          correct_answer: correctAnswer
+        };
+        
+        setAiEvaluation(enhancedEvaluation);
+        // Pass the enhanced AI evaluation result to the parent component
+        onAnswer(answer, enhancedEvaluation);
         
         // Set feedback loading state to create smoother transition
         setIsFeedbackLoading(true);
@@ -212,7 +292,15 @@ const DirectAnswerInput = ({
         setIsFeedbackLoading(false);
       } catch (error) {
         console.error("Error in reading comprehension evaluation:", error);
-        onAnswer(answer);
+        // If evaluation fails, create a fallback evaluation with correct answer
+        const fallbackEvaluation = {
+          is_correct: false,
+          feedback: "There was a problem evaluating your answer. Please try again.",
+          correct_answer: correctAnswer
+        };
+        
+        // Submit with fallback evaluation
+        onAnswer(answer, fallbackEvaluation);
         
         // Set feedback loading state to create smoother transition
         setIsFeedbackLoading(true);

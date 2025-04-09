@@ -230,12 +230,15 @@ export const evaluateGrammarCorrection = async (question, userAnswer, correctAns
     });
     
     // Provide fallback evaluation - simple string comparison
-    const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+    const isCorrect = (userAnswer && correctAnswer) ? 
+      userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim() : 
+      false;
     return {
       is_correct: isCorrect,
       feedback: isCorrect
         ? "Great job! You fixed the grammar error correctly."
-        : "Good try! Check the sentence structure again."
+        : "Good try! Check the sentence structure again.",
+      correct_answer: correctAnswer
     };
   }
 };
@@ -262,12 +265,15 @@ export const evaluateReadingComprehension = async (passage, question, userAnswer
   } catch (error) {
     console.error("Error evaluating reading comprehension:", error);
     // Provide fallback evaluation - simple string comparison
-    const isCorrect = userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+    const isCorrect = (userAnswer && correctAnswer) ?
+      userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim() :
+      false;
     return {
       is_correct: isCorrect,
       feedback: isCorrect
         ? "Great job! Your answer shows good understanding of the passage."
-        : "Good try! Re-read the passage carefully to find the correct answer."
+        : "Good try! Re-read the passage carefully to find the correct answer.",
+      correct_answer: correctAnswer
     };
   }
 };

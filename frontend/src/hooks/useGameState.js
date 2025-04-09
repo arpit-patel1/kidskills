@@ -266,14 +266,47 @@ const useGameState = (initialPlayer = null) => {
       // If we have AI evaluation, use it directly instead of calling the API
       if ((isGrammarCorrection || isReadingComprehension) && aiEvaluation) {
         console.log('Using AI evaluation result:', aiEvaluation);
+        console.log('Current question object:', currentQuestion);
+        
+        // Get the expected answer from all possible sources
+        let expectedAnswer = aiEvaluation.correct_answer;
+        if (!expectedAnswer && currentQuestion.answer) {
+          expectedAnswer = currentQuestion.answer;
+          console.log('Using currentQuestion.answer:', expectedAnswer);
+        } else if (!expectedAnswer && currentQuestion.correct_answer) {
+          expectedAnswer = currentQuestion.correct_answer;
+          console.log('Using currentQuestion.correct_answer:', expectedAnswer);
+        } else if (!expectedAnswer) {
+          // For grammar correction, generate a default correct answer if all else fails
+          if (isGrammarCorrection && currentQuestion.question) {
+            // As a last resort, use a hardcoded correction for common issues
+            const question = currentQuestion.question;
+            if (question.includes(' was ') && (question.includes(' and ') || question.includes(','))) {
+              expectedAnswer = question.replace(' was ', ' were ');
+              console.log('Generated fallback answer for was/were:', expectedAnswer);
+            } else if (question.includes(' see ')) {
+              expectedAnswer = question.replace(' see ', ' sees ');
+              console.log('Generated fallback answer for see/sees:', expectedAnswer);
+            } else if (question.includes(' should of ')) {
+              expectedAnswer = question.replace(' should of ', ' should have ');
+              console.log('Generated fallback answer for should of/have:', expectedAnswer);
+            } else {
+              // If all else fails, just use the original question as the answer
+              expectedAnswer = question;
+              console.log('Using question as fallback answer:', expectedAnswer);
+            }
+          }
+        }
         
         // Create result with the AI evaluation
         const result = {
           is_correct: aiEvaluation.is_correct,
-          correct_answer: currentQuestion.answer,
+          correct_answer: expectedAnswer,
           ai_evaluated: true,
           feedback: aiEvaluation.feedback || (aiEvaluation.is_correct ? "Correct!" : "Incorrect")
         };
+        
+        console.log('Final feedback result with correct_answer:', result);
         
         // Store feedback
         setFeedback(result);

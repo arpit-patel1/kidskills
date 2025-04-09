@@ -136,6 +136,23 @@ const QuestionDisplay = ({
   console.log('Is Reading Comprehension:', isReadingComprehension);
   console.log('Full Question Object:', question);
   
+  // Debug question properties specifically for Grammar Correction
+  if (question.sub_activity === 'Grammar Correction') {
+    console.log('Grammar Question - answer property:', question.answer);
+    console.log('Grammar Question - properties:', Object.keys(question));
+    // Check if there's any property that might contain the answer
+    const potentialAnswerProps = Object.entries(question).filter(([key, value]) => 
+      typeof value === 'string' && 
+      value !== question.question && 
+      key !== 'id' && 
+      key !== 'type' && 
+      key !== 'subject' && 
+      key !== 'sub_activity' && 
+      key !== 'difficulty'
+    );
+    console.log('Potential answer properties:', potentialAnswerProps);
+  }
+  
   // Calculate progress percentage (for 1000 question game)
   const progressPercentage = (questionCount / QUESTIONS_PER_GAME) * 100;
   
