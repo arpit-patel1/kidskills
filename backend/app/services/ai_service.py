@@ -501,37 +501,37 @@ I will be testing your understanding of the difference between synonyms and anto
             logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
             
             # Check if there are any tool calls in the response
-            if ollama_response.message.tool_calls:
+            if "message" in ollama_response and "tool_calls" in ollama_response["message"]:
                 tool_call_count += 1
                 
                 # Process each tool call
-                for tool in ollama_response.message.tool_calls:
+                for tool in ollama_response["message"]["tool_calls"]:
                     # Ensure the function is available, and then call it
-                    if function_to_call := available_functions.get(tool.function.name):
-                        logger.info(f"[{request_id}] Calling function: {tool.function.name}")
-                        logger.info(f"[{request_id}] Arguments: {tool.function.arguments}")
+                    if function_to_call := available_functions.get(tool["function"]["name"]):
+                        logger.info(f"[{request_id}] Calling function: {tool['function']['name']}")
+                        logger.info(f"[{request_id}] Arguments: {tool['function']['arguments']}")
                         
                         try:
                             # Call the function with the arguments
-                            output = await function_to_call(**tool.function.arguments)
+                            output = await function_to_call(**tool["function"]["arguments"])
                             logger.info(f"[{request_id}] Function output: {output}")
                             final_output = output
                         except Exception as e:
-                            error_msg = f"Error calling function {tool.function.name}: {str(e)}"
+                            error_msg = f"Error calling function {tool['function']['name']}: {str(e)}"
                             logger.error(f"[{request_id}] {error_msg}")
                             output = f"Error: {str(e)}"
                             final_output = output
                     else:
-                        logger.error(f"[{request_id}] Function {tool.function.name} not found")
-                        output = f"Error: Function {tool.function.name} not found"
+                        logger.error(f"[{request_id}] Function {tool['function']['name']} not found")
+                        output = f"Error: Function {tool['function']['name']} not found"
                         final_output = output
                 
                 # Add the function response to messages for the model to use
-                messages.append(ollama_response.message)
-                messages.append({"role": "tool", "content": str(final_output), "name": tool.function.name})
+                messages.append(ollama_response["message"])
+                messages.append({"role": "tool", "content": str(final_output), "name": tool["function"]["name"]})
             else:
                 # No more tool calls, we're done
-                final_content = ollama_response.message.content
+                final_content = ollama_response["message"]["content"]
                 break
         
         # For non-math subjects or when tool calls are complete, just get the final content
