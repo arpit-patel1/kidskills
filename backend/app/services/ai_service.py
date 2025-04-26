@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 from ollama import AsyncClient
 from .fallback_questions import get_fallback_question as get_fallback
-from .prompts import construct_prompt
+from .prompts import construct_prompt, construct_mario_english_prompt
 import math
 import operator
 import httpx
@@ -235,6 +235,8 @@ async def generate_multiple_choice_question(grade: int, subject: str, sub_activi
         return await generate_reading_comprehension_question(grade, subject, sub_activity, difficulty, request_id)
     elif subject == "English" and sub_activity == "Mushroom Kingdom Vocabulary":
         return await generate_mario_english_langflow(grade, sub_activity, difficulty, request_id)
+    elif subject == "English" and sub_activity == "Nouns/Pronouns":
+        return await generate_english_nouns_pronouns_langflow(grade, sub_activity, difficulty, request_id)
     
     # For other subjects, use the existing implementation
     temperature = 0.7  # default
@@ -2061,74 +2063,34 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
 
 def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
     """
-    Constructs a prompt for generating grammar correction questions for Langflow API.
-    
-    Args:
-        grade: Student grade level
-        difficulty: Difficulty level (Easy, Medium, Hard)
-        
-    Returns:
-        A formatted prompt string
+    Construct a prompt for generating grammar correction questions.
     """
-    # Randomly select error type appropriate for grade level
-    error_types = [
-        "subject-verb agreement", 
-        "verb tense", 
-        "pronoun usage", 
-        "article usage",
-        "plural forms", 
-        "prepositions"
-    ]
-    
-    # Select complexity appropriate for grade level
-    if grade <= 2:  # Grades 1-2
-        # Simpler error types for younger students
-        error_type = random.choice(error_types[:3])  
-        
-        # Select topics relevant to younger students
-        topics = ["school activities", "family", "pets", "playground games"]
-        topic = random.choice(topics)
-        
-        # Simpler sentence structures
-        sentence_type = "simple sentence"
-    else:  # Grade 3+
-        # Full range of error types for older students
-        error_type = random.choice(error_types) 
-        
-        # More diverse topics
-        topics = ["school subjects", "hobbies", "nature", "sports", "community", "daily routines"]
-        topic = random.choice(topics)
-        
-        # More varied sentence structures
-        sentence_types = ["simple sentence", "compound sentence", "question", "sentence with prepositional phrase"]
-        sentence_type = random.choice(sentence_types)
-    
-    # Generate a random seed for variety
+    # Get randomized seed for variety
     random_seed = getRandomSeed()
     
-    prompt = f"""
-    Generate a {difficulty.lower()} {grade}-grade level English grammar correction question.
+    # Define common variables
+    pronouns = ["I", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them"]
+    nouns = ["cat", "dog", "boy", "girl", "teacher", "student", "tree", "book", "pencil", "car", "house", "school"]
+    error_types = ["subject-verb agreement", "singular/plural nouns", "pronoun usage", "possessive nouns"]
     
-    Write a {sentence_type} about {topic} with exactly ONE grammatical error involving {error_type}.
-    The error should be appropriate for a {grade}-grade student to identify and fix.
+    # Choose random elements
+    if grade <= 2:  # Grades 1-2
+        # Simpler options for younger students
+        error_type = random.choice(error_types[:2])  # Only basic errors
+        
+    else:  # Grade 3+
+        # Fuller range of error types for older students
+        error_type = random.choice(error_types)
     
-    Use this random seed for variety: {random_seed}
+    # Build the base prompt
+    prompt = f"""Create a {difficulty.lower()} {grade}-grade level English grammar correction question focusing on {error_type}.
+Write a sentence with ONE grammatical error. The error should be appropriate for {grade}-grade students to identify and fix.
+The question should be short and clear, and the answer should be the corrected sentence.
+Make sure to include appropriate emojis in the question to make it engaging.
+"""
     
-    The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
-    Make sure the sentence sounds natural and uses age-appropriate vocabulary.
-    Add one or two emojis to make the question engaging for children.
-    
-    Return a JSON with these fields:
-    - "question": The incorrect sentence with a grammar error (with emoji)
-    - "answer": The fully corrected sentence
-    - "type": "direct-answer"
-    
-    IMPORTANT REQUIREMENTS:
-    - The question must have EXACTLY ONE grammatical error
-    - The answer must be the fully corrected sentence with the error fixed
-    - Ensure the error is age-appropriate for grade {grade}
-    - Do not use sentences that are too long or complex for the grade level
-    """
+    # Log the randomization details
+    logger.info(f"Grammar correction prompt generation - Error type: {error_type}, Grade: {grade}, Difficulty: {difficulty}, Seed: {random_seed}")
     
     return prompt
 
@@ -2556,3 +2518,217 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
         return get_fallback_question(grade, "English", sub_activity, difficulty)
+
+async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate an English nouns/pronouns question using Langflow API.
+    
+    Args:
+        grade: Student grade level
+        sub_activity: Sub-activity type (Nouns/Pronouns)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating English nouns/pronouns question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_NOUNS_PRONOUNS", "nouns-pronouns")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for nouns/pronouns questions
+    custom_prompt = construct_nouns_pronouns_prompt(grade, difficulty)
+    print(f"Nouns/Pronouns prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "multiple-choice",
+                    "sub_activity": sub_activity,
+                    "subject": "English",
+                    "difficulty": difficulty
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, "English", sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    
+                    # Fix the number of choices
+                    choices = formatted_question["choices"]
+                    answer = formatted_question["answer"]
+                    
+                    if len(choices) < 4:
+                        # Add additional choices to reach 4
+                        while len(choices) < 4:
+                            new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                            if new_choice not in choices and new_choice != answer:
+                                choices.append(new_choice)
+                                logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+                    elif len(choices) > 4:
+                        # Keep the first 3 choices plus the correct answer
+                        if answer in choices:
+                            # Remove the answer temporarily
+                            choices.remove(answer)
+                            # Keep only the first 3 other choices
+                            choices = choices[:3]
+                            # Add the answer back
+                            choices.append(answer)
+                        else:
+                            # Just keep the first 4 choices
+                            choices = choices[:4]
+                    
+                    formatted_question["choices"] = choices
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    
+                    # Add the answer to the choices
+                    choices = formatted_question["choices"]
+                    if len(choices) > 0:
+                        choices[-1] = formatted_question["answer"]
+                    else:
+                        choices = ["Option A", "Option B", formatted_question["answer"], "Option C"]
+                    
+                    formatted_question["choices"] = choices
+                
+                logger.info(f"[{request_id}] Successfully generated nouns/pronouns question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+
+def construct_nouns_pronouns_prompt(grade: int, difficulty: str) -> str:
+    """
+    Construct a prompt for generating nouns/pronouns questions.
+    
+    Args:
+        grade: Student grade level (1-5)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        String containing the prompt
+    """
+    # Get randomized seed for variety
+    random_seed = getRandomSeed()
+    
+    # Select names and objects for variety
+    selected_names = random.sample(NAMES, 2)
+    objects = random.sample(ENGLISH_NOUNS, 3)
+    
+    # Determine complexity based on grade level
+    if grade <= 2:  # Grades 1-2
+        # For younger students, focus on basic nouns and pronouns identification
+        question_types = [
+            "identifying common nouns", 
+            "identifying proper nouns",
+            "matching pronouns to nouns",
+            "basic singular/plural nouns"
+        ]
+    else:  # Grades 3+
+        # For older students, include more complex concepts
+        question_types = [
+            "identifying common and proper nouns",
+            "identifying subject and object pronouns",
+            "replacing nouns with appropriate pronouns",
+            "possessive nouns and pronouns",
+            "singular/plural noun forms",
+            "pronoun-antecedent agreement"
+        ]
+    
+    # Select a random question type appropriate for the grade level
+    question_type = random.choice(question_types)
+    
+    # Build the prompt with specific instructions
+    prompt = f"""Generate a {difficulty.lower()} {grade}-grade level English multiple-choice question about {question_type}.
+The question should be appropriate for {grade}-grade students and include exactly 4 answer choices.
+
+Use these elements in your question:
+- Names: {selected_names[0]} and/or {selected_names[1]}
+- Objects: {objects[0]}, {objects[1]}, and/or {objects[2]}
+
+Make sure to:
+1. Include appropriate emojis to make the question engaging
+2. Create exactly 4 answer choices (A, B, C, D)
+3. Ensure one clear correct answer
+4. Make the question clear and grade-appropriate
+
+Return a JSON object with 'question', 'choices' (array of 4 strings), and 'answer' (the correct choice string).
+
+Example format:
+{{
+  "question": "📝 Which word in the sentence is a noun? The dog played in the yard.",
+  "choices": ["dog", "played", "in", "the"],
+  "answer": "dog"
+}}
+"""
+    
+    # Log the prompt details
+    logger.info(f"Nouns/Pronouns prompt generation - Type: {question_type}, Grade: {grade}, Difficulty: {difficulty}, Names: {selected_names}, Objects: {objects}, Seed: {random_seed}")
+    
+    return prompt
