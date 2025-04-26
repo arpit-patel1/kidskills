@@ -161,12 +161,21 @@ const DirectAnswerInput = ({
         
         // For grammar correction, use AI grammar evaluation
         console.log("Starting grammar evaluation API call at:", new Date().toISOString());
-        console.log("Using correct answer:", correctAnswer);
+        
+        // Get the correct answer from the question object
+        const correctAnswerFromQuestion = question?.answer || question?.correct_answer || "";
+        // Make sure we're not just echoing back the original question
+        if (correctAnswerFromQuestion === question.question) {
+          console.error("Warning: correct answer is same as question in grammar correction");
+          // This is a bug - we should have a different corrected sentence
+          // But we'll continue with what we have
+        }
+        console.log("Using correct answer:", correctAnswerFromQuestion);
         
         const evaluation = await evaluateGrammarCorrection(
           question.question,      // Original incorrect sentence
           answer,                 // User's attempted correction
-          correctAnswer,          // Expected correct answer from the question object
+          correctAnswerFromQuestion,          // Expected correct answer from the question object
           getPlayerId()           // Player ID
         );
         console.log("Finished grammar evaluation API call at:", new Date().toISOString());
@@ -182,7 +191,7 @@ const DirectAnswerInput = ({
         // Make sure evaluation includes the correct answer
         const enhancedEvaluation = {
           ...evaluation,
-          correct_answer: correctAnswer
+          correct_answer: correctAnswerFromQuestion
         };
         
         console.log("Enhanced evaluation with correct_answer:", enhancedEvaluation);
@@ -211,7 +220,7 @@ const DirectAnswerInput = ({
         const fallbackEvaluation = {
           is_correct: false,
           feedback: "There was a problem evaluating your answer. Please try again.",
-          correct_answer: correctAnswer
+          correct_answer: correctAnswerFromQuestion
         };
         
         // Submit with fallback evaluation
@@ -452,7 +461,14 @@ const DirectAnswerInput = ({
         <div className={`feedback-container ${feedback.is_correct ? 'feedback-correct' : 'feedback-incorrect'}`}>
           <div className="correct-answer-display">
             <h4>Correct Answer:</h4>
-            <div className="correct-answer">{feedback.correct_answer}</div>
+            <div className="correct-answer">
+              {/* For grammar correction questions, make sure we're displaying the actual corrected sentence */}
+              {question.sub_activity === 'Grammar Correction' 
+                ? (feedback.correct_answer && feedback.correct_answer !== question.question 
+                    ? feedback.correct_answer 
+                    : question.answer)
+                : feedback.correct_answer}
+            </div>
           </div>
           
           {isGrammarCorrection && (

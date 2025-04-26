@@ -4,13 +4,17 @@ import time
 import random
 import re
 import logging
-from typing import Dict, Any, Optional, List, Literal, Union, Callable
+from typing import Dict, Any, Optional, List, Literal, Union, Callable, Tuple
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
 from ollama import AsyncClient
 from .fallback_questions import get_fallback_question as get_fallback
+from .prompts import construct_prompt
 import math
 import operator
+import httpx
+import uuid
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -61,78 +65,6 @@ logger.info(f"Logging to {log_file}")
 
 # Get Ollama model from env or use default
 logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
-
-# Define math calculation tool for the LLM
-async def calculator(expression: str, question: str) -> str:
-    """
-    Evaluates a mathematical expression and returns the result.
-    Handles basic arithmetic operations, simple fractions, and functions.
-    
-    Args:
-        expression: A mathematical expression as a string
-        question: The question being solved (for context)
-        
-    Returns:
-        The result of the calculation as a string
-    """
-    logger.info(f"Calculator tool received: {expression}")
-    logger.info(f"Question context: {question}")
-    
-    try:
-        # Clean the expression
-        expression = expression.strip()
-        
-        # Define safe operations
-        safe_dict = {
-            'abs': abs,
-            'round': round,
-            'min': min,
-            'max': max,
-            'sum': sum,
-            'pow': pow,
-            'int': int,
-            'float': float,
-            'sqrt': math.sqrt,
-            'sin': math.sin,
-            'cos': math.cos,
-            'tan': math.tan,
-            'floor': math.floor,
-            'ceil': math.ceil,
-            'pi': math.pi,
-            'e': math.e
-        }
-        
-        # Add basic operators
-        safe_dict.update({
-            '+': operator.add,
-            '-': operator.sub,
-            '*': operator.mul,
-            '/': operator.truediv,
-            '//': operator.floordiv,
-            '%': operator.mod,
-            '**': operator.pow
-        })
-        
-        # Evaluate the expression
-        result = eval(expression, {"__builtins__": {}}, safe_dict)
-        
-        # Format the result
-        if isinstance(result, int) or result.is_integer():
-            formatted_result = str(int(result))
-        else:
-            # Round to 4 decimal places for readability
-            formatted_result = str(round(result, 4))
-            # Remove trailing zeros
-            if '.' in formatted_result:
-                formatted_result = formatted_result.rstrip('0').rstrip('.')
-        
-        logger.info(f"Calculator result: {formatted_result}")
-        return formatted_result
-    
-    except Exception as e:
-        error_msg = f"Error calculating expression '{expression}': {str(e)}"
-        logger.error(error_msg)
-        return f"Error: {str(e)}"
 
 # Define Pydantic models for structured output
 class MultipleChoiceQuestion(BaseModel):
@@ -287,23 +219,26 @@ async def generate_multiple_choice_question(grade: int, subject: str, sub_activi
     """
     Generate a multiple choice question.
     
-    The calculator tool for math questions can be enabled/disabled by setting the
-    ENABLE_MATH_TOOLS environment variable to "true" or "false" in the .env file.
+    For math and English activities, this uses the Langflow API.
+    For other subjects/activities, it uses the Ollama-based implementation.
     """
     logger.info(f"[{request_id}] Generating multiple-choice question")
     
-    # Determine temperature based on subject/activity
-    temperature = 0.5  # default
-    if subject == "English":
-        if sub_activity == "Opposites/Antonyms":
-            temperature = 0.9
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for Opposites/Antonyms")
-        elif sub_activity == "Synonyms":
-            temperature = 0.8
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for Synonyms")
-        else:
-            temperature = 0.7
-            logger.info(f"[{request_id}] Using higher temperature of {temperature} for {sub_activity}")
+    # Use Langflow API for specific question types
+    if subject == "Math":
+        return await generate_math_multiple_choice_langflow(grade, sub_activity, difficulty, request_id)
+    elif subject == "English" and sub_activity == "Opposites/Antonyms":
+        return await generate_english_opposites_antonyms_langflow(grade, sub_activity, difficulty, request_id)
+    elif subject == "English" and sub_activity == "Synonyms":
+        return await generate_english_synonyms_langflow(grade, sub_activity, difficulty, request_id)
+    elif subject == "English" and sub_activity == "Reading Comprehension":
+        return await generate_reading_comprehension_question(grade, subject, sub_activity, difficulty, request_id)
+    elif subject == "English" and sub_activity == "Mushroom Kingdom Vocabulary":
+        return await generate_mario_english_langflow(grade, sub_activity, difficulty, request_id)
+    
+    # For other subjects, use the existing implementation
+    temperature = 0.7  # default
+    logger.info(f"[{request_id}] Using temperature of {temperature} for {subject} {sub_activity}")
     
     # Construct prompt specifically for multiple choice
     prompt = construct_prompt(grade, subject, sub_activity, difficulty, "multiple-choice")
@@ -328,344 +263,93 @@ Example format:
 IMPORTANT: Always include all these fields exactly as shown.
 IMPORTANT: Always provide EXACTLY 4 choices for the multiple-choice question. No more, no less.
 IMPORTANT: Always add multiple emojis to the question text to make it more engaging for children. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🌍 What is the capital of France? This is a geography question! 🗼 🏙️"""
-
-    if subject == "Math":
-        system_message += """
-For math questions, follow these CRITICAL rules:
-
-1. Question Completeness:
-   - Every question MUST include ALL numbers needed to solve it
-   - NEVER ask about unknown quantities without providing the numbers
-   - Example of BAD question: "What is the sum of James's age and his brother's age?" (no numbers provided)
-   - Example of GOOD question: "James is 7 years old and his brother is 5 years old. What is the sum of their ages?"
-
-2. Word Problem Requirements:
-   - Always provide specific numbers in the problem statement
-   - Make sure the scenario is complete and solvable
-   - Include all necessary information to find the answer
-   - Example of BAD question: "Sarah has some apples and gives some to her friend. How many does she have left?"
-   - Example of GOOD question: "Sarah has 8 apples and gives 3 to her friend. How many apples does she have left?"
-
-3. Multiple Choice Guidelines:
-   - The correct answer MUST be one of the choices
-   - Wrong answers should be plausible but clearly incorrect
-   - All numbers in choices should be appropriate for the grade level
-   - Example of BAD choices: ["10", "12", "15", "20"] for a question with no numbers
-   - Example of GOOD choices: ["10", "12", "15", "20"] for "What is 7 + 5?"
-
-4. Validation Steps:
-   - First, write the complete question with all numbers
-   - Then, calculate the correct answer
-   - Generate plausible wrong answers
-   - Double-check that the question is solvable with the given information
-   - Verify that the correct answer is one of the choices
-
-5. IMPORTANT - Use Calculator Tool When Needed:
-   - When you need to calculate any math operation (addition, subtraction, multiplication, division, etc.), 
-     use the 'calculator' tool provided to you
-   - This ensures your calculations are accurate
-   - ALWAYS provide both the 'expression' and the 'question' parameters:
-     - 'expression': The mathematical expression to calculate (e.g., "28 + 35")
-     - 'question': The actual question you're solving (e.g., "If Sam has 28 apples and gets 35 more, how many does he have in total?")
-   - Providing the question helps maintain context between your questions and calculations
-   - Use the calculator tool for generating answer choices too, to ensure they're mathematically sound
-
-6. CRITICAL - Answer Validation Process:
-   - Step 1: Design your question first (e.g., "5 + 9 = ?")
-   - Step 2: Use the calculator tool to compute the EXACT answer (e.g., "5 + 9" → 14)
-   - Step 3: Use this calculator result as your correct answer
-   - Step 4: Create choices that MUST include this exact calculator result
-   - Step 5: Double-check that the "answer" field matches one of the choices
-   - Step 6: NEVER include a correct answer that wasn't one of the choices
-
-7. CRITICAL - Choice Selection Requirements:
-   - You MUST include the calculated answer in the choices array
-   - Example: If calculator says 14, then "14" MUST be in choices
-   - NEVER set an answer that is not in the choices
-   - Before finalizing, verify that answer appears in choices
-
-Remember: Every question must be complete and solvable with the information provided. If you're unsure, use simpler numbers or a different question type."""
-
-    if subject == "English" and sub_activity == "Opposites/Antonyms":
-        system_message += " When asked to use a specific word in a question about opposites/antonyms, you MUST use exactly that word and not substitute it with a different word. Follow the exact template provided in the prompt."
-    
-    if subject == "English" and sub_activity == "Synonyms":
-        system_message += """
-CRITICAL INSTRUCTIONS FOR SYNONYM QUESTIONS - READ CAREFULLY:
-
-1. Synonyms vs Antonyms: 
-   - Synonyms have SIMILAR meanings (like "happy" and "joyful")
-   - Antonyms have OPPOSITE meanings (like "happy" and "sad")
-   - This question is about SYNONYMS (similar meanings), NOT antonyms
-
-2. Examples of correct synonym pairs:
-   - big → large, huge, enormous, gigantic
-   - small → tiny, little, miniature, petite
-   - happy → joyful, glad, cheerful, delighted
-   - sad → unhappy, gloomy, miserable, downcast
-   - clean → tidy, spotless, immaculate, pristine
-   - dirty → filthy, grimy, soiled, unclean
-   - cold → chilly, cool, frosty, frigid
-   - hot → warm, heated, burning, fiery
-
-3. Examples of INCORRECT answers (these are antonym pairs, NOT synonyms):
-   - big ≠ small (these are opposites, not synonyms)
-   - happy ≠ sad (these are opposites, not synonyms)
-   - clean ≠ dirty (these are opposites, not synonyms)
-   - hot ≠ cold (these are opposites, not synonyms)
-   - dark ≠ light (these are opposites, not synonyms)
-
-4. Words with 'un', 'in', 'im', 'dis' prefixes are usually antonyms:
-   - clean vs unclean (these are opposites, not synonyms)
-   - happy vs unhappy (these are opposites, not synonyms)
-   - possible vs impossible (these are opposites, not synonyms)
-
-5. Double-check your answer:
-   - Make sure the correct answer has a SIMILAR meaning to the word in the question
-   - Verify your answer is NOT an opposite/antonym of the word in the question
-   - If you're asked for a synonym of "clean," the answer should be a word like "tidy" (similar meaning), NOT "dirty" or "unclean" (opposite meaning)
-
-I will be testing your understanding of the difference between synonyms and antonyms. You MUST ensure your answer is a true synonym (similar meaning), not an antonym (opposite meaning).
-"""
     
     try:
         # Make API call
         start_time = time.time()
         
-        model = os.getenv("OLLAMA_MATH_MODEL") if subject == "Math" else os.getenv("OLLAMA_MODEL")
-        
         # Generate a random seed for variety
         random_seed = getRandomSeed()
         logger.info(f"[{request_id}] Using random seed: {random_seed}")
         
-        # Available functions for tool calling
-        available_functions = {
-            "calculator": calculator
-        }
+        ollama_response = await ollama_async_client.chat(
+            model=os.getenv("OLLAMA_MODEL"),
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            options={"temperature": temperature, "seed": random_seed},
+            stream=False
+        )
         
-        # Set up tools for math questions
-        tools = None
-        if subject == "Math" and ENABLE_MATH_TOOLS:
-            # Define calculator tool
-            calculator_tool = {
-                "type": "function",
-                "function": {
-                    "name": "calculator",
-                    "description": "Calculate the result of a mathematical expression",
-                    "parameters": {
-                        "type": "object",
-                        "required": ["expression", "question"],
-                        "properties": {
-                            "expression": {
-                                "type": "string", 
-                                "description": "The mathematical expression to calculate (e.g., '2+2', '5*3', etc.)"
-                            },
-                            "question": {
-                                "type": "string",
-                                "description": "The mathematical question being solved (provides context for the calculation)"
-                            }
-                        }
-                    }
-                }
-            }
-            tools = [calculator_tool]
-            logger.info(f"[{request_id}] Adding calculator tool for math question")
-        elif subject == "Math" and not ENABLE_MATH_TOOLS:
-            logger.info(f"[{request_id}] Math tools disabled by ENABLE_MATH_TOOLS setting")
-        
-        # Initialize messages array with system and user message
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt}
-        ]
-        
-        # Flag to track if we're doing a conversation with tool calls
-        using_tools = subject == "Math" and ENABLE_MATH_TOOLS
-        max_tool_calls = 5  # Limit the number of tool calls to avoid infinite loops
-        tool_call_count = 0
-        final_content = None
-        final_output = None
-        
-        # If we're using tools, we need to have a conversation that could involve multiple turns
-        while using_tools and tool_call_count < max_tool_calls:
-            # Make API call
-            ollama_response = await ollama_async_client.chat(
-                model=model,
-                messages=messages,
-                options={"temperature": temperature, "seed": random_seed},
-                tools=tools if subject == "Math" and ENABLE_MATH_TOOLS else None,
-                stream=False
-            )
-            
-            # Log the response
-            logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-            
-            # Check if there are any tool calls in the response
-            if "message" in ollama_response and "tool_calls" in ollama_response["message"]:
-                tool_call_count += 1
-                
-                # Process each tool call
-                for tool in ollama_response["message"]["tool_calls"]:
-                    # Ensure the function is available, and then call it
-                    if function_to_call := available_functions.get(tool["function"]["name"]):
-                        logger.info(f"[{request_id}] Calling function: {tool['function']['name']}")
-                        logger.info(f"[{request_id}] Arguments: {tool['function']['arguments']}")
-                        
-                        try:
-                            # Call the function with the arguments
-                            output = await function_to_call(**tool["function"]["arguments"])
-                            logger.info(f"[{request_id}] Function output: {output}")
-                            final_output = output
-                        except Exception as e:
-                            error_msg = f"Error calling function {tool['function']['name']}: {str(e)}"
-                            logger.error(f"[{request_id}] {error_msg}")
-                            output = f"Error: {str(e)}"
-                            final_output = output
-                    else:
-                        logger.error(f"[{request_id}] Function {tool['function']['name']} not found")
-                        output = f"Error: Function {tool['function']['name']} not found"
-                        final_output = output
-                
-                # Add the function response to messages for the model to use
-                messages.append(ollama_response["message"])
-                messages.append({"role": "tool", "content": str(final_output), "name": tool["function"]["name"]})
-            else:
-                # No more tool calls, we're done
-                final_content = ollama_response["message"]["content"]
-                break
-        
-        # For non-math subjects or when tool calls are complete, just get the final content
-        if not using_tools:
-            ollama_response = await ollama_async_client.chat(
-                model=model,
-                messages=messages,
-                format=MultipleChoiceQuestion.model_json_schema(),
-                options={"temperature": temperature, "seed": random_seed}
-            )
-            final_content = ollama_response.message.content
-            
-            # Log the raw response for debugging, especially for English questions
-            if subject == "English":
-                logger.info(f"[{request_id}] Raw API response for {subject} - {sub_activity}: {final_content[:500]}...")
-        
+        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
         api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s with {tool_call_count} tool calls")
+        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
         
-        try:
-            # Try to parse the final content as JSON
-            json_data = json.loads(final_content)
+        # Extract the content
+        content = ollama_response.message.content
+        logger.info(f"[{request_id}] Raw content: {content[:100]}...")
+        
+        # Parse the JSON response
+        json_data = json.loads(content)
+        
+        # Validate the response has the required fields
+        if not all(field in json_data for field in ["question", "choices", "answer"]):
+            logger.warning(f"[{request_id}] Incomplete JSON response: {json_data}")
+            return get_fallback_question(grade, subject, sub_activity, difficulty)
+        
+        # Ensure all choices and answer are strings
+        json_data["choices"] = [str(choice) for choice in json_data["choices"]]
+        json_data["answer"] = str(json_data["answer"])
+        
+        # Ensure we have exactly 4 choices
+        choices = json_data["choices"]
+        if len(choices) != 4:
+            logger.warning(f"[{request_id}] Wrong number of choices: {len(choices)}")
             
-            # Ensure that the returned JSON has the proper structure
-            if "question" not in json_data or "choices" not in json_data or "answer" not in json_data:
-                logger.warning(f"[{request_id}] Incomplete JSON response: {final_content}")
-                return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+            # Fix the number of choices
+            if len(choices) < 4:
+                # Add placeholder choices if we don't have enough
+                while len(choices) < 4:
+                    new_choice = f"Option {len(choices) + 1}"
+                    choices.append(new_choice)
+                logger.info(f"[{request_id}] Added placeholder choices: {choices}")
+            else:
+                # Truncate to 4 choices if we have too many
+                choices = choices[:4]
+                logger.info(f"[{request_id}] Truncated to 4 choices: {choices}")
             
-            # Log the complete parsed response for debugging
-            logger.info(f"[{request_id}] Parsed JSON response: {json.dumps(json_data, indent=2)}")
-            
-            # Check the number of choices and log it
-            choices = json_data.get("choices", [])
-            logger.info(f"[{request_id}] Number of choices: {len(choices)}")
-            logger.info(f"[{request_id}] Choices: {choices}")
-            
-            # Ensure type field is set correctly
-            json_data["type"] = "multiple-choice"
-            
-            # For math questions, validate that the answer is in the choices
-            if subject == "Math":
-                answer = json_data["answer"]
-                choices = json_data["choices"]
-                
-                # Check if the answer is in the choices
-                if answer not in choices:
-                    logger.warning(f"[{request_id}] Answer '{answer}' not in choices {choices}")
-                    
-                    # Add the answer to the choices, replacing one of the options
-                    if len(choices) > 0:
-                        # If there are choices, replace the last one with the correct answer
-                        choices[-1] = answer
-                        logger.info(f"[{request_id}] Fixed choices to include answer: {choices}")
-                    else:
-                        # If there are no choices, create a basic set with the answer
-                        num_answer = float(answer) if answer.replace('.', '', 1).isdigit() else 0
-                        choices = [
-                            str(int(num_answer - 2) if num_answer - 2 >= 0 else int(num_answer + 2)),
-                            str(int(num_answer - 1) if num_answer - 1 >= 0 else int(num_answer + 3)),
-                            answer,
-                            str(int(num_answer + 1))
-                        ]
-                        logger.info(f"[{request_id}] Created new choices with answer: {choices}")
-                    
-                    # Update the JSON data
-                    json_data["choices"] = choices
-            
-            # Validation for English activities, especially Mushroom Kingdom Vocabulary
-            if subject == "English":
-                answer = json_data["answer"]
-                choices = json_data["choices"]
-                question = json_data["question"]
-                
-                # Check if the choices appear to be in the question text
-                choice_markers = ["A)", "B)", "C)", "D)", "1)", "2)", "3)", "4)", "a)", "b)", "c)", "d)"]
-                has_choice_markers = any(marker in question for marker in choice_markers)
-                
-                if has_choice_markers:
-                    logger.warning(f"[{request_id}] Choices may be included in question text: {question}")
-                    
-                    # Try to extract just the question part by looking for the first choice marker
-                    for marker in choice_markers:
-                        if marker in question:
-                            # Split at the first marker
-                            parts = question.split(marker, 1)
-                            cleaned_question = parts[0].strip()
-                            logger.info(f"[{request_id}] Cleaned question: {cleaned_question}")
-                            json_data["question"] = cleaned_question
-                            break
-                
-                # Check if the answer is in the choices
-                if answer not in choices:
-                    logger.warning(f"[{request_id}] English question: Answer '{answer}' not in choices {choices}")
-                    
-                    # Add the answer to the choices if it's not there
-                    if len(choices) > 0:
-                        choices[-1] = answer
-                        logger.info(f"[{request_id}] Fixed English choices to include answer: {choices}")
-                    else:
-                        logger.warning(f"[{request_id}] No choices provided for English question")
-                        # Create some basic choices for fallback
-                        choices = ["Option A", "Option B", answer, "Option C"]
-                        logger.info(f"[{request_id}] Created fallback choices: {choices}")
-                    
-                    json_data["choices"] = choices
-                
-                # Ensure we have at least 4 choices for multiple choice questions
-                if len(choices) < 4:
-                    logger.warning(f"[{request_id}] Too few choices ({len(choices)}) for {sub_activity}")
-                    
-                    # Add additional choices to reach 4 if needed
-                    while len(choices) < 4:
-                        new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
-                        if new_choice not in choices and new_choice != answer:
-                            choices.append(new_choice)
-                            logger.info(f"[{request_id}] Added extra choice: {new_choice}")
-                    
-                    json_data["choices"] = choices
-            
-            # We are removing all synonym validation to rely on better prompt instructions
-            
-            return json_data
-        except json.JSONDecodeError:
-            logger.error(f"[{request_id}] Failed to parse JSON from response: {final_content[:200]}...")
-            return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+            json_data["choices"] = choices
+        
+        # Set the correct type
+        json_data["type"] = "multiple-choice"
+        
+        # Add subject info
+        json_data["subject"] = subject
+        json_data["sub_activity"] = sub_activity
+        json_data["difficulty"] = difficulty
+        
+        return json_data
         
     except Exception as e:
         logger.error(f"[{request_id}] Error generating multiple-choice question: {str(e)}")
         logger.exception(e)  # Log the full stack trace
-        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
+        return get_fallback_question(grade, subject, sub_activity, difficulty)
 
 async def generate_direct_answer_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
     """Generate a direct answer question."""
     logger.info(f"[{request_id}] Generating direct-answer question")
+    
+    # If this is Grammar Correction, use Langflow API if available
+    if sub_activity == "Grammar Correction":
+        try:
+            # Check if LANGFLOW_WORKFLOW_GRAMMAR_CORRECTION is set
+            if os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_CORRECTION"):
+                logger.info(f"[{request_id}] Using Langflow API for Grammar Correction")
+                return await generate_grammar_correction_langflow(grade, difficulty, request_id)
+        except Exception as e:
+            logger.error(f"[{request_id}] Error using Langflow for Grammar Correction: {str(e)}")
+            logger.info(f"[{request_id}] Falling back to Ollama for Grammar Correction")
     
     # Grammar correction uses higher temperature
     temperature = 0.7 if sub_activity == "Grammar Correction" else 0.5
@@ -742,819 +426,6 @@ Example for Grammar Correction:
         logger.exception(e)  # Log the full stack trace
         return get_fallback_question(str(grade), subject, sub_activity, difficulty)
 
-async def generate_reading_comprehension_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
-    """Generate a reading comprehension question."""
-    logger.info(f"[{request_id}] Generating reading-comprehension question")
-    
-    # Reading comprehension uses higher temperature
-    temperature = 0.8
-    logger.info(f"[{request_id}] Using higher temperature of {temperature} for reading comprehension")
-    
-    # Construct prompt specifically for reading comprehension
-    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "reading-comprehension")
-    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
-    
-    # Create system message specific for reading comprehension with explicit instructions
-    system_message = """You are an AI that generates educational reading comprehension questions for elementary school students.
-Your responses MUST be in valid JSON format with the following fields:
-1. 'passage': A short reading text appropriate for the grade level
-2. 'question': A question about the passage
-3. 'choices': An array of EXACTLY 4 possible answers
-4. 'answer': The correct answer (which must be one of the choices)
-5. 'type': Must be exactly "reading-comprehension"
-
-Example format:
-{
-  "passage": "Sam has a red ball. 🔴 He likes to play with it in the park. 🌳 The ball bounces high when he throws it. ⬆️",
-  "question": "What color is Sam's ball? 🔴",
-  "choices": ["Red", "Blue", "Green", "Yellow"],
-  "answer": "Red",
-  "type": "reading-comprehension"
-}
-
-IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always provide EXACTLY 4 choices for the question. No more, no less.
-IMPORTANT: Always add multiple emojis throughout the passage text to make it more engaging and visually interesting for children. Add emojis at the beginning, in the middle, and at the end of each paragraph or section.
-IMPORTANT: Also add multiple emojis to the question text to make it more engaging. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🔴 What color is Sam's ball? This is an important detail! 🎯 🎪"""
-    
-    try:
-        # Make API call
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        logger.info(f"[{request_id}] Using random seed: {random_seed} for reading comprehension")
-
-        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
-            ],
-            format=ReadingComprehensionQuestion.model_json_schema(),
-            options={"temperature": temperature, "seed": random_seed},
-        )
-
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        
-        # Log the raw response content for debugging
-        content = ollama_response.message.content
-        logger.info(f"[{request_id}] Raw API response for reading comprehension: {content[:500]}...")
-        
-        json_data = json.loads(content)
-        
-        # Ensure type is set correctly
-        json_data["type"] = "reading-comprehension"
-        
-        # Validate and fix the choices
-        choices = json_data.get("choices", [])
-        logger.info(f"[{request_id}] Reading comprehension - Number of choices: {len(choices)}")
-        logger.info(f"[{request_id}] Reading comprehension - Choices: {choices}")
-        
-        # Check if choices are in the question text
-        question = json_data.get("question", "")
-        choice_markers = ["A)", "B)", "C)", "D)", "1)", "2)", "3)", "4)", "a)", "b)", "c)", "d)"]
-        has_choice_markers = any(marker in question for marker in choice_markers)
-        
-        if has_choice_markers:
-            logger.warning(f"[{request_id}] Reading comprehension - Choices may be included in question text: {question}")
-            
-            # Try to extract just the question part by looking for the first choice marker
-            for marker in choice_markers:
-                if marker in question:
-                    # Split at the first marker
-                    parts = question.split(marker, 1)
-                    cleaned_question = parts[0].strip()
-                    logger.info(f"[{request_id}] Reading comprehension - Cleaned question: {cleaned_question}")
-                    json_data["question"] = cleaned_question
-                    break
-        
-        # Check if the answer is in the choices
-        answer = json_data.get("answer", "")
-        if answer and answer not in choices:
-            logger.warning(f"[{request_id}] Reading comprehension - Answer '{answer}' not in choices {choices}")
-            
-            # Add the answer to the choices if not already present
-            if len(choices) > 0:
-                choices[-1] = answer
-                logger.info(f"[{request_id}] Fixed reading comprehension choices to include answer: {choices}")
-            else:
-                logger.warning(f"[{request_id}] No choices provided for reading comprehension question")
-                choices = ["Option A", "Option B", answer, "Option C"]
-                logger.info(f"[{request_id}] Created fallback choices: {choices}")
-            
-            json_data["choices"] = choices
-        
-        # Ensure we have exactly 4 choices
-        if len(choices) < 4:
-            logger.warning(f"[{request_id}] Too few choices ({len(choices)}) for reading comprehension")
-            
-            # Add additional choices to reach 4
-            while len(choices) < 4:
-                new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
-                if new_choice not in choices and new_choice != answer:
-                    choices.append(new_choice)
-                    logger.info(f"[{request_id}] Added extra choice: {new_choice}")
-            
-            json_data["choices"] = choices
-        elif len(choices) > 4:
-            logger.warning(f"[{request_id}] Too many choices ({len(choices)}) for reading comprehension")
-            
-            # Keep the first 3 choices plus the correct answer
-            if answer in choices:
-                # Remove the answer temporarily
-                choices.remove(answer)
-                # Keep only the first 3 other choices
-                choices = choices[:3]
-                # Add the answer back
-                choices.append(answer)
-            else:
-                # Just keep the first 4 choices
-                choices = choices[:4]
-            
-            logger.info(f"[{request_id}] Reduced choices to: {choices}")
-            json_data["choices"] = choices
-        
-        # Add metadata
-        json_data["sub_activity"] = sub_activity
-        json_data["subject"] = subject
-        json_data["difficulty"] = difficulty
-        
-        return json_data
-        
-    except Exception as e:
-        logger.error(f"[{request_id}] Error generating reading-comprehension question: {str(e)}")
-        logger.exception(e)  # Log the full stack trace
-        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
-
-def construct_mario_math_prompt(grade: int, difficulty: str) -> str:
-    """
-    Constructs a prompt for the Mushroom Kingdom Calculations math activity.
-    
-    Args:
-        grade: Student grade level (2-3)
-        difficulty: Difficulty level ("Easy", "Medium", "Hard")
-        
-    Returns:
-        A prompt string for generating a Mario-themed math question
-    """
-    # Get random Mario elements for the question
-    character1 = random.choice(MARIO_CHARACTERS)
-    character2 = random.choice([c for c in MARIO_CHARACTERS if c != character1])
-    items = random.choice(MARIO_ITEMS)
-    location = random.choice(MARIO_LOCATIONS)
-    activity = random.choice(MARIO_ACTIVITIES)
-    
-    # Determine number ranges based on grade and difficulty
-    if grade <= 2:
-        if difficulty == "Easy":
-            num_range = "1-10"
-            sum_range = "should not exceed 20"
-            diff_range = "should not go below 0"
-        elif difficulty == "Medium":
-            num_range = "1-20"
-            sum_range = "should not exceed 30"
-            diff_range = "should not go below 0"
-        else:  # Hard
-            num_range = "1-30"
-            sum_range = "should not exceed 50"
-            diff_range = "should not go below 0"
-    else:  # Grade 3
-        if difficulty == "Easy":
-            num_range = "1-20"
-            sum_range = "should not exceed 40"
-            diff_range = "should not go below 0"
-        elif difficulty == "Medium":
-            num_range = "1-50"
-            sum_range = "should not exceed 100"
-            diff_range = "should not go below 0"
-        else:  # Hard
-            num_range = "1-100"
-            sum_range = "should not exceed 200"
-            diff_range = "should not go below 0"
-    
-    # Random seed for uniqueness
-    random_seed = getRandomSeed()
-    
-    prompt = f"""
-    Generate a {difficulty.lower()} {grade}-grade level math question in a Mario and Luigi themed world for elementary students.
-    
-    Use the following Mario-themed elements in your question:
-    - Characters: {character1} and/or {character2}
-    - Items: {items}
-    - Location: {location}
-    - Activity: {activity}
-    
-    Number range should be {num_range} with results {sum_range}, {diff_range}.
-    
-    The question should be about math problems that Mario characters encounter, such as collecting coins, 
-    defeating enemies, calculating scores, or measuring distances in the Mushroom Kingdom.
-    Make the question fun and engaging for kids who love Mario games.
-    
-    The math should be appropriate for grade {grade} and should require basic operations 
-    (addition, subtraction, multiplication, or division depending on grade level).
-    
-    The correct answer must be one of the multiple choice options.
-    
-    IMPORTANT: After creating the Mario-themed math problem:
-    1. Use the calculator tool to compute the exact answer
-    2. Use the calculator tool to create reasonable wrong answers
-    3. Verify all calculations are correct using the calculator tool
-    4. Ensure the choices are appropriate for the grade level and the correct answer is included
-    
-    CRITICAL WORKFLOW:
-    1. FIRST, design your Mario math problem with explicit numbers
-    2. SECOND, use the calculator tool to compute the exact answer:
-       - Pass the mathematical expression (e.g., "8 + 12" for collecting coins)
-       - ALSO pass the full Mario-themed question as the "question" parameter
-    3. THIRD, include this exact calculator result in your choices
-    4. FOURTH, set this calculator result as the "answer" field
-    5. VERIFY that your "answer" value appears in the "choices" array
-    """
-    
-    return prompt
-
-def construct_mario_english_prompt(grade: int, difficulty: str) -> str:
-    """
-    Constructs a prompt for the Mushroom Kingdom Vocabulary English activity.
-    
-    Args:
-        grade: Student grade level (2-3)
-        difficulty: Difficulty level ("Easy", "Medium", "Hard")
-        
-    Returns:
-        A prompt string for generating a Mario-themed English question
-    """
-    # Get random Mario elements for the question
-    character1 = random.choice(MARIO_CHARACTERS)
-    character2 = random.choice([c for c in MARIO_CHARACTERS if c != character1])
-    items = random.choice(MARIO_ITEMS)
-    location = random.choice(MARIO_LOCATIONS)
-    
-    # Random seed for uniqueness
-    random_seed = getRandomSeed()
-    
-    prompt = f"""
-    Generate a {difficulty.lower()} {grade}-grade level English vocabulary question in a Mario and Luigi themed world for elementary students.
-    
-    Use the following Mario-themed elements in your question:
-    - Characters: {character1} and/or {character2}
-    - Items: {items}
-    - Location: {location}
-    
-    The question should focus on one of the following:
-    1. Word meanings/definitions in a Mario context
-    2. Synonyms/antonyms with Mario-themed examples
-    3. Completing sentences about Mario adventures with appropriate vocabulary
-    4. Identifying parts of speech in Mario-themed sentences
-    
-    Make the question fun and engaging for kids who love Mario games while teaching important English concepts.
-    
-    The vocabulary should be appropriate for grade {grade} students.
-    
-    IMPORTANT REQUIREMENTS:
-    - The correct answer must be one of the multiple choice options
-    - You MUST provide EXACTLY 4 choices in your answer
-    - The question and choices should be clearly separate (don't include choices as part of the question text)
-    - Make sure all 4 choices are realistic and appropriate for the grade level
-    """
-    
-    return prompt
-
-def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str) -> str:
-    """
-    Constructs a prompt based on the parameters for AI question generation.
-    
-    Args:
-        grade: Student grade level (2-3)
-        subject: Subject area ("Math" or "English")
-        sub_activity: Sub-activity type (e.g., "Addition/Subtraction", "Opposites/Antonyms")
-        difficulty: Difficulty level ("Easy", "Medium", "Hard")
-        question_type: Type of question ("multiple-choice", "direct-answer", "reading-comprehension")
-        
-    Returns:
-        A prompt string for generating an educational question
-    """
-    # Handle Mario-themed activities
-    if sub_activity == "Mushroom Kingdom Calculations" and subject == "Math":
-        return construct_mario_math_prompt(grade, difficulty)
-    
-    if sub_activity == "Mushroom Kingdom Vocabulary" and subject == "English":
-        return construct_mario_english_prompt(grade, difficulty)
-    
-    # Proceed with standard prompts for other activities...
-    logger = logging.getLogger(__name__)
-    logger.info(f"Constructing prompt for: Grade {grade}, {subject}, {sub_activity}, {difficulty}")
-    
-    # Default base prompt
-    prompt = f"Generate a {difficulty.lower()} {grade}-grade level {subject.lower()} question about {sub_activity} for elementary school students."
-    
-    # Math subject
-    if subject == "Math":
-        # Generate random elements for more diverse questions
-        person1 = random.choice(MATH_NAMES)
-        person2 = random.choice([n for n in MATH_NAMES if n != person1])  # Ensure different name
-        objects = random.choice(MATH_OBJECTS)
-        location = random.choice(MATH_LOCATIONS)
-        activity = random.choice(MATH_ACTIVITIES)
-        
-        # Define number ranges based on grade and difficulty
-        if grade <= 2:  # Grade 1-2
-            if difficulty.lower() == "easy":
-                num_range = "1-10"
-                sum_range = "up to 20"
-                diff_range = "no negative numbers"
-            elif difficulty.lower() == "medium":
-                num_range = "5-20"
-                sum_range = "up to 30"
-                diff_range = "no negative numbers"
-            else:  # Hard
-                num_range = "10-30"
-                sum_range = "up to 50"
-                diff_range = "no negative numbers"
-        else:  # Grade 3+
-            if difficulty.lower() == "easy":
-                num_range = "10-30"
-                sum_range = "up to 50"
-                diff_range = "no negative numbers"
-            elif difficulty.lower() == "medium":
-                num_range = "20-50"
-                sum_range = "up to 100"
-                diff_range = "no negative numbers"
-            else:  # Hard
-                num_range = "30-100"
-                sum_range = "up to 150"
-                diff_range = "may include negative results"
-        
-        # Different prompt structures for each sub-activity
-        if sub_activity == "Addition/Subtraction":
-            # Apply random variation to the prompt itself
-            operation = random.choice([
-                "addition", "subtraction", 
-                "adding", "subtracting",
-                "sums", "differences"
-            ])
-            
-            # Random seed for uniqueness
-            random_seed = getRandomSeed()
-            
-            prompt = f"""
-            Generate a {difficulty.lower()} {grade}-grade level math question about {operation} for elementary students.
-            
-            Number range should be {num_range} with results {sum_range}, {diff_range}.
-            
-            You can optionally incorporate these elements to make the question more interesting:
-            - Names: {person1} and/or {person2}
-            - Objects: {objects}
-            - Location: {location}
-            
-            The question should require either addition or subtraction to solve, appropriate for grade {grade}.
-            Make sure to generate a DIFFERENT question than ones you've generated before.
-            
-            The correct answer must be one of the multiple choice options.
-            
-            IMPORTANT: After creating the addition or subtraction problem:
-            1. Use the calculator tool to compute the exact answer:
-               - Pass the mathematical expression (e.g., "7 + 3")
-               - ALSO pass the full question as the context parameter
-            2. Use the calculator tool to generate plausible wrong answers (by adding or subtracting 1, 2, or 10 from the correct answer)
-            3. Double-check that all calculations are correct using the calculator tool
-            4. Make sure the correct answer is included in the choices
-            
-            CRITICAL WORKFLOW:
-            1. FIRST, design your math problem (e.g., "7 + 3" or "8 - 5")
-            2. SECOND, use the calculator tool to compute the exact answer:
-               - Pass the mathematical expression (e.g., "7 + 3")
-               - ALSO pass the full question as the context parameter
-            3. THIRD, include this exact calculator result in your choices
-            4. FOURTH, set this calculator result as the "answer" field
-            5. VERIFY that your "answer" value appears in the "choices" array
-            """
-            
-        elif sub_activity == "Multiplication/Division":
-            if grade <= 2:  # Simpler for grade 2
-                table_range = "up to 5 (e.g., 2×4, 3×3, 5×2)"
-                division_range = "simple division with no remainders"
-            else:  # Grade 3+
-                if difficulty.lower() == "easy":
-                    table_range = "up to 5 (e.g., 3×4, 5×2)"
-                    division_range = "simple division with no remainders"
-                elif difficulty.lower() == "medium":
-                    table_range = "up to 10 (e.g., 6×7, 8×4)"
-                    division_range = "may include simple remainders"
-                else:  # Hard
-                    table_range = "up to 12 (e.g., 8×9, 12×6)"
-                    division_range = "may include remainders"
-            
-            # Random seed for uniqueness
-            random_seed = getRandomSeed()
-            
-            prompt = f"""
-            Generate a {difficulty.lower()} {grade}-grade level math question about multiplication or division.
-            
-            For multiplication, use times tables {table_range}.
-            For division, use {division_range}.
-            
-            Use this random seed for variety: {random_seed}
-            
-            You can optionally incorporate these elements:
-            - Names: {person1} and/or {person2}
-            - Objects arranged in groups/rows: {objects}
-            - Location: {location}
-            
-            Make sure to generate a DIFFERENT question than ones you've generated before.
-            
-            The correct answer must be one of the multiple choice options.
-            
-            IMPORTANT: After creating the multiplication or division problem:
-            1. Use the calculator tool to compute the correct answer
-            2. Use the calculator tool to generate plausible wrong answers by creating variations of the calculation
-            3. Double-check all calculations with the calculator tool
-            4. Make sure choices are appropriate for the grade level
-            
-            CRITICAL WORKFLOW:
-            1. FIRST, design your math problem (e.g., "3 × 4" or "10 ÷ 2")
-            2. SECOND, use the calculator tool to compute the exact answer:
-               - Pass the mathematical expression (e.g., "3 * 4" or "10 / 2")
-               - ALSO pass the full question as the "question" parameter
-            3. THIRD, include this exact calculator result in your choices
-            4. FOURTH, set this calculator result as the "answer" field
-            5. VERIFY that your "answer" value appears in the "choices" array
-            """
-            
-        elif sub_activity == "Word Problems":
-            # Select a random template and replace placeholders
-            template = random.choice(MATH_WORD_PROBLEM_TEMPLATES)
-            
-            # Determine appropriate number ranges for word problems
-            if grade <= 2:
-                if difficulty.lower() == "easy":
-                    num_descrip = "simple one-step problem with small numbers (1-10)"
-                else:
-                    num_descrip = "one-step problem with numbers up to 20"
-            else:
-                if difficulty.lower() == "easy":
-                    num_descrip = "one-step problem with numbers up to 30"
-                elif difficulty.lower() == "medium":
-                    num_descrip = "one or two-step problem with numbers up to 50"
-                else:
-                    num_descrip = "two-step problem with numbers up to 100"
-            
-            # Random seed for uniqueness
-            random_seed = getRandomSeed()
-            
-            prompt = f"""
-            Generate a {difficulty.lower()} {grade}-grade level math word problem.
-            
-            The problem should be a {num_descrip}.
-            
-            Use this random seed for variety: {random_seed}
-            
-            Include these elements in your word problem:
-            - Name: {person1} (and optionally {person2})
-            - Objects: {objects}
-            - Activity: {activity}
-            - Location: {location}
-            
-            Make sure the problem is appropriate for grade {grade} students and has a clear solution.
-            Create a DIFFERENT problem than ones you've generated before.
-            
-            The correct answer must be one of the multiple choice options.
-            
-            IMPORTANT: After creating the word problem:
-            1. Use the calculator tool to solve the problem step-by-step
-            2. Ensure the correct answer is included in the choices
-            3. Use the calculator tool to generate plausible wrong answers that are mathematically different from the correct answer
-            4. Double-check your solution with the calculator tool before finalizing
-            
-            CRITICAL WORKFLOW:
-            1. FIRST, design your word problem with explicit numbers
-            2. SECOND, use the calculator tool to compute the exact answer:
-               - Pass the mathematical expression (e.g., "5 * 4" for "5 boxes with 4 apples each")
-               - ALSO pass the full word problem as the "question" parameter
-            3. THIRD, include this exact calculator result in your choices
-            4. FOURTH, set this calculator result as the "answer" field
-            5. VERIFY that your "answer" value appears in the "choices" array
-            """
-        
-        # Log the enhanced prompt details
-        logger.info(f"Math question randomization - Sub-activity: {sub_activity}, Person: {person1}, Objects: {objects}, Location: {location}")
-    
-    # English subject
-    elif subject == "English":
-        if sub_activity == "Opposites/Antonyms":
-            # Get random elements for variety
-            target_words = [word for word in ENGLISH_ADJECTIVES if word != "happy"]  # Exclude 'happy' to avoid repetition
-            target_word = random.choice(target_words)
-            random_seed = getRandomSeed()
-            prompt_templates = [
-                f"What is the opposite of '{target_word}'?",
-                f"Which word means the opposite of '{target_word}'?",
-                f"Select the word that has the opposite meaning of '{target_word}'.",
-                f"Choose the antonym for '{target_word}'.",
-                f"Which of these words is most opposite in meaning to '{target_word}'?"
-            ]
-            prompt_template = random.choice(prompt_templates)
-            
-            if grade <= 2:  # Grade 1-2
-                prompt = f"""
-                Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
-                
-                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
-                
-                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
-                DO NOT use the word 'happy' in your question - this word has been overused.
-                
-                Use this random seed for variety: {random_seed}
-                
-                The question should ask for the opposite of a simple word appropriate for this grade level.
-                
-                IMPORTANT REQUIREMENTS:
-                - Provide EXACTLY 4 multiple choice options (no more, no less)
-                - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
-                - Make all choices grade-appropriate
-                - Keep the choices separate from the question text
-                """
-            else:  # Grade 3+
-                prompt = f"""
-                Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
-                
-                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
-                
-                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
-                DO NOT use the word 'happy' in your question - this word has been overused.
-                
-                Use this random seed for variety: {random_seed}
-                
-                The question should ask for the opposite of a word appropriate for this grade level.
-                
-                IMPORTANT REQUIREMENTS:
-                - Provide EXACTLY 4 multiple choice options (no more, no less)
-                - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
-                - Make all choices grade-appropriate
-                - Keep the choices separate from the question text
-                """
-            
-            # Log the enhanced prompt details
-            logger.info(f"Opposites/Antonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
-            
-            return prompt
-        
-        elif sub_activity == "Synonyms":
-            # Get random elements for variety
-            target_words = [word for word in ENGLISH_ADJECTIVES if word != "big"]  # Exclude 'big' to avoid repetition
-            target_word = random.choice(target_words)
-            random_seed = getRandomSeed()
-            prompt_templates = [
-                f"What is another word for '{target_word}'?",
-                f"Which word means the same as '{target_word}'?",
-                f"Select the word that has the same meaning as '{target_word}'.",
-                f"Choose the synonym for '{target_word}'.",
-                f"Which of these words is most similar in meaning to '{target_word}'?"
-            ]
-            prompt_template = random.choice(prompt_templates)
-            
-            if grade <= 2:  # Grade 1-2
-                prompt = f"""
-                Generate a {difficulty.lower()} {grade}-grade level English question about synonyms or similar words.
-                
-                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
-                
-                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
-                DO NOT use the word 'big' in your question - this word has been overused.
-                
-                Use this random seed for variety: {random_seed}
-                
-                CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
-                
-                This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
-                
-                Follow these steps carefully:
-                1. Create a question asking for a synonym of '{target_word}'
-                2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
-                3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
-                4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
-                5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
-                
-                Examples of correct synonym pairings:
-                - clean → spotless, tidy, pristine (these all have similar meanings)
-                - dirty → filthy, grimy, soiled (these all have similar meanings)
-                - cold → chilly, cool, frigid (these all have similar meanings)
-                - hot → warm, heated, burning (these all have similar meanings)
-                
-                ESPECIALLY AVOID THIS ERROR: Do not mark words with opposite meanings as synonyms.
-                For example, do NOT mark 'clean' and 'dirty' as synonyms - they are antonyms!
-                Do NOT mark 'unclean' as a synonym of 'clean' - adding 'un' creates an antonym!
-                """
-            else:  # Grade 3+
-                prompt = f"""
-                Generate a {difficulty.lower()} {grade}-grade level English question about synonyms or similar words.
-                
-                YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
-                
-                You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
-                DO NOT use the word 'big' in your question - this word has been overused.
-                
-                Use this random seed for variety: {random_seed}
-                
-                CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
-                
-                This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
-                
-                Follow these steps carefully:
-                1. Create a question asking for a synonym of '{target_word}'
-                2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
-                3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
-                4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
-                5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
-                
-                Examples of correct synonym pairings:
-                - clean → spotless, tidy, pristine (these all have similar meanings)
-                - dirty → filthy, grimy, soiled (these all have similar meanings)
-                - cold → chilly, cool, frigid (these all have similar meanings)
-                - hot → warm, heated, burning (these all have similar meanings)
-                
-                ESPECIALLY AVOID THIS ERROR: Do not mark words with opposite meanings as synonyms.
-                For example, do NOT mark 'clean' and 'dirty' as synonyms - they are antonyms!
-                Do NOT mark 'unclean' as a synonym of 'clean' - adding 'un' creates an antonym!
-                """
-            
-            # Log the enhanced prompt details
-            logger.info(f"Synonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
-            
-            return prompt
-        
-        elif sub_activity == "Reading Comprehension":
-            # Select random elements to create varied passages
-            topic = random.choice(READING_TOPICS)
-            
-            location = random.choice(READING_LOCATIONS)
-            
-            character1 = random.choice(NAMES)
-            character2 = random.choice([n for n in NAMES if n != character1])
-            
-            # Determine question complexity based on grade and difficulty
-            if grade <= 2:  # Grade 1-2
-                if difficulty.lower() == "easy":
-                    passage_length = "very short (2-3 sentences)"
-                    question_type = "about the main idea or a specific detail"
-                elif difficulty.lower() == "medium":
-                    passage_length = "short (3-4 sentences)"
-                    question_type = "that requires understanding the sequence of events or making a simple inference"
-                else:  # Hard
-                    passage_length = "reading passage (4-5 sentences)"
-                    question_type = "that requires deeper comprehension or making an inference"
-            else:  # Grade 3+
-                if difficulty.lower() == "easy":
-                    passage_length = "short (3-4 sentences)"
-                    question_type = "about key details or main idea"
-                elif difficulty.lower() == "medium":
-                    passage_length = "reading passage (4-5 sentences)"
-                    question_type = "that requires understanding relationships between ideas or making an inference"
-                else:  # Hard
-                    passage_length = "reading passage (5-6 sentences)"
-                    question_type = "that requires understanding cause and effect or drawing conclusions"
-            
-            # Random seed for uniqueness
-            random_seed = getRandomSeed()
-            
-            prompt = f"""
-            Generate a {difficulty.lower()} {grade}-grade level english question about Reading Comprehension for elementary school students.
-            
-            Create a {passage_length} about {topic} set at a {location}, followed by a question {question_type}.
-            
-            Include these characters in your passage: {character1} and optionally {character2}.
-            
-            Use this random seed for variety: {random_seed}
-            
-            Make sure to generate a DIFFERENT passage than ones you've generated before.
-            Try to vary your writing style, sentence patterns, and vocabulary.
-            
-            The passage should:
-            - Use vocabulary appropriate for grade {grade}
-            - Have a clear beginning, middle, and end
-            - Include interesting details that might be asked about in the question
-            - Vary between descriptive, narrative, or informative styles
-            
-            Your question should be thoughtful and require students to really understand the passage.
-            
-            IMPORTANT REQUIREMENTS:
-            - Provide EXACTLY 4 multiple choice options (no more, no less)
-            - Ensure the correct answer is one of the 4 choices
-            - Make all choices reasonable so the answer isn't too obvious
-            - Keep the choices separate from the question text
-            
-            Return as a JSON object with 'passage', 'question', 'choices' (array of 4 options), and 'answer' (correct choice).
-            """
-            
-            # Log the enhanced prompt details
-            logger.info(f"Reading Comprehension randomization - Topic: {topic}, Location: {location}, Characters: {character1}/{character2}, Seed: {random_seed}")
-            
-            return prompt
-        
-        elif sub_activity == "Nouns/Pronouns":
-            if grade <= 2:  # Grade 1-2
-                return f"Generate a {difficulty.lower()} {grade}-grade level English question about basic nouns or pronouns. The question should be appropriate for this grade level."
-            else:  # Grade 3+
-                return f"Generate a {difficulty.lower()} {grade}-grade level English question about nouns or pronouns. The question could involve identifying or using the correct noun or pronoun in a sentence."
-                
-        elif sub_activity == "Grammar Correction":
-            if question_type != "direct-answer":
-                # Force direct-answer for grammar correction
-                question_type = "direct-answer"
-                logger.info("Forcing direct-answer question type for Grammar Correction")
-                
-            # Apply enhanced randomization for grammar correction
-            
-            # Randomly select error type
-            error_types = [
-                "subject-verb agreement", 
-                "verb tense", 
-                "pronoun usage", 
-                "article usage",
-                "plural forms", 
-                "prepositions"
-            ]
-            
-            # Get random elements to include in the prompt
-            selected_names = random.sample(NAMES, 2)  # Pick 2 different names
-            scenario = random.choice(SCENARIOS)
-            location = random.choice(LOCATIONS)
-            object_name = random.choice(OBJECTS)
-            time_expression = random.choice(TIME_EXPRESSIONS)
-            
-            # Select complexity appropriate for grade level
-            if grade <= 2:  # Grades 1-2
-                # Simpler error types for younger students
-                error_type = random.choice(error_types[:3])  
-                
-                # Select topics relevant to younger students
-                topics = ["school activities", "family", "pets", "playground games"]
-                topic = random.choice(topics)
-                
-                # Simpler sentence structures
-                sentence_type = "simple sentence"
-            else:  # Grade 3+
-                # Full range of error types for older students
-                error_type = random.choice(error_types) 
-                
-                # More diverse topics
-                topics = ["school subjects", "hobbies", "nature", "sports", "community", "daily routines"]
-                topic = random.choice(topics)
-                
-                # More varied sentence structures
-                sentence_types = ["simple sentence", "compound sentence", "question", "sentence with prepositional phrase"]
-                sentence_type = random.choice(sentence_types)
-            
-            # Build the prompt with specific randomization instructions
-            prompt = f"""
-            Create a {difficulty.lower()} {grade}-grade level English grammar correction question.
-            
-            Write a {sentence_type} about {topic} with exactly ONE grammatical error involving {error_type}.
-            The error should be appropriate for a {grade}-grade student to identify and fix.
-            
-            Use these elements in your sentence:
-            - Names: {selected_names[0]} and/or {selected_names[1]}
-            - Activity: {scenario}
-            - Location: {location}
-            - Object: {object_name}
-            - Time expression: {time_expression}
-            
-            The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
-            Make sure the sentence sounds natural and uses age-appropriate vocabulary.
-            Do not use the same pattern as these examples: "She don't like ice cream", "The cats is playing", "He walk to school".
-            
-            IMPORTANT: This is a direct-answer question type, NOT multiple-choice. Return a JSON object with 'question', 'answer' and 'type' fields. 
-            The 'type' field MUST be 'direct-answer', NOT 'multiple-choice'.
-            Do NOT include 'choices' field in the response.
-            
-            Example JSON format:
-            {{
-                "question": "The boy play with toys.",
-                "answer": "The boy plays with toys.",
-                "type": "direct-answer"
-            }}
-            """
-            
-            # Log the enhanced prompt details
-            logger.info(f"Grammar correction randomization - Error type: {error_type}, Names: {selected_names}, Scenario: {scenario}, Location: {location}, Object: {object_name}, Time: {time_expression}")
-        
-        else:
-            # Default english prompt if sub_activity is not recognized
-            # Don't override the sub_activity with Opposites/Antonyms - use the requested one
-            return prompt
-    
-    # Add the standard format instructions for the chosen question type
-    if question_type == "multiple-choice":
-        prompt += " The question should be multiple choice with exactly 4 options. The correct answer must be one of the options."
-    elif question_type == "direct-answer":
-        prompt += " The question should require a short direct answer."
-    else:  # reading-comprehension
-        prompt += " The passage should be followed by a multiple-choice question with 4 options. The correct answer must be one of the options."
-    
-    logger.info(f"Generated prompt with sub-activity ({sub_activity}): {prompt}")
-    return prompt
 
 def get_fallback_question(grade: str, subject: str, sub_activity: str, difficulty: str) -> Dict[str, Any]:
     """
@@ -1718,7 +589,7 @@ def remove_think_tags(text: str) -> str:
 
 async def generate_grammar_feedback(question: str, user_answer: str, correct_answer: str, is_correct: bool) -> str:
     """
-    Generate detailed feedback for a grammar correction answer using Ollama.
+    Generate detailed feedback for a grammar correction answer using Langflow API.
     
     Args:
         question: The original question (incorrect sentence)
@@ -1732,189 +603,147 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
     logger = logging.getLogger(__name__)
     request_id = f"{time.time():.0f}"
     
-    # Create a prompt based on whether the answer was correct or not
-    if is_correct:
-        prompt = f"""
-The student was given this grammatically incorrect sentence: "{question}"
-
-The student correctly fixed it to: "{user_answer}"
-
-The correct answer is: "{correct_answer}"
-
-Please provide a short, encouraging response (2-3 sentences) explaining what grammatical error they fixed correctly. Use language appropriate for an elementary school student. Focus on the specific grammar rule they applied.
-"""
-    else:
-        prompt = f"""
-The student was given this grammatically incorrect sentence: "{question}"
-
-The student attempted to fix it with: "{user_answer}"
-
-The correct answer is: "{correct_answer}"
-
-Please provide a short, gentle response (2-3 sentences) explaining what grammar error they missed or fixed incorrectly. Use language appropriate for an elementary school student. Give a simple tip to help them understand the grammar rule.
-"""
-    
+    # Try using Langflow for grammar feedback if available
     try:
-        logger.info(f"[{request_id}] Generating grammar feedback")
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        
-        # Make API call to Ollama for feedback
-        # use async client
-        ollama_response = await ollama_async_client.chat(
-            model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": "You are a friendly, supportive elementary school teacher providing feedback on grammar corrections. Keep your responses short, simple, and encouraging."},
-                {"role": "user", "content": prompt}
-            ],
-            options={"temperature": 0.5, "seed": random_seed}
-        )
-        
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        
-        # Extract the feedback
-        feedback = ollama_response.message.content.strip()
-        logger.info(f"[{request_id}] Generated feedback: {feedback[:100]}...")
-        
-        feedback = remove_think_tags(feedback)
-
-        return feedback
-        
+        if os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION"):
+            logger.info(f"[{request_id}] Using Langflow API for grammar feedback")
+            
+            # Get Langflow configuration from environment
+            langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+            langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_CORRECTION", "grammar-correction")
+            
+            # Construct the API URL
+            url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+            
+            # Create a unique session ID
+            session_id = f"session_{str(uuid.uuid4())}"
+            
+            # Create a prompt based on whether the answer was correct or not
+            if is_correct:
+                prompt = f"""
+                The student was given this grammatically incorrect sentence: "{question}"
+                
+                The student correctly fixed it to: "{user_answer}"
+                
+                The correct answer is: "{correct_answer}"
+                
+                Please provide a short, encouraging response (2-3 sentences) explaining what grammatical error they fixed correctly. Use language appropriate for an elementary school student. Focus on the specific grammar rule they applied.
+                """
+            else:
+                prompt = f"""
+                The student was given this grammatically incorrect sentence: "{question}"
+                
+                The student attempted to fix it with: "{user_answer}"
+                
+                The correct answer is: "{correct_answer}"
+                
+                Please provide a short, gentle response (2-3 sentences) explaining what grammar error they missed or fixed incorrectly. Use language appropriate for an elementary school student. Give a simple tip to help them understand the grammar rule.
+                """
+            
+            # Prepare the request payload
+            payload = {
+                "input_value": prompt,
+                "output_type": "chat",
+                "input_type": "chat",
+                "session_id": str(session_id),
+                "output_component": "",
+                "tweaks": None,
+            }
+            
+            # Set up headers
+            headers = {
+                "Content-Type": "application/json"
+            }
+            
+            # Make the API request using httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                
+                # Parse the response
+                response_data = response.json()
+                
+                # Extract the feedback from the response
+                feedback_str = extract_question_from_langflow_response(response_data, request_id)
+                
+                # Clean up session messages to avoid accumulating in Langflow storage
+                await delete_langflow_session_messages(session_id, request_id)
+                
+                if feedback_str:
+                    # Clean up the feedback string
+                    feedback_str = remove_think_tags(feedback_str)
+                    logger.info(f"[{request_id}] Generated feedback: {feedback_str[:100]}...")
+                    return feedback_str
     except Exception as e:
-        logger.error(f"[{request_id}] Error generating feedback: {str(e)}")
-        return get_fallback_feedback(is_correct)
+        logger.error(f"[{request_id}] Error generating feedback with Langflow: {str(e)}")
+    
+    # If Langflow fails or is not available, use the fallback
+    logger.info(f"[{request_id}] Using fallback for grammar feedback")
+    feedback_data = get_fallback_feedback(is_correct)
+    return feedback_data["feedback"]
 
-def get_fallback_feedback(is_correct: bool) -> str:
-    """Get fallback feedback when the API fails."""
+def get_fallback_feedback(is_correct: bool) -> Dict[str, Any]:
+    """
+    Get fallback feedback for grammar correction when AI evaluation fails.
+    
+    Args:
+        is_correct: Whether the user's answer is correct
+        
+    Returns:
+        Dictionary with feedback on the answer
+    """
     if is_correct:
-        return "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly. Keep up the good work!"
+        feedbacks = [
+            "That's correct! You fixed the grammar error perfectly. 😊",
+            "Well done! You spotted the mistake and fixed it correctly. 👍",
+            "Good job! Your answer is grammatically correct. 🌟",
+            "You got it right! Your correction shows good grammar skills. 😄",
+            "Excellent work! You fixed the sentence correctly. 🎉"
+        ]
     else:
-        return "Good try! The sentence needed a grammar fix. Look carefully at things like verb tense, subject-verb agreement, or word usage. You'll get it next time!"
+        feedbacks = [
+            "Not quite right. Try looking at the verbs in the sentence. 🤔",
+            "Almost there! Check if the subject and verb agree with each other. 📝",
+            "Keep trying! Look at how the words work together in the sentence. 💪",
+            "That's not correct yet. Think about the proper word order. 🧩",
+            "Not exactly. Consider whether you need singular or plural forms. 📚"
+        ]
+    
+    return {
+        "is_correct": is_correct,
+        "feedback": random.choice(feedbacks)
+    }
 
 def getRandomSeed() -> int:
     """Generate a random seed for AI prompts to increase variety."""
     return random.randint(1000, 9999)
 
-async def evaluate_grammar_correction(question: str, user_answer: str, correct_answer: str, player_name: str = "student") -> dict:
+async def evaluate_grammar_correction(user_answer: str, correct_answer: str, question: str, is_correct: bool, trace_id: str) -> Dict[str, Any]:
     """
-    Evaluate a grammar correction answer using Ollama API and provide detailed feedback.
-    
+    Generate a response to a grammar correction answer.
+
     Args:
-        question: The original question (incorrect sentence)
-        user_answer: The student's corrected answer
-        correct_answer: The expected correct answer
-        player_name: The name of the player to address in the feedback
-        
+        user_answer: User's answer
+        correct_answer: Correct answer to the question
+        question: The question that was asked
+        is_correct: Whether the user's answer was correct
+        trace_id: Trace ID for logging
+
     Returns:
-        Dictionary with is_correct (bool) and feedback (str)
+        Dictionary with feedback on the answer
     """
-    logger = logging.getLogger(__name__)
-    request_id = f"{time.time():.0f}"
     
-    # Create a prompt to evaluate the answer
-    prompt = f"""
-You are evaluating a student's grammar correction answer. Please review the following:
-
-ORIGINAL INCORRECT SENTENCE:
-{question}
-
-EXPECTED CORRECT ANSWER:
-{correct_answer}
-
-STUDENT'S ANSWER:
-{user_answer}
-
-STUDENT'S NAME:
-{player_name}
-
-First, determine if the student's answer is essentially correct. Consider:
-1. Did they fix the primary grammar issue(s)?
-2. Is their sentence grammatically correct, even if worded differently than the expected answer?
-3. Does their correction maintain the original meaning of the sentence?
-
-Be somewhat lenient - if they fixed the main grammar issue but made a minor spelling mistake, still consider it correct.
-
-Then provide brief, encouraging feedback (2-3 sentences) appropriate for an elementary school student.
-IMPORTANT: Your feedback should:
-- Address the student by their name ({player_name})
-- Avoid overused phrases like "fantastic work" or "great job" at the beginning of every response
-- Be specific about what grammar rule was applied correctly/incorrectly
-- Vary your tone, word choice, and sentence structure
-- Use age-appropriate language but don't oversimplify
-- Sometimes ask a follow-up question to encourage further learning
-
-Return your response in this JSON format:
-{{
-  "is_correct": true/false,
-  "feedback": "Your varied, personalized feedback here"
-}}
-"""
-    
+    # Try using Langflow for grammar correction evaluation
     try:
-        logger.info(f"[{request_id}] Evaluating grammar correction answer")
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        
-        # Make API call to Ollama for evaluation
-        ollama_response = await ollama_async_client.chat(
-            model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": f"""You are a thoughtful, creative elementary school teacher evaluating grammar corrections. 
-You assess whether students fixed the main grammar issue, even if their wording differs from the expected answer.
-
-When providing feedback:
-1. Address the student by name ({player_name})
-2. Use varied openings and expressions (avoid repetitive phrases like "Great job!" or "That's fantastic work!")
-3. Be specific about the grammar rule that was applied or missed
-4. Vary your feedback style - sometimes be encouraging, sometimes curious, sometimes explanatory
-5. Occasionally include a simple grammar tip or a brief follow-up question
-6. Never address the student by names mentioned in the question text.
-
-Your feedback should sound natural and personalized, not formulaic."""},
-                {"role": "user", "content": prompt}
-            ],
-            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}},
-            options={"temperature": 0.5, "seed": random_seed}
-        )
-        
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        
-        # Parse the JSON response and remove think tags from feedback
-        evaluation_result = json.loads(ollama_response.message.content)
-        
-        # If evaluation_result is already a dict, use it directly
-        if isinstance(evaluation_result, dict):
-            # Remove think tags if any
-            if "feedback" in evaluation_result and isinstance(evaluation_result["feedback"], str):
-                evaluation_result["feedback"] = remove_think_tags(evaluation_result["feedback"])
-        else:
-            # Convert to dict if needed and remove think tags
-            evaluation_result = remove_think_tags(evaluation_result)
-        
-        # Validate the required fields are present
-        if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
-            logger.error(f"[{request_id}] Missing required fields in evaluation result")
-            return get_fallback_grammar_evaluation(question, user_answer, correct_answer, player_name)
-        
-        # Convert is_correct to boolean if it's a string
-        if isinstance(evaluation_result["is_correct"], str):
-            evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
-        
-        logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
-        
-        return evaluation_result
-            
+        if os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION"):
+            logger.info(f"[{trace_id}] Using Langflow API for grammar correction evaluation")
+            return await evaluate_grammar_correction_langflow(user_answer, correct_answer, question, is_correct, trace_id)
     except Exception as e:
-        logger.error(f"[{request_id}] Error evaluating grammar correction: {str(e)}")
-        return get_fallback_grammar_evaluation(question, user_answer, correct_answer, player_name)
+        logger.error(f"[{trace_id}] Error using Langflow for grammar correction evaluation: {str(e)}")
+    
+    # If Langflow is not available or fails, use the fallback implementation
+    logger.info(f"[{trace_id}] Using fallback for grammar correction evaluation")
+    return get_fallback_feedback(is_correct)
 
 def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_answer: str, player_name: str = "student") -> dict:
     """Get fallback evaluation when the API fails."""
@@ -1954,7 +783,7 @@ def get_fallback_grammar_evaluation(question: str, user_answer: str, correct_ans
 
 async def evaluate_reading_comprehension(passage: str, question: str, user_answer: str, correct_answer: str) -> dict:
     """
-    Evaluate a reading comprehension answer using Ollama API and provide detailed feedback.
+    Evaluate a reading comprehension answer using Langflow API and provide detailed feedback.
     
     Args:
         passage: The reading passage text
@@ -1968,82 +797,17 @@ async def evaluate_reading_comprehension(passage: str, question: str, user_answe
     logger = logging.getLogger(__name__)
     request_id = f"{time.time():.0f}"
     
-    # Create a prompt to evaluate the answer
-    prompt = f"""
-You are evaluating a student's answer to a reading comprehension question. Please review the following:
-
-READING PASSAGE:
-{passage}
-
-QUESTION:
-{question}
-
-CORRECT ANSWER FROM QUESTION:
-{correct_answer}
-
-STUDENT'S ANSWER:
-{user_answer}
-
-First, determine if the student's answer is essentially correct. Consider the meaning and understanding, not just exact words.
-Then provide brief, encouraging feedback (2-3 sentences) appropriate for an elementary school student.
-
-Return your response in this JSON format:
-{{
-  "is_correct": true/false,
-  "feedback": "Your feedback here"
-}}
-"""
-    
+    # Try using Langflow for reading comprehension evaluation if available
     try:
-        logger.info(f"[{request_id}] Evaluating reading comprehension answer")
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        
-        # Make API call to Ollama for evaluation
-        ollama_response = await ollama_async_client.chat(
-            model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": f"""You are evaluating a student's reading comprehension answer. 
-Be fair and consider the meaning and understanding, not just exact word matching.
-
-Provide feedback that is:
-1. Age-appropriate for elementary students
-2. Encouraging and specific
-3. Brief (2-3 sentences)
-4. Varied in tone and structure (avoid repetitive phrases like "Great job!" at the beginning of every response)
-
-Your evaluation should focus on how well the student understood the main ideas in the passage."""},
-                {"role": "user", "content": prompt}
-            ],
-            format={"type": "object", "properties": {"is_correct": {"type": "boolean"}, "feedback": {"type": "string"}}},
-            options={"temperature": 0.7, "seed": random_seed}
-        )
-        
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        
-        # Parse the JSON response
-        evaluation_result = json.loads(ollama_response.message.content)
-        evaluation_result = remove_think_tags(evaluation_result)
-        # Validate the required fields are present
-        if "is_correct" not in evaluation_result or "feedback" not in evaluation_result:
-            logger.error(f"[{request_id}] Missing required fields in evaluation result")
-            return get_fallback_reading_evaluation(user_answer, correct_answer)
-        
-        # Convert is_correct to boolean if it's a string
-        if isinstance(evaluation_result["is_correct"], str):
-            evaluation_result["is_correct"] = evaluation_result["is_correct"].lower() == "true"
-        
-        logger.info(f"[{request_id}] Evaluation result: correct={evaluation_result['is_correct']}, feedback={evaluation_result['feedback'][:50]}...")
-        
-        return evaluation_result
-            
+        if os.getenv("LANGFLOW_WORKFLOW_READING_COMPREHENSION"):
+            logger.info(f"[{request_id}] Using Langflow API for reading comprehension evaluation")
+            return await evaluate_reading_comprehension_langflow(passage, question, user_answer, correct_answer, request_id)
     except Exception as e:
-        logger.error(f"[{request_id}] Error evaluating reading comprehension: {str(e)}")
-        return get_fallback_reading_evaluation(user_answer, correct_answer)
+        logger.error(f"[{request_id}] Error using Langflow for reading comprehension evaluation: {str(e)}")
+    
+    # If Langflow is not available or fails, use the fallback implementation
+    logger.info(f"[{request_id}] Using fallback for reading comprehension evaluation")
+    return get_fallback_reading_evaluation(user_answer, correct_answer)
 
 def get_fallback_reading_evaluation(user_answer: str, correct_answer: str) -> dict:
     """Get fallback evaluation when the API fails."""
@@ -2062,4 +826,1733 @@ def get_fallback_reading_evaluation(user_answer: str, correct_answer: str) -> di
     return {
         "is_correct": is_correct,
         "feedback": feedback
-    } 
+    }
+
+def construct_math_multiple_choice_prompt(grade: int, sub_activity: str, difficulty: str) -> str:
+    """
+    Constructs a prompt for generating math multiple choice questions for Langflow API.
+    This is a simplified version without tool usage instructions.
+    
+    Args:
+        grade: Student grade level
+        sub_activity: The math sub-activity (Addition/Subtraction, Multiplication/Division, etc.)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        A formatted prompt string
+    """
+    # Define number ranges based on grade and difficulty
+    if grade <= 2:  # Grade 1-2
+        if difficulty.lower() == "easy":
+            num_range = "1-10"
+            sum_range = "up to 20"
+            diff_range = "no negative numbers"
+        elif difficulty.lower() == "medium":
+            num_range = "5-20"
+            sum_range = "up to 30"
+            diff_range = "no negative numbers"
+        else:  # Hard
+            num_range = "10-30"
+            sum_range = "up to 50"
+            diff_range = "no negative numbers"
+    else:  # Grade 3+
+        if difficulty.lower() == "easy":
+            num_range = "10-30"
+            sum_range = "up to 50"
+            diff_range = "no negative numbers"
+        elif difficulty.lower() == "medium":
+            num_range = "20-50"
+            sum_range = "up to 100"
+            diff_range = "no negative numbers"
+        else:  # Hard
+            num_range = "30-100"
+            sum_range = "up to 150"
+            diff_range = "may include negative results"
+    
+    # Generate random elements for more diverse questions
+    person1 = random.choice(MATH_NAMES)
+    person2 = random.choice([n for n in MATH_NAMES if n != person1])  # Ensure different name
+    objects = random.choice(MATH_OBJECTS)
+    location = random.choice(MATH_LOCATIONS)
+    activity = random.choice(MATH_ACTIVITIES)
+    
+    # Generate a random seed for variety
+    random_seed = getRandomSeed()
+    
+    # Customize prompt based on sub-activity
+    if sub_activity == "Addition/Subtraction":
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level math question about addition or subtraction.
+        
+        Use number range: {num_range}
+        Sum range: {sum_range}
+        Difference range: {diff_range}
+        
+        You can optionally incorporate these elements:
+        - Names: {person1} and/or {person2}
+        - Objects: {objects}
+        - Location: {location}
+        - Activity: {activity}
+        
+        Make the question fun and engaging for elementary school students.
+        Add emojis to make it more appealing to children.
+        
+        Return a JSON with these fields:
+        - "question": The complete question text with all necessary information to solve it
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        """
+    elif sub_activity == "Multiplication/Division":
+        # Define ranges based on grade
+        if grade <= 2:  # Grade 1-2
+            table_range = "up to 5"
+            division_range = "simple divisions with results 1-5"
+        elif grade <= 3:  # Grade 3
+            table_range = "up to 10"
+            division_range = "divisions with results 1-10"
+        else:  # Grade 4+
+            table_range = "up to 12"
+            division_range = "divisions with divisors up to 12"
+            
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level math question about multiplication or division.
+        
+        For multiplication, use times tables {table_range}.
+        For division, use {division_range}.
+        
+        Use this random seed for variety: {random_seed}
+        
+        You can optionally incorporate these elements:
+        - Names: {person1} and/or {person2}
+        - Objects arranged in groups/rows: {objects}
+        - Location: {location}
+        
+        Make the question fun and engaging for elementary school students.
+        Add emojis to make it more appealing to children.
+        
+        Return a JSON with these fields:
+        - "question": The complete question text with all necessary information to solve it
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        """
+    elif sub_activity == "Word Problems":
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level math word problem.
+        
+        Use number range: {num_range}
+        Sum range: {sum_range}
+        Difference range: {diff_range}
+        
+        Create a story-based problem using these elements:
+        - Characters: {person1} and {person2}
+        - Objects: {objects}
+        - Setting: {location}
+        - Activity: {activity}
+        
+        Make sure the problem:
+        - Has a clear question
+        - Provides all necessary information to solve it
+        - Is appropriate for {grade}-grade students
+        - Is fun and engaging
+        
+        Add emojis to make it more appealing to children.
+        
+        Return a JSON with these fields:
+        - "question": The complete word problem with all necessary information
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        """
+    elif sub_activity == "Mushroom Kingdom Calculations":
+        # Use Mario-themed elements
+        character1 = random.choice(["Mario", "Luigi", "Princess Peach", "Toad", "Yoshi"])
+        character2 = random.choice(["Bowser", "Koopa Troopa", "Goomba", "Wario", "Boo"])
+        items = random.choice(["coins", "power stars", "super mushrooms", "fire flowers", "1-up mushrooms"])
+        location = random.choice(["Mushroom Kingdom", "Peach's Castle", "Bowser's Castle", "Yoshi's Island", "Wario's Woods"])
+        activity = random.choice(["collecting coins", "defeating enemies", "jumping on platforms", "racing go-karts", "solving puzzles"])
+        
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level math question in a Mario and Luigi themed world for elementary students.
+        
+        Use the following Mario-themed elements in your question:
+        - Characters: {character1} and/or {character2}
+        - Items: {items}
+        - Location: {location}
+        - Activity: {activity}
+        
+        Number range should be {num_range} with results {sum_range}, {diff_range}.
+        
+        The question should be about math problems that Mario characters encounter, such as collecting coins, 
+        defeating enemies, calculating scores, or measuring distances in the Mushroom Kingdom.
+        Make the question fun and engaging for kids who love Mario games.
+        
+        The math should be appropriate for grade {grade} and should require basic operations 
+        (addition, subtraction, multiplication, or division depending on grade level).
+        
+        Add emojis to make it more appealing to children.
+        
+        Return a JSON with these fields:
+        - "question": The complete Mario-themed question with all necessary information
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        """
+    else:
+        # Generic math prompt for other sub-activities
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level math question about {sub_activity}.
+        
+        Use number range: {num_range}
+        
+        You can optionally incorporate these elements:
+        - Names: {person1} and/or {person2}
+        - Objects: {objects}
+        - Location: {location}
+        - Activity: {activity}
+        
+        Make the question fun and engaging for elementary school students.
+        Add emojis to make it more appealing to children.
+        
+        Return a JSON with these fields:
+        - "question": The complete question text with all necessary information to solve it
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        """
+    
+    return prompt
+
+def extract_question_from_langflow_response(response_data: Dict[str, Any], request_id: str) -> Optional[str]:
+    """
+    Extract the question JSON string from the nested Langflow API response structure.
+    
+    Args:
+        response_data: The parsed JSON response from the Langflow API
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        The extracted question JSON string or None if not found
+    """
+    question_json_str = None
+    
+    try:
+        # First, check if the response has the structure we expect
+        if 'outputs' in response_data and isinstance(response_data['outputs'], list) and len(response_data['outputs']) > 0:
+            main_output = response_data['outputs'][0]
+            
+            # Try to find the question data in the outputs array
+            if 'outputs' in main_output and isinstance(main_output['outputs'], list) and len(main_output['outputs']) > 0:
+                output_data = main_output['outputs'][0]
+                
+                # Try to extract from results -> message -> text
+                if 'results' in output_data and 'message' in output_data['results'] and 'text' in output_data['results']['message']:
+                    question_json_str = output_data['results']['message']['text']
+                    logger.info(f"[{request_id}] Found question data in results.message.text")
+                
+                # Try to extract from results -> message -> data -> text
+                elif ('results' in output_data and 'message' in output_data['results'] and 
+                      'data' in output_data['results']['message'] and 'text' in output_data['results']['message']['data']):
+                    question_json_str = output_data['results']['message']['data']['text']
+                    logger.info(f"[{request_id}] Found question data in results.message.data.text")
+                
+                # Try to extract from outputs -> message -> message
+                elif 'outputs' in output_data and 'message' in output_data['outputs'] and 'message' in output_data['outputs']['message']:
+                    question_json_str = output_data['outputs']['message']['message']
+                    logger.info(f"[{request_id}] Found question data in outputs.message.message")
+                
+                # Try to extract from artifacts -> message
+                elif 'artifacts' in output_data and 'message' in output_data['artifacts']:
+                    question_json_str = output_data['artifacts']['message']
+                    logger.info(f"[{request_id}] Found question data in artifacts.message")
+                
+                # Try to extract from messages
+                elif 'messages' in output_data and isinstance(output_data['messages'], list) and len(output_data['messages']) > 0:
+                    if 'message' in output_data['messages'][0]:
+                        question_json_str = output_data['messages'][0]['message']
+                        logger.info(f"[{request_id}] Found question data in messages[0].message")
+    except Exception as e:
+        logger.error(f"[{request_id}] Error extracting question data from response: {str(e)}")
+    
+    # If we found a JSON string, clean it up and extract only the JSON part
+    if question_json_str:
+        question_json_str = question_json_str.strip()
+        
+        # Try to extract just the JSON part from the text
+        try:
+            # Find the first occurrence of '{'
+            json_start = question_json_str.find('{')
+            if json_start >= 0:
+                # Extract from the first '{' to the end of the string
+                question_json_str = question_json_str[json_start:]
+                logger.info(f"[{request_id}] Extracted JSON part starting at position {json_start}")
+        except Exception as e:
+            logger.error(f"[{request_id}] Error extracting JSON part: {str(e)}")
+            
+        logger.info(f"[{request_id}] Extracted JSON string: {question_json_str}")
+    
+    return question_json_str
+
+async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate a math multiple choice question using Langflow API.
+    
+    Args:
+        grade: Student grade level (2-3)
+        sub_activity: Sub-activity type (e.g., "Addition/Subtraction", "Multiplication/Division")
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating math multiple-choice question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_MATH_MULTIPLE_CHOICE", "math-multiple-choice")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for math questions
+    custom_prompt = construct_math_multiple_choice_prompt(grade, sub_activity, difficulty)
+    print(f"Custom prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            # We do this in a fire-and-forget manner to not block the response
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, "Math", sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "multiple-choice",
+                    "sub_activity": sub_activity
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, "Math", sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    return get_fallback_question(grade, "Math", sub_activity, difficulty)
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    return get_fallback_question(grade, "Math", sub_activity, difficulty)
+                
+                logger.info(f"[{request_id}] Successfully generated question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, "Math", sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, "Math", sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, "Math", sub_activity, difficulty)
+
+async def delete_langflow_session_messages(session_id: str, request_id: str) -> bool:
+    """
+    Delete all messages for a specific Langflow session.
+    
+    Args:
+        session_id: The Langflow session ID
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info(f"[{request_id}] Deleting Langflow session messages for session ID: {session_id}")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/monitor/messages/session/{session_id}"
+    
+    try:
+        # Make the DELETE request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(url)
+            response.raise_for_status()
+            
+            # Log success
+            logger.info(f"[{request_id}] Successfully deleted messages for session ID: {session_id}")
+            return True
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error deleting Langflow session messages: {str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"[{request_id}] Error deleting Langflow session messages: {str(e)}")
+        return False
+
+def construct_reading_comprehension_prompt(grade: int, sub_activity: str, difficulty: str) -> str:
+    """
+    Constructs a prompt for generating reading comprehension questions for Langflow API.
+    
+    Args:
+        grade: Student grade level
+        sub_activity: The English sub-activity (Reading Comprehension)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        A formatted prompt string
+    """
+    # Determine passage length based on grade and difficulty
+    if grade <= 1:
+        passage_length = "very short passage (2-3 sentences)"
+    elif grade <= 2:
+        passage_length = "short passage (3-5 sentences)"
+    elif grade <= 3:
+        passage_length = "medium-length passage (5-7 sentences)"
+    else:
+        passage_length = "longer passage (7-10 sentences)"
+    
+    # Adjust for difficulty
+    if difficulty.lower() == "easy":
+        if grade <= 2:
+            passage_length = "very short passage (2-3 simple sentences)"
+        else:
+            passage_length = "short passage (3-5 simple sentences)"
+    elif difficulty.lower() == "hard":
+        if grade >= 3:
+            passage_length = "longer passage (7-10 sentences with varied structure)"
+    
+    # Generate random elements for more diverse questions
+    character1 = random.choice(["Emma", "Liam", "Olivia", "Noah", "Ava", "Lucas", "Isabella", "Mason", "Sophia", "Ethan"])
+    character2 = random.choice(["Jackson", "Mia", "Aiden", "Charlotte", "Elijah", "Amelia", "Grayson", "Harper", "Benjamin", "Evelyn"])
+    location = random.choice(["park", "school", "beach", "library", "museum", "zoo", "farm", "store", "garden", "playground"])
+    topic = random.choice(["friendship", "animals", "family", "school", "adventure", "kindness", "seasons", "nature", "community", "discovery"])
+    
+    # Specify question type based on grade level
+    if grade <= 2:
+        question_type = "about a simple fact from the passage"
+    else:
+        question_type = random.choice([
+            "about a detail from the passage",
+            "about the main idea",
+            "that requires making an inference",
+            "about a character's feelings or motivations",
+            "about the meaning of a word in context"
+        ])
+    
+    # Generate a random seed for variety
+    random_seed = getRandomSeed()
+    
+    prompt = f"""
+    Generate a {difficulty.lower()} {grade}-grade level reading comprehension passage and question for elementary school students.
+    
+    Create a {passage_length} about {topic} set at a {location}, followed by a multiple-choice question {question_type}.
+    
+    Include these characters in your passage: {character1} and optionally {character2}.
+    
+    Use this random seed for variety: {random_seed}
+    
+    The passage should:
+    - Use vocabulary appropriate for grade {grade}
+    - Have a clear beginning, middle, and end
+    - Include interesting details that might be asked about in the question
+    - Vary between descriptive, narrative, or informative styles
+    - Add multiple emojis throughout the passage to make it more engaging for children
+    
+    Your question should be thoughtful and require students to really understand the passage.
+    
+    Return a JSON with these fields:
+    - "passage": The reading text with emojis
+    - "question": The question about the passage with emojis
+    - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+    - "answer": The correct answer (must be one of the choices)
+    - "type": "reading-comprehension"
+    
+    IMPORTANT REQUIREMENTS:
+    - Provide EXACTLY 4 multiple choice options (no more, no less)
+    - Ensure the correct answer is one of the 4 choices
+    - Make all choices reasonable so the answer isn't too obvious
+    - Keep the choices separate from the question text
+    - Add emojis throughout the passage and question
+    """
+    
+    return prompt
+
+async def generate_reading_comprehension_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate a reading comprehension question using Langflow API.
+    
+    Args:
+        grade: Student grade level
+        subject: Subject (English)
+        sub_activity: Sub-activity type (Reading Comprehension)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating reading comprehension question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_READING_COMPREHENSION", "reading-comprehension")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for reading comprehension questions
+    custom_prompt = construct_reading_comprehension_prompt(grade, sub_activity, difficulty)
+    print(f"Reading Comprehension prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, subject, sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "passage": question_data.get("passage", ""),
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "reading-comprehension",
+                    "sub_activity": sub_activity,
+                    "subject": subject,
+                    "difficulty": difficulty
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["passage", "question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, subject, sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    
+                    # Fix the number of choices
+                    choices = formatted_question["choices"]
+                    answer = formatted_question["answer"]
+                    
+                    if len(choices) < 4:
+                        # Add additional choices to reach 4
+                        while len(choices) < 4:
+                            new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                            if new_choice not in choices and new_choice != answer:
+                                choices.append(new_choice)
+                                logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+                    elif len(choices) > 4:
+                        # Keep the first 3 choices plus the correct answer
+                        if answer in choices:
+                            # Remove the answer temporarily
+                            choices.remove(answer)
+                            # Keep only the first 3 other choices
+                            choices = choices[:3]
+                            # Add the answer back
+                            choices.append(answer)
+                        else:
+                            # Just keep the first 4 choices
+                            choices = choices[:4]
+                    
+                    formatted_question["choices"] = choices
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    
+                    # Add the answer to the choices
+                    choices = formatted_question["choices"]
+                    if len(choices) > 0:
+                        choices[-1] = formatted_question["answer"]
+                    else:
+                        choices = ["Option A", "Option B", formatted_question["answer"], "Option C"]
+                    
+                    formatted_question["choices"] = choices
+                
+                logger.info(f"[{request_id}] Successfully generated reading comprehension question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, subject, sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, subject, sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, subject, sub_activity, difficulty)
+
+def construct_opposites_antonyms_prompt(grade: int, difficulty: str) -> str:
+    """
+    Constructs a prompt for generating English opposites/antonyms questions for Langflow API.
+    
+    Args:
+        grade: Student grade level
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        A formatted prompt string
+    """
+    # Get random elements for variety
+    target_words = [word for word in ENGLISH_ADJECTIVES if word != "happy"]  # Exclude 'happy' to avoid repetition
+    target_word = random.choice(target_words)
+    random_seed = getRandomSeed()
+    
+    # Choose a random prompt template
+    prompt_templates = [
+        f"What is the opposite of '{target_word}'?",
+        f"Which word means the opposite of '{target_word}'?",
+        f"Select the word that has the opposite meaning of '{target_word}'.",
+        f"Choose the antonym for '{target_word}'.",
+        f"Which of these words is most opposite in meaning to '{target_word}'?"
+    ]
+    prompt_template = random.choice(prompt_templates)
+    
+    # Create grade-appropriate prompts
+    if grade <= 2:  # Grade 1-2
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
+        
+        YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+        
+        You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+        DO NOT use the word 'happy' in your question - this word has been overused.
+        
+        Use this random seed for variety: {random_seed}
+        
+        The question should ask for the opposite of a simple word appropriate for this grade level.
+        
+        Add emojis to make the question more engaging for children.
+        
+        Return a JSON with these fields:
+        - "question": The question text with emojis
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        
+        IMPORTANT REQUIREMENTS:
+        - Provide EXACTLY 4 multiple choice options (no more, no less)
+        - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
+        - Make all choices grade-appropriate
+        - Keep the choices separate from the question text
+        """
+    else:  # Grade 3+
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level English question about opposites or antonyms.
+        
+        YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+        
+        You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+        DO NOT use the word 'happy' in your question - this word has been overused.
+        
+        Use this random seed for variety: {random_seed}
+        
+        The question should ask for the opposite of a word appropriate for this grade level.
+        
+        Add emojis to make the question more engaging for children.
+        
+        Return a JSON with these fields:
+        - "question": The question text with emojis
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        
+        IMPORTANT REQUIREMENTS:
+        - Provide EXACTLY 4 multiple choice options (no more, no less)
+        - Ensure the correct answer (the true opposite/antonym) is one of the 4 choices
+        - Make all choices grade-appropriate
+        - Keep the choices separate from the question text
+        """
+    
+    # Log the enhanced prompt details
+    logger.info(f"Opposites/Antonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
+    
+    return prompt
+
+async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate an English opposites/antonyms question using Langflow API.
+    
+    Args:
+        grade: Student grade level
+        sub_activity: Sub-activity type (Opposites/Antonyms)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating English opposites/antonyms question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_OPPOSITES_ANTONYMS", "opposites-antonyms")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for opposites/antonyms questions
+    custom_prompt = construct_opposites_antonyms_prompt(grade, difficulty)
+    print(f"Opposites/Antonyms prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "multiple-choice",
+                    "sub_activity": sub_activity,
+                    "subject": "English",
+                    "difficulty": difficulty
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, "English", sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    
+                    # Fix the number of choices
+                    choices = formatted_question["choices"]
+                    answer = formatted_question["answer"]
+                    
+                    if len(choices) < 4:
+                        # Add additional choices to reach 4
+                        while len(choices) < 4:
+                            new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                            if new_choice not in choices and new_choice != answer:
+                                choices.append(new_choice)
+                                logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+                    elif len(choices) > 4:
+                        # Keep the first 3 choices plus the correct answer
+                        if answer in choices:
+                            # Remove the answer temporarily
+                            choices.remove(answer)
+                            # Keep only the first 3 other choices
+                            choices = choices[:3]
+                            # Add the answer back
+                            choices.append(answer)
+                        else:
+                            # Just keep the first 4 choices
+                            choices = choices[:4]
+                    
+                    formatted_question["choices"] = choices
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    
+                    # Add the answer to the choices
+                    choices = formatted_question["choices"]
+                    if len(choices) > 0:
+                        choices[-1] = formatted_question["answer"]
+                    else:
+                        choices = ["Option A", "Option B", formatted_question["answer"], "Option C"]
+                    
+                    formatted_question["choices"] = choices
+                
+                logger.info(f"[{request_id}] Successfully generated opposites/antonyms question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+
+def construct_synonyms_prompt(grade: int, difficulty: str) -> str:
+    """
+    Constructs a prompt for generating English synonyms questions for Langflow API.
+    
+    Args:
+        grade: Student grade level
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        A formatted prompt string
+    """
+    # Get random elements for variety
+    target_words = [word for word in ENGLISH_ADJECTIVES if word != "big"]  # Exclude 'big' to avoid repetition
+    target_word = random.choice(target_words)
+    random_seed = getRandomSeed()
+    
+    # Choose a random prompt template
+    prompt_templates = [
+        f"What is a synonym for '{target_word}'?",
+        f"Which word means the same as '{target_word}'?",
+        f"Select the word that has a similar meaning to '{target_word}'.",
+        f"Choose the synonym for '{target_word}'.",
+        f"Which of these words is most similar in meaning to '{target_word}'?"
+    ]
+    prompt_template = random.choice(prompt_templates)
+    
+    # Create grade-appropriate prompts
+    if grade <= 2:  # Grade 1-2
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level English question about synonyms (words with similar meanings).
+        
+        YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+        
+        You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+        DO NOT use the word 'big' in your question - this word has been overused.
+        
+        Use this random seed for variety: {random_seed}
+        
+        The question should ask for a word with a similar meaning to a simple word appropriate for this grade level.
+        
+        Add emojis to make the question more engaging for children.
+        
+        CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
+        
+        This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
+        
+        Follow these steps carefully:
+        1. Create a question asking for a synonym of '{target_word}'
+        2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+        3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
+        4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
+        5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
+        
+        Return a JSON with these fields:
+        - "question": The question text with emojis
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        
+        IMPORTANT REQUIREMENTS:
+        - Provide EXACTLY 4 multiple choice options (no more, no less)
+        - Ensure the correct answer (the true synonym) is one of the 4 choices
+        - Make all choices grade-appropriate
+        - Keep the choices separate from the question text
+        """
+    else:  # Grade 3+
+        prompt = f"""
+        Generate a {difficulty.lower()} {grade}-grade level English question about synonyms (words with similar meanings).
+        
+        YOU MUST use exactly this question format WITHOUT changing the word: "{prompt_template}"
+        
+        You MUST use the word '{target_word}' in your question. DO NOT substitute it with a different word.
+        DO NOT use the word 'big' in your question - this word has been overused.
+        
+        Use this random seed for variety: {random_seed}
+        
+        The question should ask for a word with a similar meaning to a word appropriate for this grade level.
+        
+        Add emojis to make the question more engaging for children.
+        
+        CRITICAL INSTRUCTIONS FOR SYNONYMS QUESTION:
+        
+        This is a question about SYNONYMS (words with SIMILAR meanings), NOT ANTONYMS (words with OPPOSITE meanings).
+        
+        Follow these steps carefully:
+        1. Create a question asking for a synonym of '{target_word}'
+        2. Generate EXACTLY 4 answer choices that include at least one TRUE SYNONYM of '{target_word}'
+        3. Make the correct answer be a word that has a SIMILAR meaning to '{target_word}'
+        4. Triple-check that the correct answer is NOT an antonym or opposite of '{target_word}'
+        5. Verify that you haven't accidentally marked an opposite/antonym as the correct answer
+        
+        Return a JSON with these fields:
+        - "question": The question text with emojis
+        - "choices": Exactly 4 possible answers (the correct answer and 3 wrong answers)
+        - "answer": The correct answer (must be one of the choices)
+        - "type": "multiple-choice"
+        
+        IMPORTANT REQUIREMENTS:
+        - Provide EXACTLY 4 multiple choice options (no more, no less)
+        - Ensure the correct answer (the true synonym) is one of the 4 choices
+        - Make all choices grade-appropriate
+        - Keep the choices separate from the question text
+        """
+    
+    # Log the enhanced prompt details
+    logger.info(f"Synonyms randomization - Target word: {target_word}, Template: {prompt_template}, Seed: {random_seed}")
+    
+    return prompt
+
+async def generate_english_synonyms_langflow(grade: int, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate an English synonyms question using Langflow API.
+    
+    Args:
+        grade: Student grade level
+        sub_activity: Sub-activity type (Synonyms)
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating English synonyms question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_SYNONYMS", "synonyms")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for synonyms questions
+    custom_prompt = construct_synonyms_prompt(grade, difficulty)
+    print(f"Synonyms prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "multiple-choice",
+                    "sub_activity": sub_activity,
+                    "subject": "English",
+                    "difficulty": difficulty
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, "English", sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    
+                    # Fix the number of choices
+                    choices = formatted_question["choices"]
+                    answer = formatted_question["answer"]
+                    
+                    if len(choices) < 4:
+                        # Add additional choices to reach 4
+                        while len(choices) < 4:
+                            new_choice = f"Option {chr(65 + len(choices))}"  # Option A, Option B, etc.
+                            if new_choice not in choices and new_choice != answer:
+                                choices.append(new_choice)
+                                logger.info(f"[{request_id}] Added extra choice: {new_choice}")
+                    elif len(choices) > 4:
+                        # Keep the first 3 choices plus the correct answer
+                        if answer in choices:
+                            # Remove the answer temporarily
+                            choices.remove(answer)
+                            # Keep only the first 3 other choices
+                            choices = choices[:3]
+                            # Add the answer back
+                            choices.append(answer)
+                        else:
+                            # Just keep the first 4 choices
+                            choices = choices[:4]
+                    
+                    formatted_question["choices"] = choices
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    
+                    # Add the answer to the choices
+                    choices = formatted_question["choices"]
+                    if len(choices) > 0:
+                        choices[-1] = formatted_question["answer"]
+                    else:
+                        choices = ["Option A", "Option B", formatted_question["answer"], "Option C"]
+                    
+                    formatted_question["choices"] = choices
+                
+                logger.info(f"[{request_id}] Successfully generated synonyms question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+
+async def generate_grammar_correction_langflow(grade: int, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate a grammar correction question using Langflow API.
+    
+    Args:
+        grade: Student grade level (1-5)
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating grammar correction question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_CORRECTION", "grammar-correction")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for grammar correction questions
+    custom_prompt = construct_grammar_correction_prompt(grade, difficulty)
+    print(f"Grammar correction custom prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Langflow response data for grammar correction: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            # We do this in a fire-and-forget manner to not block the response
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from Langflow API response")
+                return get_fallback_grammar_correction(grade, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "answer": question_data.get("answer", ""),
+                    "type": "direct-answer",
+                    "sub_activity": "Grammar Correction"
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_grammar_correction(grade, difficulty)
+                
+                # Remove any choices if they exist (grammar correction is direct-answer type)
+                if "choices" in formatted_question:
+                    del formatted_question["choices"]
+                
+                logger.info(f"[{request_id}] Successfully generated grammar correction question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing grammar correction JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_grammar_correction(grade, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API for grammar correction: {str(e)}")
+        return get_fallback_grammar_correction(grade, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API for grammar correction: {str(e)}")
+        return get_fallback_grammar_correction(grade, difficulty)
+
+def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
+    """
+    Constructs a prompt for generating grammar correction questions for Langflow API.
+    
+    Args:
+        grade: Student grade level
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        A formatted prompt string
+    """
+    # Randomly select error type appropriate for grade level
+    error_types = [
+        "subject-verb agreement", 
+        "verb tense", 
+        "pronoun usage", 
+        "article usage",
+        "plural forms", 
+        "prepositions"
+    ]
+    
+    # Select complexity appropriate for grade level
+    if grade <= 2:  # Grades 1-2
+        # Simpler error types for younger students
+        error_type = random.choice(error_types[:3])  
+        
+        # Select topics relevant to younger students
+        topics = ["school activities", "family", "pets", "playground games"]
+        topic = random.choice(topics)
+        
+        # Simpler sentence structures
+        sentence_type = "simple sentence"
+    else:  # Grade 3+
+        # Full range of error types for older students
+        error_type = random.choice(error_types) 
+        
+        # More diverse topics
+        topics = ["school subjects", "hobbies", "nature", "sports", "community", "daily routines"]
+        topic = random.choice(topics)
+        
+        # More varied sentence structures
+        sentence_types = ["simple sentence", "compound sentence", "question", "sentence with prepositional phrase"]
+        sentence_type = random.choice(sentence_types)
+    
+    # Generate a random seed for variety
+    random_seed = getRandomSeed()
+    
+    prompt = f"""
+    Generate a {difficulty.lower()} {grade}-grade level English grammar correction question.
+    
+    Write a {sentence_type} about {topic} with exactly ONE grammatical error involving {error_type}.
+    The error should be appropriate for a {grade}-grade student to identify and fix.
+    
+    Use this random seed for variety: {random_seed}
+    
+    The question should be the incorrect sentence, and the answer should be the fully corrected sentence.
+    Make sure the sentence sounds natural and uses age-appropriate vocabulary.
+    Add one or two emojis to make the question engaging for children.
+    
+    Return a JSON with these fields:
+    - "question": The incorrect sentence with a grammar error (with emoji)
+    - "answer": The fully corrected sentence
+    - "type": "direct-answer"
+    
+    IMPORTANT REQUIREMENTS:
+    - The question must have EXACTLY ONE grammatical error
+    - The answer must be the fully corrected sentence with the error fixed
+    - Ensure the error is age-appropriate for grade {grade}
+    - Do not use sentences that are too long or complex for the grade level
+    """
+    
+    return prompt
+
+def get_fallback_grammar_correction(grade: int, difficulty: str) -> Dict[str, Any]:
+    """
+    Generate a fallback grammar correction question when the API fails.
+    
+    Args:
+        grade: Student grade level
+        difficulty: Difficulty level (Easy, Medium, Hard)
+        
+    Returns:
+        Dictionary containing fallback question data
+    """
+    # Define simple fallback questions based on grade level
+    fallbacks = [
+        {
+            "question": "The dog run very fast. 🐕",
+            "answer": "The dog runs very fast.",
+            "type": "direct-answer",
+            "sub_activity": "Grammar Correction"
+        },
+        {
+            "question": "She don't like ice cream. 🍦",
+            "answer": "She doesn't like ice cream.",
+            "type": "direct-answer",
+            "sub_activity": "Grammar Correction"
+        },
+        {
+            "question": "They is going to the park. 🌳",
+            "answer": "They are going to the park.",
+            "type": "direct-answer",
+            "sub_activity": "Grammar Correction"
+        },
+        {
+            "question": "The cats is playing. 😺",
+            "answer": "The cats are playing.",
+            "type": "direct-answer",
+            "sub_activity": "Grammar Correction"
+        },
+        {
+            "question": "He walk to school yesterday. 🏫",
+            "answer": "He walked to school yesterday.",
+            "type": "direct-answer",
+            "sub_activity": "Grammar Correction"
+        }
+    ]
+    
+    # Return a random fallback question
+    return random.choice(fallbacks)
+
+async def evaluate_grammar_correction_langflow(user_answer: str, correct_answer: str, question: str, is_correct: bool, trace_id: str) -> Dict[str, Any]:
+    """
+    Evaluate grammar correction answers using Langflow API.
+    
+    Args:
+        user_answer: User's answer
+        correct_answer: Correct answer to the question
+        question: The question that was asked
+        is_correct: Whether the user's answer was correct
+        trace_id: Trace ID for logging
+        
+    Returns:
+        Dictionary with feedback on the answer
+    """
+    logger.info(f"[{trace_id}] Evaluating grammar correction using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION", "grammar-evaluation")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Prepare the evaluation prompt
+    eval_prompt = f"""
+    Question: {question}
+    Correct answer: {correct_answer}
+    Student answer: {user_answer}
+    Is correct: {"Yes" if is_correct else "No"}
+    
+    Provide friendly, encouraging feedback for this elementary school student's grammar correction.
+    If the answer is correct, praise them and explain why it's correct.
+    If incorrect, be encouraging and explain the grammar rule they missed, but don't give away the answer directly.
+    Use simple language appropriate for young children and include a positive emoji at the end.
+    
+    Return only a JSON with these fields:
+    - "is_correct": true/false (whether the student's answer is correct)
+    - "feedback": your detailed, age-appropriate feedback
+    """
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": eval_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            
+            # Extract the feedback JSON string from the response
+            feedback_json_str = extract_question_from_langflow_response(response_data, trace_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            # We do this in a fire-and-forget manner to not block the response
+            await delete_langflow_session_messages(session_id, trace_id)
+            
+            # If we couldn't find the feedback data, use a fallback
+            if not feedback_json_str:
+                logger.warning(f"[{trace_id}] Could not extract feedback data from Langflow API response")
+                return get_fallback_feedback(is_correct)
+            
+            # Parse the JSON string to get the feedback data
+            try:
+                feedback_data = json.loads(feedback_json_str)
+                
+                # Validate the response
+                if not all(key in feedback_data for key in ["is_correct", "feedback"]):
+                    # Check if we have "correct" but not "is_correct"
+                    if "correct" in feedback_data and "feedback" in feedback_data:
+                        # Transform the response to use is_correct instead of correct
+                        feedback_data["is_correct"] = feedback_data.pop("correct")
+                    else:
+                        logger.warning(f"[{trace_id}] Incomplete feedback data: {feedback_data}")
+                        return get_fallback_feedback(is_correct)
+                
+                logger.info(f"[{trace_id}] Successfully evaluated grammar correction using Langflow API")
+                return feedback_data
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{trace_id}] Error parsing grammar correction feedback JSON: {str(e)}")
+                logger.error(f"[{trace_id}] Raw JSON string: {feedback_json_str}")
+                return get_fallback_feedback(is_correct)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{trace_id}] HTTP error from Langflow API for grammar evaluation: {str(e)}")
+        return get_fallback_feedback(is_correct)
+    except Exception as e:
+        logger.error(f"[{trace_id}] Error calling Langflow API for grammar evaluation: {str(e)}")
+        return get_fallback_feedback(is_correct)
+
+    user_lower = user_answer.lower().strip()
+    correct_lower = correct_answer.lower().strip()
+    
+    # Very basic fallback evaluation - same as current system
+    is_correct = user_lower == correct_lower
+    
+    # More varied feedback options
+    correct_feedback_options = [
+        f"I like how you fixed that sentence, {player_name}! You identified the grammar error correctly.",
+        f"Nice work on the grammar correction, {player_name}! You spotted the error and fixed it well.",
+        f"{player_name}, you've got a good eye for grammar! Your correction makes the sentence much clearer.",
+        f"The sentence looks much better now, {player_name}. You fixed the grammar problem perfectly.",
+        f"You found the grammar mistake, {player_name}! Your correction makes the sentence grammatically correct."
+    ]
+    
+    incorrect_feedback_options = [
+        f"I see what you tried to do, {player_name}. Check the sentence again and look for grammar errors.",
+        f"{player_name}, you're on the right track! Look at the verb and subject to see if they match properly.",
+        f"Almost there, {player_name}! Read the sentence out loud and see if it sounds right.",
+        f"Try again, {player_name}. Look carefully at how the words work together in the sentence.",
+        f"Keep working on it, {player_name}! Consider whether the sentence uses the correct verb tense."
+    ]
+    
+    if is_correct:
+        feedback = random.choice(correct_feedback_options)
+    else:
+        feedback = random.choice(incorrect_feedback_options)
+    
+    return {
+        "is_correct": is_correct,
+        "feedback": feedback
+    }
+
+async def evaluate_reading_comprehension_langflow(passage: str, question: str, user_answer: str, correct_answer: str, trace_id: str) -> Dict[str, Any]:
+    """
+    Evaluate reading comprehension answers using Langflow API.
+    
+    Args:
+        passage: The reading passage text
+        question: The question about the passage
+        user_answer: The student's answer
+        correct_answer: The correct answer from the original question
+        trace_id: Trace ID for logging
+        
+    Returns:
+        Dictionary with feedback on the answer
+    """
+    logger.info(f"[{trace_id}] Evaluating reading comprehension using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_READING_COMPREHENSION", "reading-comprehension")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Prepare the evaluation prompt
+    eval_prompt = f"""
+    Reading Passage: {passage}
+    
+    Question: {question}
+    
+    Correct answer: {correct_answer}
+    
+    Student answer: {user_answer}
+    
+    Provide friendly, encouraging feedback for this elementary school student's reading comprehension answer.
+    Evaluate whether the student's answer is correct based on understanding the passage, not just exact word matching.
+    Use simple language appropriate for young children and include a positive emoji at the end.
+    
+    Return only a JSON with these fields:
+    - "is_correct": true/false (whether the student's answer correctly addresses the question)
+    - "feedback": your detailed, age-appropriate feedback
+    """
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": eval_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            
+            # Extract the feedback JSON string from the response
+            feedback_json_str = extract_question_from_langflow_response(response_data, trace_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            # We do this in a fire-and-forget manner to not block the response
+            await delete_langflow_session_messages(session_id, trace_id)
+            
+            # If we couldn't find the feedback data, use a fallback
+            if not feedback_json_str:
+                logger.warning(f"[{trace_id}] Could not extract feedback data from Langflow API response")
+                return get_fallback_reading_evaluation(user_answer, correct_answer)
+            
+            # Parse the JSON string to get the feedback data
+            try:
+                feedback_data = json.loads(feedback_json_str)
+                
+                # Validate the response
+                if not all(key in feedback_data for key in ["is_correct", "feedback"]):
+                    logger.warning(f"[{trace_id}] Incomplete feedback data: {feedback_data}")
+                    return get_fallback_reading_evaluation(user_answer, correct_answer)
+                
+                logger.info(f"[{trace_id}] Successfully evaluated reading comprehension using Langflow API")
+                return feedback_data
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{trace_id}] Error parsing reading comprehension feedback JSON: {str(e)}")
+                logger.error(f"[{trace_id}] Raw JSON string: {feedback_json_str}")
+                return get_fallback_reading_evaluation(user_answer, correct_answer)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{trace_id}] HTTP error from Langflow API for reading comprehension evaluation: {str(e)}")
+        return get_fallback_reading_evaluation(user_answer, correct_answer)
+    except Exception as e:
+        logger.error(f"[{trace_id}] Error calling Langflow API for reading comprehension evaluation: {str(e)}")
+        return get_fallback_reading_evaluation(user_answer, correct_answer)
+
+async def generate_mario_english_langflow(grade: int, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
+    """
+    Generate a Mushroom Kingdom Vocabulary English question using Langflow API.
+    
+    Args:
+        grade: Student grade level (2-3)
+        sub_activity: Sub-activity type ("Mushroom Kingdom Vocabulary")
+        difficulty: Difficulty level ("Easy", "Medium", "Hard")
+        request_id: Unique request identifier for logging
+        
+    Returns:
+        Dictionary containing question data
+    """
+    logger.info(f"[{request_id}] Generating Mario English question using Langflow API")
+    
+    # Get Langflow configuration from environment
+    langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
+    langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_MARIO_ENGLISH", "mario-english")
+    
+    # Construct the API URL
+    url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
+    
+    # Create a unique session ID
+    session_id = f"session_{str(uuid.uuid4())}"
+    
+    # Generate a custom prompt for Mario English questions
+    custom_prompt = construct_mario_english_prompt(grade, difficulty)
+    print(f"Mario English prompt: {custom_prompt}")
+    
+    # Prepare the request payload
+    payload = {
+        "input_value": custom_prompt,
+        "output_type": "chat",
+        "input_type": "chat",
+        "session_id": str(session_id),
+        "output_component": "",
+        "tweaks": None,
+    }
+    
+    # Set up headers
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        # Make the API request using httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            # Parse the response
+            response_data = response.json()
+            print(f"Response data: {response_data}")
+            
+            # Extract the question JSON string from the response
+            question_json_str = extract_question_from_langflow_response(response_data, request_id)
+            
+            # Clean up session messages to avoid accumulating in Langflow storage
+            await delete_langflow_session_messages(session_id, request_id)
+            
+            # If we couldn't find the question data, use a fallback
+            if not question_json_str:
+                logger.warning(f"[{request_id}] Could not extract question data from API response")
+                logger.warning(f"[{request_id}] Response structure: {json.dumps(response_data, indent=2)[:1000]}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+            # Parse the JSON string to get the question data
+            try:
+                question_data = json.loads(question_json_str)
+                
+                # Create a properly formatted question dictionary
+                formatted_question = {
+                    "question": question_data.get("question", ""),
+                    "choices": [str(choice) for choice in question_data.get("choices", [])],
+                    "answer": str(question_data.get("answer", "")),
+                    "type": "multiple-choice",
+                    "sub_activity": sub_activity,
+                    "subject": "English",
+                    "difficulty": difficulty
+                }
+                
+                # Validate the response
+                if not all(key in formatted_question for key in ["question", "choices", "answer"]):
+                    logger.warning(f"[{request_id}] Incomplete question data: {formatted_question}")
+                    return get_fallback_question(grade, "English", sub_activity, difficulty)
+                
+                # Ensure we have exactly 4 choices
+                if len(formatted_question["choices"]) != 4:
+                    logger.warning(f"[{request_id}] Invalid number of choices: {len(formatted_question['choices'])}")
+                    
+                    # Fix the number of choices
+                    choices = formatted_question["choices"]
+                    if len(choices) < 4:
+                        # Add placeholder choices if we don't have enough
+                        while len(choices) < 4:
+                            new_choice = f"Option {len(choices) + 1}"
+                            choices.append(new_choice)
+                    else:
+                        # Truncate to 4 choices if we have too many
+                        choices = choices[:4]
+                    
+                    formatted_question["choices"] = choices
+                
+                # Ensure the answer is in the choices
+                if formatted_question["answer"] not in formatted_question["choices"]:
+                    logger.warning(f"[{request_id}] Answer not in choices: {formatted_question['answer']} not in {formatted_question['choices']}")
+                    
+                    # Add the answer to the choices
+                    choices = formatted_question["choices"]
+                    if len(choices) > 0:
+                        choices[-1] = formatted_question["answer"]
+                    else:
+                        choices = ["Option A", "Option B", formatted_question["answer"], "Option C"]
+                    
+                    formatted_question["choices"] = choices
+                
+                logger.info(f"[{request_id}] Successfully generated Mario English question using Langflow API")
+                return formatted_question
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"[{request_id}] Error parsing question JSON: {str(e)}")
+                logger.error(f"[{request_id}] Raw JSON string: {question_json_str}")
+                return get_fallback_question(grade, "English", sub_activity, difficulty)
+            
+    except httpx.HTTPError as e:
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)
+    except Exception as e:
+        logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
+        return get_fallback_question(grade, "English", sub_activity, difficulty)

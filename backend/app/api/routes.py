@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import uuid
+import time
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
@@ -156,7 +157,8 @@ async def submit_answer(
                 question=question_data.get("question", ""),
                 user_answer=user_answer,
                 correct_answer=correct_answer,
-                player_name=player_name
+                is_correct=user_answer == correct_answer,
+                trace_id=str(time.time())
             )
             
             # Get the evaluation result
@@ -164,7 +166,11 @@ async def submit_answer(
             ai_feedback = evaluation_result.get('feedback', '')
             
             # Set feedback based on AI evaluation
-            feedback = ai_feedback
+            if is_correct:
+                feedback = ai_feedback
+            else:
+                # For incorrect answers, include the correct answer in the feedback
+                feedback = f"{ai_feedback}\n\nThe correct answer is: {correct_answer}"
                 
             print(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {ai_feedback}")
         except Exception as e:
@@ -178,7 +184,7 @@ async def submit_answer(
             if is_correct:
                 feedback = f"Great job, {player_name}! You corrected the sentence perfectly."
             else:
-                feedback = f"Good try, {player_name}! Check your answer again for grammar errors."
+                feedback = f"Good try, {player_name}! The correct answer is: {correct_answer}"
     
     # For reading comprehension, use AI evaluation
     elif is_reading_comprehension:
@@ -357,12 +363,18 @@ async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluation
         else:
             print("No player_id in request or player_id is None")
         
+        # Check if the answer is correct
+        user_lower = request.user_answer.lower().strip()
+        correct_lower = request.correct_answer.lower().strip()
+        is_correct = user_lower == correct_lower
+        
         # Generate evaluation using Ollama
         result = await evaluate_grammar_correction(
             question=request.question,
             user_answer=request.user_answer,
             correct_answer=request.correct_answer,
-            player_name=player_name
+            is_correct=is_correct,
+            trace_id=str(time.time())
         )
         
         print(f"Grammar evaluation result: {result}")
@@ -384,13 +396,17 @@ async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluation
                     player_name = player.name
         except Exception:
             pass  # Silently continue with default player_name if error occurs
-            
-        fallback = get_fallback_grammar_evaluation(
-            question=request.question,
-            user_answer=request.user_answer,
-            correct_answer=request.correct_answer,
-            player_name=player_name
-        )
+        
+        # Create simple fallback feedback
+        if is_correct:
+            feedback = f"Great job, {player_name}! You corrected the sentence perfectly."
+        else:
+            feedback = f"Good try, {player_name}! The correct answer is: {correct_lower}"
+        
+        fallback = {
+            "is_correct": is_correct,
+            "feedback": feedback
+        }
         
         print(f"Using fallback evaluation: {fallback}")
         return fallback
