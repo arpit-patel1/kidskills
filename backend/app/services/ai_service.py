@@ -1200,7 +1200,21 @@ async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, 
                 return get_fallback_question(grade, "Math", sub_activity, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API: {error_details}")
         return get_fallback_question(grade, "Math", sub_activity, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
@@ -1701,7 +1715,21 @@ async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity:
                 return get_fallback_question(grade, "English", sub_activity, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API for opposites/antonyms: {error_details}")
         return get_fallback_question(grade, "English", sub_activity, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
@@ -1954,7 +1982,21 @@ async def generate_english_synonyms_langflow(grade: int, sub_activity: str, diff
                 return get_fallback_question(grade, "English", sub_activity, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API for synonyms: {error_details}")
         return get_fallback_question(grade, "English", sub_activity, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
@@ -2055,7 +2097,21 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
                 return get_fallback_grammar_correction(grade, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API for grammar correction: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API for grammar correction: {error_details}")
         return get_fallback_grammar_correction(grade, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API for grammar correction: {str(e)}")
@@ -2086,7 +2142,6 @@ def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
     prompt = f"""Create a {difficulty.lower()} {grade}-grade level English grammar correction question focusing on {error_type}.
 Write a sentence with ONE grammatical error. The error should be appropriate for {grade}-grade students to identify and fix.
 The question should be short and clear, and the answer should be the corrected sentence.
-Make sure to include appropriate emojis in the question to make it engaging.
 """
     
     # Log the randomization details
@@ -2244,11 +2299,25 @@ async def evaluate_grammar_correction_langflow(user_answer: str, correct_answer:
                 return get_fallback_feedback(is_correct)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{trace_id}] HTTP error from Langflow API for grammar evaluation: {str(e)}")
-        return get_fallback_feedback(is_correct)
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{trace_id}] HTTP error from Langflow API for grammar evaluation: {error_details}")
+        return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
     except Exception as e:
         logger.error(f"[{trace_id}] Error calling Langflow API for grammar evaluation: {str(e)}")
-        return get_fallback_feedback(is_correct)
+        return get_fallback_grammar_evaluation(question, user_answer, correct_answer)
 
     user_lower = user_answer.lower().strip()
     correct_lower = correct_answer.lower().strip()
@@ -2382,7 +2451,21 @@ async def evaluate_reading_comprehension_langflow(passage: str, question: str, u
                 return get_fallback_reading_evaluation(user_answer, correct_answer)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{trace_id}] HTTP error from Langflow API for reading comprehension evaluation: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{trace_id}] HTTP error from Langflow API for reading comprehension evaluation: {error_details}")
         return get_fallback_reading_evaluation(user_answer, correct_answer)
     except Exception as e:
         logger.error(f"[{trace_id}] Error calling Langflow API for reading comprehension evaluation: {str(e)}")
@@ -2513,7 +2596,21 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
                 return get_fallback_question(grade, "English", sub_activity, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API for Mario English: {error_details}")
         return get_fallback_question(grade, "English", sub_activity, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
@@ -2657,7 +2754,21 @@ async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str
                 return get_fallback_question(grade, "English", sub_activity, difficulty)
             
     except httpx.HTTPError as e:
-        logger.error(f"[{request_id}] HTTP error from Langflow API: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "url": url,
+            "workflow": langflow_workflow
+        }
+        # For HTTP response errors, try to get more details
+        if hasattr(e, 'response') and e.response is not None:
+            error_details["status_code"] = e.response.status_code
+            try:
+                error_details["response_body"] = e.response.text
+            except:
+                error_details["response_body"] = "Could not extract response body"
+                
+        logger.error(f"[{request_id}] HTTP error from Langflow API for nouns/pronouns: {error_details}")
         return get_fallback_question(grade, "English", sub_activity, difficulty)
     except Exception as e:
         logger.error(f"[{request_id}] Error calling Langflow API: {str(e)}")
