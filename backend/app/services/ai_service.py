@@ -2124,10 +2124,21 @@ def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
     # Get randomized seed for variety
     random_seed = getRandomSeed()
     
+    # Import constants for randomization
+    from app.services.constants import NAMES, SCENARIOS, LOCATIONS, OBJECTS, TIME_EXPRESSIONS, ENGLISH_TOPICS
+    
     # Define common variables
     pronouns = ["I", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them"]
-    nouns = ["cat", "dog", "boy", "girl", "teacher", "student", "tree", "book", "pencil", "car", "house", "school"]
     error_types = ["subject-verb agreement", "singular/plural nouns", "pronoun usage", "possessive nouns"]
+    
+    # Choose random elements for contextual variety
+    person = random.choice(NAMES)
+    person2 = random.choice([name for name in NAMES if name != person])
+    scenario = random.choice(SCENARIOS)
+    location = random.choice(LOCATIONS)
+    object_name = random.choice(OBJECTS)
+    time_expression = random.choice(TIME_EXPRESSIONS)
+    topic = random.choice(ENGLISH_TOPICS)
     
     # Choose random elements
     if grade <= 2:  # Grades 1-2
@@ -2138,14 +2149,31 @@ def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
         # Fuller range of error types for older students
         error_type = random.choice(error_types)
     
-    # Build the base prompt
+    # Build the base prompt with contextual elements
     prompt = f"""Create a {difficulty.lower()} {grade}-grade level English grammar correction question focusing on {error_type}.
 Write a sentence with ONE grammatical error. The error should be appropriate for {grade}-grade students to identify and fix.
 The question should be short and clear, and the answer should be the corrected sentence.
+
+Use the following contextual elements for creating the sentence:
+- Character name: {person}
+- Optional second character: {person2}
+- Activity/scenario: {scenario}
+- Location: {location}
+- Object: {object_name}
+- Time: {time_expression}
+- Topic: {topic}
+
+Examples of how you could use these elements:
+- "{person} were {scenario} at the {location} {time_expression}."
+- "The {object_name} belong on the table when {person} saw it."
+- "{person} and {person2} is learning about {topic} in school."
+
+Make sure the sentence sounds natural and engaging for elementary school students.
 """
     
     # Log the randomization details
     logger.info(f"Grammar correction prompt generation - Error type: {error_type}, Grade: {grade}, Difficulty: {difficulty}, Seed: {random_seed}")
+    logger.debug(f"Using context: Person={person}, Location={location}, Scenario={scenario}")
     
     return prompt
 

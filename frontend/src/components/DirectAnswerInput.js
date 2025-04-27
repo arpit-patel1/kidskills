@@ -459,17 +459,15 @@ const DirectAnswerInput = ({
       
       {submitted && feedback && (
         <div className={`feedback-container ${feedback.is_correct ? 'feedback-correct' : 'feedback-incorrect'}`}>
-          <div className="correct-answer-display">
-            <h4>Correct Answer:</h4>
-            <div className="correct-answer">
-              {/* For grammar correction questions, make sure we're displaying the actual corrected sentence */}
-              {question.sub_activity === 'Grammar Correction' 
-                ? (feedback.correct_answer && feedback.correct_answer !== question.question 
-                    ? feedback.correct_answer 
-                    : question.answer)
-                : feedback.correct_answer}
+          {/* Only show the correct answer display for non-Grammar Correction activities */}
+          {question.sub_activity !== 'Grammar Correction' && (
+            <div className="correct-answer-display">
+              <h4>Correct Answer:</h4>
+              <div className="correct-answer">
+                {feedback.correct_answer}
+              </div>
             </div>
-          </div>
+          )}
           
           {isGrammarCorrection && (
             <div className="detailed-feedback">
