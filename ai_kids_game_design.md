@@ -123,29 +123,29 @@ class Progress(Base):
 - **Database Module**: Manages player data, progress, and game state
 - **Langflow Service Integration**: Interfaces with configured Langflow workflows via HTTP API calls for dynamic question generation and advanced feedback. Manages interaction with the Langflow instance (running separately).
 - **Fallback Question Service**: Provides pre-defined questions and basic feedback when Langflow is unavailable or fails.
-- **Question Generator**: Constructs prompts based on game settings (subject, grade, difficulty) to send to Langflow workflows.
-- **Answer Validator**: Compares player answers to correct answers and determines correctness (primary validation happens here, Langflow might assist with feedback).
-- **Feedback Generator**: Primarily relies on Langflow workflows (e.g., for grammar correction, reading comprehension) to produce detailed feedback. Uses fallback logic otherwise.
+- **Question Generator**: Constructs prompts based on game settings (subject, grade, difficulty) and sends them to specific Langflow workflows via the Langflow Service Integration.
+- **Answer Validator**: Compares player answers to correct answers and determines correctness. For activities like Grammar Correction and Reading Comprehension, it leverages Langflow workflows via the Feedback Generator for evaluation.
+- **Feedback Generator**: Primarily relies on calling specific Langflow evaluation workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`) via the Langflow Service Integration to produce detailed, AI-powered feedback. Uses fallback logic otherwise.
 
 ### AI Integration
 
 The application uses the following AI components, primarily orchestrated via Langflow:
 
 1. **Question Generation**:
-   - **Langflow Workflows**: Dedicated Langflow workflows (e.g., `math-multiple-choice`, `grammar-correction`, `reading-comprehension`, etc.) are called via HTTP API requests from the FastAPI backend.
-   - **Dynamic Prompting**: The backend constructs prompts based on player settings (Grade, Subject, Sub-Activity, Difficulty) and sends them to the appropriate Langflow workflow.
-   - **OpenRouter/Model Agnostic**: Langflow workflows internally handle interactions with the chosen AI models (e.g., via OpenRouter or directly). The backend is abstracted from the specific model details.
-   - **Fallback**: If a Langflow workflow call fails or is not configured, the system falls back to pre-defined questions managed by the Fallback Question Service.
+   - **Langflow Workflows**: Dedicated Langflow workflows (e.g., `math-multiple-choice`, `grammar-correction`, `reading-comprehension`, etc., configured via environment variables like `LANGFLOW_WORKFLOW_MATH_MULTIPLE_CHOICE`) are called via HTTP API requests (`/api/v1/run/{workflow_name}`) from the FastAPI backend's `ai_service.py`.
+   - **Dynamic Prompting**: The backend constructs prompts based on player settings (Grade, Subject, Sub-Activity, Difficulty) and sends them as input to the appropriate Langflow workflow.
+   - **Langflow Handles Models**: Langflow workflows internally handle interactions with the chosen AI models. The backend is abstracted from the specific model details.
+   - **Fallback**: If a Langflow workflow call fails or is not configured (checked via environment variables), the system falls back to pre-defined questions managed by the Fallback Question Service.
 
 2. **Advanced Feedback Mechanism**:
-   - **Langflow Evaluation Workflows**: Specific Langflow workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`) handle detailed feedback generation.
-   - **Contextual Input**: The backend sends the original question, user's answer, correct answer, and correctness status to the Langflow evaluation workflow.
-   - **Tailored Feedback**: Langflow workflows generate AI-powered feedback customized for correctness and the specific activity (e.g., explaining grammar rules).
-   - **API Endpoint**: The `/grammar/feedback` endpoint (and potentially others for different activities) orchestrates calls to the relevant Langflow evaluation workflow.
+   - **Langflow Evaluation Workflows**: Specific Langflow workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`, configured via environment variables like `LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION`) handle detailed feedback generation and answer evaluation.
+   - **Contextual Input**: The backend (`ai_service.py`) sends the original question, user's answer, correct answer, and correctness status to the appropriate Langflow evaluation workflow.
+   - **Tailored Feedback**: Langflow workflows generate AI-powered feedback customized for correctness and the specific activity (e.g., explaining grammar rules), returning structured JSON.
+   - **API Integration**: The evaluation logic is primarily triggered within the `POST /api/challenges/submit` endpoint, which calls the relevant Langflow evaluation workflows via `ai_service.py` (e.g., `evaluate_grammar_correction_langflow`, `evaluate_reading_comprehension_langflow`). The separate `POST /api/grammar/feedback` endpoint also exists but might be less central.
    - **Fallback**: Simple, predefined feedback is used if the Langflow call fails.
 
 3. **Error Handling**:
-   - Robust error handling for Langflow API interactions (timeouts, HTTP errors).
+   - Robust error handling for Langflow API interactions (timeouts, HTTP errors, response parsing) within `ai_service.py`.
    - Fallback to pre-defined responses ensures game continuity.
    - Detailed logging for debugging interactions with Langflow.
 
@@ -229,27 +229,19 @@ Sub-activities available:
 
 ## 🧠 AI Question Generation
 
-- Powered by OpenRouter API (e.g., Mistral, Claude, GPT)
+- Powered by Langflow, using specific workflows called via HTTP API from the backend service (`ai_service.py`).
 - Prompts constructed dynamically based on:
   - Selected Player's Grade (2 or 3)
   - Subject (Math/English)
   - Sub-Activity (e.g., Addition/Subtraction, Opposites/Antonyms, etc.)
   - Difficulty (Easy/Medium/Hard)
-- Returned format (Example):
-```json
-{
-  "question": "What is 12 + 9?",
-  "choices": ["20", "21", "22", "23"], // For multiple-choice questions
-  "answer": "21",
-  "type": "multiple-choice" // Or "direct-answer" or "reading-comprehension"
-}
-```
+- Returned format is expected to be JSON, parsed by the backend (`ai_service.py`). The exact structure depends on the specific Langflow workflow being called. Fallbacks are used if parsing fails or the structure is invalid.
 
 ---
 
 ## 🎲 RANDOMNESS MANAGEMENT IN AI-GENERATED QUESTIONS (Simplified for MVP)
 
-Focus on basic prompt randomization and inherent AI variety.
+Focus on basic prompt randomization and inherent AI variety managed within Langflow workflows.
 
 ### Prompt Engineering: Controlled Randomness
 
@@ -296,12 +288,12 @@ These help keep questions reasonably diverse yet appropriate.
               |
               v
 +----------------------------+
-|  AI Prompt Constructor     |  <-- Basic structured template
+|  AI Prompt Constructor     |  <-- Backend (`ai_service.py`)
 +-------------+-------------+
               |
               v
 +----------------------------+
-|     AI Model (OpenRouter)  |
+|    Langflow Workflows      |  <-- Called via HTTP API
 +-------------+-------------+
               |
               v
@@ -633,19 +625,21 @@ allow_origins=["http://localhost:3000", "http://192.168.1.X:3000"]
 
 #### 3. Backend Development - API & AI Integration (2-3 hours)
 - [x] Set up FastAPI skeleton with CORS
-- [x] Create OpenRouter API integration
-  - [x] Create `.env` file with API key
-  - [x] Implement question generation function
-  - [x] Add error handling and fallback logic
-- [x] Implement `/challenge/get` endpoint
+- [x] Create Langflow API integration in `ai_service.py`
+  - [x] Use environment variables for Langflow host and workflow names (`LANGFLOW_HOST`, `LANGFLOW_WORKFLOW_*`)
+  - [x] Implement question generation functions calling Langflow workflows via HTTP API
+  - [x] Implement evaluation functions (e.g., grammar, reading) calling Langflow workflows
+  - [x] Implement Langflow response parsing and session cleanup
+  - [x] Add error handling and fallback logic using `get_fallback_*` functions
+- [x] Implement `/api/challenges/generate` endpoint
   - [x] Accept player settings (including sub-activity)
-  - [x] Call OpenRouter API
-  - [x] Parse and validate AI response
-  - [x] Return formatted question
-- [x] Implement `/challenge/submit` endpoint
-  - [x] Validate answers
+  - [x] Call Langflow via `ai_service.generate_question`
+  - [x] Parse and validate Langflow response via `ai_service` helpers
+  - [x] Return formatted question or fallback
+- [x] Implement `/api/challenges/submit` endpoint
+  - [x] Validate answers (using Langflow evaluation via `ai_service` for specific types)
   - [x] Record progress in database
-  - [x] Return feedback
+  - [x] Return feedback (potentially AI-generated via Langflow/`ai_service`)
 - [x] Create 3-5 fallback questions per category
 - [x] Test APIs with tools like Postman or Thunder Client
 
@@ -806,7 +800,7 @@ allow_origins=["http://localhost:3000", "http://192.168.1.X:3000"]
 #### Backend Tasks
 1.  **Image Storage:**
     -   [x] Create a directory (e.g., `backend/static/gujarati_letters`) to store letter images.
-    -   [x] Prepare and add image files for Gujarati letters (e.g., `ક.png`, `ખ.png`, ...). Ensure consistent size/format.
+    -   [x] Prepare and add image files for Gujarati letters (e.g., `ક.png`, `ખ.png`, etc.) stored on the backend or accessible via URL.
 2.  **API Endpoint - Get Letter:**
     -   [x] Create a new endpoint (e.g., `GET /api/letters/gujarati/random`) to serve a random Gujarati letter image URL or identifier.
     -   [x] Consider simple logic initially (e.g., pick a random file from the directory).
@@ -897,42 +891,62 @@ allow_origins=["http://localhost:3000", "http://192.168.1.X:3000"]
 
 ## API Endpoints
 
-The backend exposes the following RESTful API endpoints:
+The backend exposes the following RESTful API endpoints, all prefixed with `/api`:
 
 ### Player Management
 
 - **GET /api/players**
-  - Returns a list of all registered players
-  - Response: Array of player objects with their details
+  - Returns a list of all registered players.
+  - Response: Array of `PlayerResponse` objects.
 
 - **POST /api/players**
-  - Creates a new player
-  - Request body: `{ "name": string, "age": number, "grade": number, "avatar": string }`
-  - Response: Created player object
+  - Creates a new player.
+  - Request body: `CreatePlayerRequest` schema (`{ "name": string, "age": number, "grade": number, "avatar": string (optional) }`).
+  - Response: Created `PlayerResponse` object.
 
 - **DELETE /api/players/{player_id}**
-  - Deletes a player by ID
-  - Response: 204 No Content
+  - Deletes a player by ID.
+  - Response: 204 No Content.
 
 ### Challenge/Question Management
 
 - **POST /api/challenges/generate**
-  - Generates a new question based on parameters
-  - Request body: `{ "player_id": number, "subject": string, "sub_activity": string, "difficulty": string, "question_type": string }`
-  - Response: Question object with ID, text, choices (if applicable), and other metadata
+  - Generates a new question based on player settings.
+  - Request body: `GetQuestionRequest` schema (`{ "player_id": number, "subject": string, "sub_activity": string, "difficulty": string, "question_type": string }`).
+  - Response: `QuestionResponse` object containing the question details (ID, text, choices, answer, type, subject, sub-activity, difficulty).
 
 - **POST /api/challenges/submit**
-  - Submits an answer to a question
-  - Request body: `{ "player_id": number, "question_id": string, "answer": string }`
-  - Response: `{ "is_correct": boolean, "correct_answer": string, "feedback": string }`
+  - Submits an answer to a question and records progress.
+  - Request body: `SubmitAnswerRequest` schema (`{ "player_id": number, "question_id": string, "answer": string }`).
+  - Response: `AnswerResponse` object (`{ "is_correct": boolean, "correct_answer": string, "feedback": string }`). Feedback may be AI-generated for certain activities.
 
-### Feedback Management
+### AI Feedback & Evaluation (Used internally by `/challenges/submit` or for specific feedback requests)
 
 - **POST /api/grammar/feedback**
-  - Generates detailed AI feedback for grammar correction answers
-  - Request body: `{ "question": string, "user_answer": string, "correct_answer": string, "is_correct": boolean }`
-  - Response: `{ "feedback": string }`
-  - Description: This endpoint analyzes both the question and student response to provide tailored educational feedback. For correct answers, it explains what grammar rule was correctly applied. For incorrect answers, it gently explains what was missed and provides helpful guidance.
+  - Generates detailed AI feedback specifically for a grammar correction scenario (potentially callable separately if needed).
+  - Request body: `GrammarFeedbackRequest` (`{ "question": string, "user_answer": string, "correct_answer": string, "is_correct": boolean }`).
+  - Response: `GrammarFeedbackResponse` (`{ "feedback": string }`).
+
+- **POST /api/grammar/evaluate**
+  - Evaluates a user's grammar correction answer using AI (likely called internally by `/challenges/submit`).
+  - Request body: `GrammarCorrectionEvaluationRequest`.
+  - Response: `GrammarCorrectionEvaluationResponse` containing correctness and feedback.
+
+- **POST /api/reading/evaluate**
+  - Evaluates a user's reading comprehension answer using AI (likely called internally by `/challenges/submit`).
+  - Request body: `ReadingComprehensionEvaluationRequest`.
+  - Response: `ReadingComprehensionEvaluationResponse` containing correctness and feedback.
+
+### Gujarati Letter Tracing
+
+- **GET /api/letters/gujarati/random**
+  - Gets the image URL for a random Gujarati letter to trace.
+  - Response: `LetterResponse` (`{ "letter_id": string, "image_url": string }`).
+
+- **POST /api/letters/gujarati/submit_trace**
+  - Submits a user's tracing attempt (as image data) for a specific letter.
+  - Request body: `SubmitTraceRequest` (`{ "letter_id": string, "image_data": string (base64) }`).
+  - Response: `SubmitTraceResponse` (`{ "similarity_score": float, "feedback": string }`).
 
 ## Data Flow
 
