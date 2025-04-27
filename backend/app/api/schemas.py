@@ -107,4 +107,20 @@ class ReadingComprehensionEvaluationRequest(BaseModel):
 class ReadingComprehensionEvaluationResponse(BaseModel):
     """Response schema for reading comprehension evaluation."""
     is_correct: bool = Field(..., description="Whether the answer is correct according to AI evaluation")
-    feedback: str = Field(..., description="Detailed feedback on the reading comprehension answer") 
+    feedback: str = Field(..., description="Detailed feedback on the reading comprehension answer")
+
+
+# --- Schemas for Gujarati Letter Tracing ---
+
+class SubmitTraceRequest(BaseModel):
+    """Request schema for submitting a letter tracing attempt."""
+    player_id: int = Field(..., description="Player ID submitting the trace")
+    letter_id: str = Field(..., description="Filename of the target letter image (e.g., 'ક.png')")
+    image_data: str = Field(..., description="Base64 encoded PNG image data of the user's tracing")
+
+class SubmitTraceResponse(BaseModel):
+    """Response schema for a letter tracing submission."""
+    similarity_score: float = Field(..., description="Similarity score (0.0 to 100.0) comparing tracing to the target")
+    feedback: str = Field(..., description="Feedback message based on the score")
+
+# --- End Schemas for Gujarati Letter Tracing --- 

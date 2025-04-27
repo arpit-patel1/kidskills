@@ -41,6 +41,7 @@ const GameSettings = ({ settings, onUpdateSettings }) => {
           >
             <option value="Math">Math</option>
             <option value="English">English</option>
+            <option value="Gujarati">Gujarati</option>
           </select>
         </div>
         

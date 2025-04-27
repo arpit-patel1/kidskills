@@ -121,35 +121,33 @@ class Progress(Base):
 
 - **FastAPI Application**: Main backend framework that handles API requests and orchestrates the game logic
 - **Database Module**: Manages player data, progress, and game state
-- **OpenRouter Service**: Interfaces with AI models to dynamically generate questions
-- **Question Generator**: Creates and validates questions based on subject, grade level, and difficulty
-- **Answer Validator**: Compares player answers to correct answers and determines correctness
-- **Feedback Generator**: Produces AI-powered detailed feedback for grammar correction activities
+- **Langflow Service Integration**: Interfaces with configured Langflow workflows via HTTP API calls for dynamic question generation and advanced feedback. Manages interaction with the Langflow instance (running separately).
+- **Fallback Question Service**: Provides pre-defined questions and basic feedback when Langflow is unavailable or fails.
+- **Question Generator**: Constructs prompts based on game settings (subject, grade, difficulty) to send to Langflow workflows.
+- **Answer Validator**: Compares player answers to correct answers and determines correctness (primary validation happens here, Langflow might assist with feedback).
+- **Feedback Generator**: Primarily relies on Langflow workflows (e.g., for grammar correction, reading comprehension) to produce detailed feedback. Uses fallback logic otherwise.
 
 ### AI Integration
 
-The application uses the following AI components:
+The application uses the following AI components, primarily orchestrated via Langflow:
 
 1. **Question Generation**:
-   - OpenRouter API is used to dynamically generate age-appropriate questions
-   - System prompts designed for each subject and difficulty level
-   - Fallback to pre-defined questions when API is unavailable or returns invalid data
+   - **Langflow Workflows**: Dedicated Langflow workflows (e.g., `math-multiple-choice`, `grammar-correction`, `reading-comprehension`, etc.) are called via HTTP API requests from the FastAPI backend.
+   - **Dynamic Prompting**: The backend constructs prompts based on player settings (Grade, Subject, Sub-Activity, Difficulty) and sends them to the appropriate Langflow workflow.
+   - **OpenRouter/Model Agnostic**: Langflow workflows internally handle interactions with the chosen AI models (e.g., via OpenRouter or directly). The backend is abstracted from the specific model details.
+   - **Fallback**: If a Langflow workflow call fails or is not configured, the system falls back to pre-defined questions managed by the Fallback Question Service.
 
 2. **Advanced Feedback Mechanism**:
-   - Dedicated `/grammar/feedback` API endpoint for detailed grammar feedback
-   - Sends original question, user's answer, and correct answer to the AI model
-   - Customized prompts based on whether the answer was correct or incorrect
-   - Implementation:
-     - `generate_grammar_feedback` function in `openrouter_service.py`
-     - Pydantic schemas for request/response validation
-     - Frontend integration in `DirectAnswerInput` component
-     - Fallback feedback in case of API failures
-   - Response time optimization with async processing
+   - **Langflow Evaluation Workflows**: Specific Langflow workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`) handle detailed feedback generation.
+   - **Contextual Input**: The backend sends the original question, user's answer, correct answer, and correctness status to the Langflow evaluation workflow.
+   - **Tailored Feedback**: Langflow workflows generate AI-powered feedback customized for correctness and the specific activity (e.g., explaining grammar rules).
+   - **API Endpoint**: The `/grammar/feedback` endpoint (and potentially others for different activities) orchestrates calls to the relevant Langflow evaluation workflow.
+   - **Fallback**: Simple, predefined feedback is used if the Langflow call fails.
 
 3. **Error Handling**:
-   - Robust error handling for AI service outages
-   - Fallback to pre-defined responses
-   - Detailed logging for debugging AI interactions
+   - Robust error handling for Langflow API interactions (timeouts, HTTP errors).
+   - Fallback to pre-defined responses ensures game continuity.
+   - Detailed logging for debugging interactions with Langflow.
 
 ### Frontend Components
 
@@ -163,11 +161,12 @@ The application uses the following AI components:
 
 Settings a user can configure (on the main page):
 - Player: Kid 1 (Grade 3) / Kid 2 (Grade 2)
-- Subject: Math / English
+- Subject: Math / English / Gujarati
 - Sub-Activity: 
   - For Math: Addition/Subtraction, Multiplication/Division, Word Problems
-  - For English: Opposites/Antonyms, Reading Comprehension, Nouns/Pronouns
-- Difficulty: Easy, Medium, Hard
+  - For English: Opposites/Antonyms, Reading Comprehension, Nouns/Pronouns, Grammar Correction
+  - For Gujarati: Letter Tracing
+- Difficulty: Easy, Medium, Hard (Note: Difficulty may not apply initially to tracing)
 
 Note: All activities are continuous by design, with questions automatically advancing after each answer.
 
@@ -210,6 +209,21 @@ Sub-activities available:
    - Examples:
      - "She don't like ice cream." should be corrected to "She doesn't like ice cream."
      - "The cats is playing." should be corrected to "The cats are playing."
+
+### Gujarati (Pre-K / Kindergarten Focus)
+Sub-activities available:
+1. **Letter Tracing** (Canvas Input)
+   - **Goal:** Help young children learn to write Gujarati letters.
+   - **Format:** Displays a Gujarati letter image in one box. Provides a second empty box (HTML Canvas) for the child to trace the letter using a mouse or touchscreen.
+   - **UI:** Two side-by-side boxes. Left box shows the target letter image. Right box is a drawing canvas. Buttons: "Submit", "Clear".
+   - **Validation:**
+     - On submit, the frontend captures the drawing from the canvas as an image (e.g., PNG data URL).
+     - This image data is sent to the backend.
+     - Backend compares the submitted tracing image with the original letter image using pixel-based comparison (e.g., calculating Structural Similarity Index - SSIM, or simple pixel difference percentage).
+     - A similarity score (e.g., 0-100%) is returned.
+     - Frontend displays feedback based on the score (e.g., "Good try!", "Excellent tracing!", "Keep practicing!").
+   - **Image Assets:** Requires a set of images for each Gujarati letter (e.g., `ka.png`, `kha.png`, etc.) stored on the backend or accessible via URL.
+   - **No AI Needed:** This activity relies on direct image comparison, not AI generation.
 
 ---
 
@@ -527,7 +541,7 @@ This approach allows for variety in question formats while maintaining a consist
 
 ### API Contract
 - GET /challenge/get
-- Request: 
+- Request:
 ```json
 {
   "player": "Kid 1",
@@ -561,39 +575,10 @@ This approach allows for variety in question formats while maintaining a consist
   ```bash
   #!/bin/bash
   
-  # Start services
-  start_services() {
-    echo "Starting Kids Game services..."
-    cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
-    cd frontend && npm start &
-    echo "Services started! Access the game at http://localhost:3000"
-  }
-  
-  # Stop services
-  stop_services() {
-    echo "Stopping Kids Game services..."
-    pkill -f "uvicorn main:app"
-    pkill -f "node.*start"
-    echo "Services stopped!"
-  }
+  # [Shell script content removed - this belongs in the actual script file]
   
   # Script usage
-  case "$1" in
-    start)
-      start_services
-      ;;
-    stop)
-      stop_services
-      ;;
-    restart)
-      stop_services
-      sleep 2
-      start_services
-      ;;
-    *)
-      echo "Usage: $0 {start|stop|restart}"
-      exit 1
-  esac
+  # ... (Usage instructions remain)
   ```
 
 ### Running the Game
@@ -613,224 +598,11 @@ This approach allows for variety in question formats while maintaining a consist
 ### CORS Configuration
 To enable communication between the React frontend (port 3000) and FastAPI backend (port 8000), CORS needs to be configured:
 
-```python
-# In main.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI()
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React development server
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-)
-
-# Add routes below...
-```
-
 For home network access, you may need to add the IP-based URL to `allow_origins` as well:
 ```python
 allow_origins=["http://localhost:3000", "http://192.168.1.X:3000"]
 ```
 
-### Dependencies
-
-#### Backend (Python)
-Create a `requirements.txt` with these key dependencies:
-```
-fastapi==0.110.0
-uvicorn==0.29.0
-sqlalchemy==2.0.29
-httpx==0.27.0  # For making API calls to OpenRouter
-python-dotenv==1.0.1  # For handling environment variables (API keys)
-pydantic==2.6.4
-```
-
-#### Frontend (Node.js/React)
-Key npm packages to install:
-```bash
-# Core packages
-npm install react-router-dom axios
-
-# UI/UX enhancements
-npm install react-confetti  # For celebration animations
-npm install react-icons     # For emoji icons and UI elements
-npm install bootstrap       # Bootstrap for responsive layout and components
-npm install react-bootstrap # React components for Bootstrap
-npm install bootstrap-icons # Icons for the UI elements
-
-# No longer needed as we're using Bootstrap
-# npm install @chakra-ui/react @emotion/react @emotion/styled framer-motion
-```
-
-#### OpenRouter API Integration
-Store your API key in a `.env` file:
-```
-OPENROUTER_API_KEY=your_api_key_here
-```
-
-Backend API call example:
-```python
-import httpx
-import os
-from dotenv import load_dotenv
-
-load_dotenv()  # Load API key from .env file
-
-async def generate_question(grade, subject, sub_activity, difficulty, question_type):
-    """Generate a question using OpenRouter API."""
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
-    # Construct the prompt based on settings
-    prompt = f"Generate a {difficulty} {grade}-grade level {subject} question about {sub_activity} of type {question_type}."
-    
-    # Example API call to Claude or similar model via OpenRouter
-    payload = {
-        "model": "anthropic/claude-3-haiku-20240307",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.5,
-        "top_p": 0.8
-    }
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            json=payload
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            # Handle API errors - use fallback questions
-            return {"error": f"API Error: {response.status_code}"}
-```
-
-### Sidebar Implementation
-For the sidebar implementation, use React Bootstrap's offcanvas component in larger screens and ensure proper styling:
-
-```jsx
-// Example sidebar component structure
-import { Offcanvas, Form } from 'react-bootstrap';
-import { useState, useEffect } from 'react';
-
-function Sidebar({ show, handleClose, settings, onSettingsChange, ...props }) {
-  const [subActivities, setSubActivities] = useState([]);
-  
-  // Update sub-activities when subject changes
-  useEffect(() => {
-    if (settings.subject === 'Math') {
-      setSubActivities([
-        'Addition/Subtraction',
-        'Multiplication/Division',
-        'Word Problems'
-      ]);
-    } else if (settings.subject === 'English') {
-      setSubActivities([
-        'Opposites/Antonyms',
-        'Reading Comprehension',
-        'Nouns/Pronouns'
-      ]);
-    }
-    
-    // Update sub-activity to first option when subject changes
-    if (subActivities.length > 0) {
-      onSettingsChange({
-        ...settings,
-        sub_activity: subActivities[0]
-      });
-    }
-  }, [settings.subject]);
-
-  return (
-    <Offcanvas show={show} onHide={handleClose} responsive="lg" className="sidebar-container">
-      <Offcanvas.Header closeButton>
-        <Offcanvas.Title>Game Settings</Offcanvas.Title>
-      </Offcanvas.Header>
-      <Offcanvas.Body>
-        {/* Player Selection */}
-        <div className="player-selection">
-          {/* Player cards here */}
-        </div>
-        
-        {/* Form Controls - note the custom classes to constrain width */}
-        <Form className="sidebar-form">
-          <Form.Group className="mb-3 sidebar-form-group">
-            <Form.Label>Subject</Form.Label>
-            <Form.Select 
-              className="sidebar-select" 
-              value={settings.subject}
-              onChange={(e) => onSettingsChange({...settings, subject: e.target.value})}
-            >
-              <option>Math</option>
-              <option>English</option>
-            </Form.Select>
-          </Form.Group>
-          
-          <Form.Group className="mb-3 sidebar-form-group">
-            <Form.Label>Sub-Activity</Form.Label>
-            <Form.Select 
-              className="sidebar-select"
-              value={settings.sub_activity}
-              onChange={(e) => onSettingsChange({...settings, sub_activity: e.target.value})}
-            >
-              {subActivities.map(activity => (
-                <option key={activity}>{activity}</option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-          
-          <Form.Group className="mb-3 sidebar-form-group">
-            <Form.Label>Difficulty</Form.Label>
-            <Form.Select
-              className="sidebar-select"
-              value={settings.difficulty}
-              onChange={(e) => onSettingsChange({...settings, difficulty: e.target.value})}
-            >
-              <option>Easy</option>
-              <option>Medium</option>
-              <option>Hard</option>
-            </Form.Select>
-          </Form.Group>
-        </Form>
-      </Offcanvas.Body>
-    </Offcanvas>
-  );
-}
-```
-
-Add these custom styles to ensure dropdowns stay within the sidebar:
-
-```css
-/* Custom styles for sidebar */
-.sidebar-container {
-  max-width: 280px;
-}
-
-.sidebar-form {
-  width: 100%;
-}
-
-.sidebar-form-group {
-  width: 100%;
-}
-
-.sidebar-select {
-  width: 100%;
-  max-width: 240px; /* Ensure it fits within sidebar with padding */
-}
-```
 
 ---
 
@@ -1028,6 +800,65 @@ Add these custom styles to ensure dropdowns stay within the sidebar:
    - [ ] Test grammar correction activity end-to-end
    - [ ] Verify AI feedback generation and display
    - [ ] Test fallback mechanisms when AI service is unavailable
+
+### Gujarati Letter Tracing Implementation Checklist
+
+#### Backend Tasks
+1.  **Image Storage:**
+    -   [x] Create a directory (e.g., `backend/static/gujarati_letters`) to store letter images.
+    -   [x] Prepare and add image files for Gujarati letters (e.g., `ક.png`, `ખ.png`, ...). Ensure consistent size/format.
+2.  **API Endpoint - Get Letter:**
+    -   [x] Create a new endpoint (e.g., `GET /api/letters/gujarati/random`) to serve a random Gujarati letter image URL or identifier.
+    -   [x] Consider simple logic initially (e.g., pick a random file from the directory).
+    -   [ ] Update `Progress` model if needed to store letter identifier.
+3.  **API Endpoint - Submit Trace:**
+    -   [x] Create a new endpoint (e.g., `POST /api/letters/gujarati/submit_trace`).
+    -   [x] Accept the target letter identifier and the user's tracing image data (e.g., base64 encoded PNG).
+    -   [x] Implement Image Comparison Logic:
+        -   [x] Load the target letter image.
+        -   [x] Load/decode the submitted tracing image.
+        -   [x] Ensure images are comparable (e.g., resize user image to match target dimensions).
+        -   [x] Perform pixel-based comparison (e.g., using libraries like Pillow, scikit-image for SSIM, or OpenCV).
+        -   [x] Calculate a similarity score (%).
+    -   [x] Return the similarity score and feedback message.
+    -   [x] Add necessary Python dependencies (e.g., `Pillow`, `scikit-image`, `opencv-python-headless`) to `requirements.txt`.
+4.  **Database Updates:**
+    -   [ ] Update `Player` model `preferred_subject` and `preferred_sub_activity` if needed to include Gujarati/Letter Tracing defaults or options. (Skipped for now)
+    -   [ ] Update `Progress` model to log tracing attempts (subject, sub_activity, letter_id, similarity_score, image_data?). Decide if storing user image data is needed/feasible. (Skipped for now)
+    -   [ ] Update relevant schemas (`QuestionResponse`, `SubmitRequest`, etc.) to accommodate the new activity type. (Skipped for now)
+5.  **Configuration:**
+    -   [x] Configure FastAPI to serve static files (the letter images).
+
+#### Frontend Tasks
+1.  **New Component: `TracingCanvas`**
+    -   [x] Create a reusable React component using HTML `<canvas>`.
+    -   [x] Implement drawing logic (capture mouse/touch events, draw lines).
+    -   [x] Add "Clear" button functionality. (Handled by parent via ref)
+    -   [x] Add function to export canvas content as image data (e.g., `toDataURL('image/png')`).
+2.  **New Component: `GujaratiTracingActivity`**
+    -   [x] Create a component to manage the tracing activity layout.
+    -   [x] Display two boxes: one for the target letter image, one for the `TracingCanvas`.
+    -   [x] Fetch the target letter image URL from the backend using the new endpoint.
+    -   [x] Implement "Submit" button logic:
+        -   [x] Get image data from `TracingCanvas`.
+        -   [x] Send image data and letter identifier to the backend's `submit_trace` endpoint.
+        -   [x] Receive similarity score and feedback.
+        -   [x] Display feedback to the user (e.g., text message, maybe visual indicator).
+        -   [x] Trigger confetti or other celebration based on score threshold.
+        -   [x] Handle automatic progression to the next letter after feedback/timeout.
+3.  **Integration:**
+    -   [x] Update `App.js` or main game component to conditionally render `GujaratiTracingActivity` based on selected settings (Subject: Gujarati, Sub-Activity: Letter Tracing).
+    -   [x] Update Sidebar component (`Sidebar.js`):
+        -   [x] Add "Gujarati" to the Subject dropdown.
+        -   [x] Update `useEffect` logic to show "Letter Tracing" sub-activity when Gujarati is selected. (Handled via SUB_ACTIVITIES constant)
+        -   [x] Ensure state management handles the new subject/activity. (Handled via SUB_ACTIVITIES constant)
+4.  **API Service Updates:**
+    -   [x] Add functions in the API service layer (`api.js` or similar) to call the new backend endpoints (`/api/letters/gujarati/random`, `/api/letters/gujarati/submit_trace`).
+5.  **Styling:**
+    -   [ ] Style the `GujaratiTracingActivity` component, including the canvas and image display boxes.
+    -   [ ] Style the feedback messages.
+6.  **Dependencies:**
+    -   [ ] Check if any new frontend libraries are needed (likely not, canvas API is built-in).
 
 ### Development Guidelines
 

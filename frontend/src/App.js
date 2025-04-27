@@ -81,6 +81,7 @@ function App() {
       <div className="app-layout">
         <MainContent
           selectedPlayer={selectedPlayer}
+          settings={settings}
           currentQuestion={currentQuestion}
           feedback={feedback}
           selectedAnswer={selectedAnswer}

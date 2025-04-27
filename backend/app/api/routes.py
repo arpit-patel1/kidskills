@@ -2,6 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import uuid
 import time
+import os
+import random
+import pathlib
+import base64 # For decoding image data
+import io # For handling image bytes
+
+# Image processing libraries - will need adding to requirements.txt
+from PIL import Image
+import numpy as np
+from skimage.metrics import structural_similarity as ssim
 
 from app.database.database import get_db
 from app.models.models import Player, Progress
@@ -18,8 +28,18 @@ from app.api.schemas import (
     GrammarCorrectionEvaluationRequest,
     GrammarCorrectionEvaluationResponse,
     ReadingComprehensionEvaluationRequest,
-    ReadingComprehensionEvaluationResponse
+    ReadingComprehensionEvaluationResponse,
+    SubmitTraceRequest,
+    SubmitTraceResponse,
 )
+
+# --- New Schema for Letter Response ---
+from pydantic import BaseModel
+
+class LetterResponse(BaseModel):
+    letter_id: str # Filename, e.g., "ક.png"
+    image_url: str # Relative URL path, e.g., "/static/gujarati_letters/ક.png"
+# --- End New Schema ---
 
 router = APIRouter()
 
@@ -437,3 +457,124 @@ async def evaluate_reading_comprehension_route(request: ReadingComprehensionEval
             feedback = "Good try! Take another look at the passage for the answer."
             
         return {"is_correct": is_correct, "feedback": feedback} 
+
+# --- New Endpoint for Gujarati Letters ---
+
+# Define the base directory for static files relative to this file's location
+# Assuming routes.py is in backend/app/api/
+STATIC_FILES_DIR = pathlib.Path(__file__).parent.parent.parent / "static"
+GUJARATI_LETTERS_DIR = STATIC_FILES_DIR / "gujarati_letters"
+
+@router.get("/letters/gujarati/random", response_model=LetterResponse)
+async def get_random_gujarati_letter():
+    """Get a random Gujarati letter image URL."""
+    try:
+        if not GUJARATI_LETTERS_DIR.is_dir():
+            print(f"Error: Directory not found at {GUJARATI_LETTERS_DIR}")
+            raise HTTPException(status_code=500, detail="Gujarati letter image directory not found.")
+
+        # List all PNG files in the directory
+        letter_files = [f for f in os.listdir(GUJARATI_LETTERS_DIR) if f.lower().endswith('.png')]
+
+        if not letter_files:
+            print(f"Error: No PNG files found in {GUJARATI_LETTERS_DIR}")
+            raise HTTPException(status_code=404, detail="No Gujarati letter images found.")
+
+        # Select a random letter file
+        random_letter_file = random.choice(letter_files)
+
+        # Construct the relative URL path for the frontend
+        # This assumes FastAPI is configured to serve static files from '/static'
+        image_url_path = f"/static/gujarati_letters/{random_letter_file}"
+
+        return {
+            "letter_id": random_letter_file,
+            "image_url": image_url_path
+        }
+    except Exception as e:
+        print(f"Error getting random Gujarati letter: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error retrieving letter image.")
+
+# --- End New Endpoint ---
+
+# --- New Endpoint for Submitting Gujarati Trace ---
+
+@router.post("/letters/gujarati/submit_trace", response_model=SubmitTraceResponse)
+async def submit_gujarati_trace(request: SubmitTraceRequest):
+    """Receive and evaluate a Gujarati letter tracing attempt."""
+    try:
+        # 1. Decode the submitted image data
+        try:
+            # Remove 'data:image/png;base64,' prefix if present
+            if "," in request.image_data:
+                header, encoded_data = request.image_data.split(",", 1)
+            else:
+                encoded_data = request.image_data
+            image_bytes = base64.b64decode(encoded_data)
+            submitted_image_pil = Image.open(io.BytesIO(image_bytes))
+        except (base64.binascii.Error, IOError, ValueError) as decode_err:
+            print(f"Error decoding image data: {decode_err}")
+            raise HTTPException(status_code=400, detail="Invalid image data format.")
+
+        # 2. Load the target letter image
+        target_letter_path = GUJARATI_LETTERS_DIR / request.letter_id
+        if not target_letter_path.is_file():
+            print(f"Error: Target letter image not found at {target_letter_path}")
+            raise HTTPException(status_code=404, detail=f"Target letter '{request.letter_id}' not found.")
+        
+        target_image_pil = Image.open(target_letter_path)
+
+        # 3. Preprocess images for comparison
+        # Convert to grayscale
+        target_gray = target_image_pil.convert('L')
+        submitted_gray = submitted_image_pil.convert('L')
+
+        # Resize submitted image to match target dimensions (use LANCZOS for quality)
+        if target_gray.size != submitted_gray.size:
+             submitted_gray = submitted_gray.resize(target_gray.size, Image.Resampling.LANCZOS)
+
+        # Convert images to NumPy arrays
+        target_array = np.array(target_gray)
+        submitted_array = np.array(submitted_gray)
+
+        # Ensure arrays have the same shape (should be guaranteed by resize)
+        if target_array.shape != submitted_array.shape:
+             raise HTTPException(status_code=500, detail="Internal error: Image shapes mismatch after processing.")
+
+        # 4. Calculate Structural Similarity Index (SSIM)
+        # data_range is the range of pixel values (0-255 for 8-bit grayscale)
+        similarity_index, _ = ssim(target_array, submitted_array, full=True, data_range=target_array.max() - target_array.min())
+        
+        # Convert SSIM from [-1, 1] range to [0, 100] percentage
+        score_percent = max(0, (similarity_index + 1) / 2) * 100
+
+        # 5. Generate feedback based on score
+        if score_percent >= 90:
+            feedback = "Excellent tracing! You're a master at Gujarati letters! 🎉✨"
+        elif score_percent >= 75:
+            feedback = "Great job! Your tracing looks wonderful! 👍🌟"
+        elif score_percent >= 50:
+            feedback = "Good try! Keep practicing the shape. 😊"
+        elif score_percent >= 30:
+            feedback = "Nice effort! Try to follow the curves of the letter. 🤗"
+        else:
+            feedback = "Keep trying! With practice, you'll get better at tracing. 💪"
+        
+        # (Optional) Log the progress - requires DB session and Progress model update
+        # db = next(get_db())
+        # progress = Progress(player_id=request.player_id, subject="Gujarati", sub_activity="Letter Tracing", question_text=request.letter_id, user_answer=f"score:{score_percent:.2f}", is_correct=(score_percent >= 75)) # Define correctness threshold
+        # db.add(progress)
+        # db.commit()
+
+        return {
+            "similarity_score": score_percent,
+            "feedback": feedback
+        }
+
+    except HTTPException as http_exc: # Re-raise HTTP exceptions
+        raise http_exc
+    except Exception as e:
+        print(f"Error processing trace submission: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error processing trace.")
+
+# --- End New Endpoint --- 

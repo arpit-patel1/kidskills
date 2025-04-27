@@ -3,6 +3,15 @@ import PlayerSelection from './PlayerSelection';
 import GameSettings from './GameSettings';
 import { SUB_ACTIVITIES } from '../constants';
 
+// Or define SUB_ACTIVITIES directly if not in constants.js
+/*
+const SUB_ACTIVITIES = {
+    Math: ['Addition/Subtraction', 'Multiplication/Division', 'Word Problems'],
+    English: ['Opposites/Antonyms', 'Reading Comprehension', 'Nouns/Pronouns', 'Grammar Correction'],
+    Gujarati: ['Letter Tracing'] // Add Gujarati here
+};
+*/
+
 const Sidebar = ({ 
   players, 
   selectedPlayer, 

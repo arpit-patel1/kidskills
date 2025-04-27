@@ -278,4 +278,35 @@ export const evaluateReadingComprehension = async (passage, question, userAnswer
   }
 };
 
+// --- Gujarati Tracing API Calls ---
+
+// Get a random Gujarati letter
+export const getGujaratiLetter = async () => {
+  try {
+    const response = await api.get('/letters/gujarati/random');
+    console.log("Gujarati letter response:", response.data);
+    // Construct the full URL for the image on the frontend
+    return {
+        ...response.data,
+        image_url: `${API_URL.replace('/api','')}${response.data.image_url}` // Prepend base URL
+    };
+  } catch (error) { 
+    return handleError(error);
+  }
+};
+
+// Submit a Gujarati letter tracing
+export const submitGujaratiTrace = async (traceData) => {
+  // traceData should contain { player_id, letter_id, image_data }
+  try {
+    const response = await api.post('/letters/gujarati/submit_trace', traceData);
+    console.log("Trace submission response:", response.data);
+    return response.data;
+  } catch (error) {
+    return handleError(error);
+  }
+};
+
+// --- End Gujarati Tracing API Calls ---
+
 export default api; 

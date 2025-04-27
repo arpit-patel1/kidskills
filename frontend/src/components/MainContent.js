@@ -1,9 +1,11 @@
 import React from 'react';
 import QuestionDisplay from './QuestionDisplay';
+import GujaratiTracingActivity from './GujaratiTracingActivity';
 import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
 
 const MainContent = ({
   selectedPlayer,
+  settings,
   currentQuestion,
   feedback,
   selectedAnswer,
@@ -86,7 +88,9 @@ const MainContent = ({
 
   return (
     <div className="main-content">
-      {currentQuestion ? (
+      {settings?.subject === 'Gujarati' && settings?.sub_activity === 'Letter Tracing' && selectedPlayer ? (
+          <GujaratiTracingActivity playerId={selectedPlayer.id} />
+      ) : currentQuestion ? (
         <div className="game-content">
           <QuestionDisplay 
             question={currentQuestion} 

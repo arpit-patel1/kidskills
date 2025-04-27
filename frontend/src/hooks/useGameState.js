@@ -178,31 +178,43 @@ const useGameState = (initialPlayer = null) => {
       
       console.log("5. After reset, using settings for API call:", gameSettings);
       
-      // Now that we're sure state is reset, fetch the new question
-      const question = await api.getQuestion(
-        selectedPlayer.id,
-        gameSettings.subject,
-        gameSettings.sub_activity,
-        gameSettings.difficulty
-      );
-      
-      console.log("6. Question received:", {
-        questionId: question.id,
-        subject: gameSettings.subject,
-        sub_activity: gameSettings.sub_activity,
-        questionSubject: question.subject,
-        questionSubActivity: question.sub_activity,
-        mismatch: (
-          question.subject !== gameSettings.subject || 
-          question.sub_activity !== gameSettings.sub_activity
-        )
-      });
-      
-      // Add player_id to the question object for later use
-      question.player_id = selectedPlayer.id;
-      
-      // Set current question after everything else is cleared
-      setCurrentQuestion(question);
+      // Check if the activity is Gujarati Letter Tracing
+      const isGujaratiTracing = 
+        gameSettings.subject === 'Gujarati' && 
+        gameSettings.sub_activity === 'Letter Tracing';
+        
+      if (isGujaratiTracing) {
+        console.log("6. Gujarati Tracing selected, skipping AI question fetch.");
+        // For tracing, we don't fetch an AI question, MainContent handles rendering
+        setCurrentQuestion(null); // Ensure no old question persists
+      } else {
+        console.log("6. Fetching new question for standard activity...");
+        // Now that we're sure state is reset, fetch the new question
+        const question = await api.getQuestion(
+          selectedPlayer.id,
+          gameSettings.subject,
+          gameSettings.sub_activity,
+          gameSettings.difficulty
+        );
+        
+        console.log("7. Question received:", {
+          questionId: question.id,
+          subject: gameSettings.subject,
+          sub_activity: gameSettings.sub_activity,
+          questionSubject: question.subject,
+          questionSubActivity: question.sub_activity,
+          mismatch: (
+            question.subject !== gameSettings.subject || 
+            question.sub_activity !== gameSettings.sub_activity
+          )
+        });
+        
+        // Add player_id to the question object for later use
+        question.player_id = selectedPlayer.id;
+        
+        // Set current question after everything else is cleared
+        setCurrentQuestion(question);
+      }
       
       // Add a small delay before removing loading states
       await new Promise(resolve => setTimeout(resolve, 300));

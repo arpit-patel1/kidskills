@@ -147,6 +147,7 @@ const GameSelectorDropdown = ({
                   >
                     <option value="Math">Math</option>
                     <option value="English">English</option>
+                    <option value="Gujarati">Gujarati</option>
                   </select>
                 </div>
                 
