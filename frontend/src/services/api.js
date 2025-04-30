@@ -197,6 +197,7 @@ export const evaluateGrammarCorrection = async (question, userAnswer, correctAns
     const startTime = Date.now();
     
     // Create request payload 
+    console.log("Value of correctAnswer before adding to payload:", correctAnswer, typeof correctAnswer);
     const payload = {
       question,
       user_answer: userAnswer,

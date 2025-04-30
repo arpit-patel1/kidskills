@@ -132,9 +132,9 @@ const DirectAnswerInput = ({
     
     // Different evaluation based on question type
     if (isGrammarCorrection) {
-      // Define correctAnswer outside the try block so it's available in catch
-      const correctAnswer = question?.answer || question?.correct_answer || "";
-      console.log("DirectAnswerInput correctAnswer from question:", correctAnswer);
+      // Define correctAnswerFromQuestion outside the try block so it's available in catch
+      const correctAnswerFromQuestion = question?.answer || question?.correct_answer || "";
+      console.log("DirectAnswerInput correctAnswerFromQuestion defined:", correctAnswerFromQuestion);
       
       try {
         // Validate required fields are present before making API call
@@ -149,7 +149,7 @@ const DirectAnswerInput = ({
           const fallbackEvaluation = {
             is_correct: false,
             feedback: "There was a problem evaluating your answer. Please try again.",
-            correct_answer: correctAnswer
+            correct_answer: correctAnswerFromQuestion
           };
           
           setAiEvaluation(fallbackEvaluation);
@@ -162,8 +162,8 @@ const DirectAnswerInput = ({
         // For grammar correction, use AI grammar evaluation
         console.log("Starting grammar evaluation API call at:", new Date().toISOString());
         
-        // Get the correct answer from the question object
-        const correctAnswerFromQuestion = question?.answer || question?.correct_answer || "";
+        // Get the correct answer from the question object - MOVED OUTSIDE TRY BLOCK
+        // const correctAnswerFromQuestion = question?.answer || question?.correct_answer || "";
         // Make sure we're not just echoing back the original question
         if (correctAnswerFromQuestion === question.question) {
           console.error("Warning: correct answer is same as question in grammar correction");
@@ -481,9 +481,10 @@ const DirectAnswerInput = ({
                   <span>Loading feedback...</span>
                 </div>
               ) : (
-                <div className="feedback-text">
-                  {detailedFeedback || feedback.feedback}
-                </div>
+                <div 
+                  className="feedback-text"
+                  dangerouslySetInnerHTML={{ __html: detailedFeedback || feedback.feedback }}
+                />
               )}
             </div>
           )}
