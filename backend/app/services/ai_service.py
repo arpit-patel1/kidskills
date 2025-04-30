@@ -612,7 +612,8 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
             
             # Get Langflow configuration from environment
             langflow_host = os.getenv("LANGFLOW_HOST", "http://localhost:7860")
-            langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_CORRECTION", "grammar-correction")
+            # Use the evaluation workflow, as it's designed for feedback
+            langflow_workflow = os.getenv("LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION", "grammar-evaluation") # Updated workflow name
             
             # Construct the API URL
             url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
@@ -629,7 +630,7 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
                 
                 The correct answer is: "{correct_answer}"
                 
-                Please provide a short, encouraging response (2-3 sentences) explaining what grammatical error they fixed correctly. Use language appropriate for an elementary school student. Focus on the specific grammar rule they applied.
+                Please provide a short, encouraging response (2-3 sentences) explaining what grammatical error they fixed correctly. Use language appropriate for an elementary school student. Focus on the specific grammar rule they applied. Include an emoji.
                 """
             else:
                 prompt = f"""
@@ -639,7 +640,7 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
                 
                 The correct answer is: "{correct_answer}"
                 
-                Please provide a short, gentle response (2-3 sentences) explaining what grammar error they missed or fixed incorrectly. Use language appropriate for an elementary school student. Give a simple tip to help them understand the grammar rule.
+                Please provide a short, gentle response (2-3 sentences) explaining what grammar error they missed or fixed incorrectly. Use language appropriate for an elementary school student. Give a simple tip to help them understand the grammar rule. Include an emoji.
                 """
             
             # Prepare the request payload
@@ -659,7 +660,7 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
             
             # Make the API request using httpx
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, headers=headers)
+                response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
                 response.raise_for_status()
                 
                 # Parse the response
@@ -672,8 +673,8 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
                 await delete_langflow_session_messages(session_id, request_id)
                 
                 if feedback_str:
-                    # Clean up the feedback string
-                    feedback_str = remove_think_tags(feedback_str)
+                    # The removal is now handled by extract_question_from_langflow_response
+                    # feedback_str = remove_think_tags(feedback_str) # This call is now redundant
                     logger.info(f"[{request_id}] Generated feedback: {feedback_str[:100]}...")
                     return feedback_str
     except Exception as e:
@@ -1079,20 +1080,31 @@ def extract_question_from_langflow_response(response_data: Dict[str, Any], reque
     
     # If we found a JSON string, clean it up and extract only the JSON part
     if question_json_str:
+        # Remove <think> tags FIRST
+        question_json_str = remove_think_tags(question_json_str) # Ensure tags are removed
+
         question_json_str = question_json_str.strip()
-        
+
         # Try to extract just the JSON part from the text
         try:
             # Find the first occurrence of '{'
             json_start = question_json_str.find('{')
-            if json_start >= 0:
-                # Extract from the first '{' to the end of the string
-                question_json_str = question_json_str[json_start:]
-                logger.info(f"[{request_id}] Extracted JSON part starting at position {json_start}")
+            # Find the last occurrence of '}'
+            json_end = question_json_str.rfind('}')
+
+            if json_start != -1 and json_end != -1 and json_end > json_start:
+                # Extract from the first '{' to the last '}'
+                question_json_str = question_json_str[json_start:json_end+1]
+                logger.info(f"[{request_id}] Extracted JSON part from position {json_start} to {json_end}")
+            elif json_start != -1:
+                 # Fallback: extract from the first '{' to the end if no '}' found or in wrong order
+                 question_json_str = question_json_str[json_start:]
+                 logger.warning(f"[{request_id}] Extracted JSON part starting at position {json_start}, but couldn't find balanced braces.")
+
         except Exception as e:
             logger.error(f"[{request_id}] Error extracting JSON part: {str(e)}")
-            
-        logger.info(f"[{request_id}] Extracted JSON string: {question_json_str}")
+
+        logger.info(f"[{request_id}] Cleaned JSON string: {question_json_str}")
     
     return question_json_str
 
@@ -1143,7 +1155,7 @@ async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, 
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1242,7 +1254,7 @@ async def delete_langflow_session_messages(session_id: str, request_id: str) -> 
     try:
         # Make the DELETE request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.delete(url)
+            response = await client.delete(url, timeout=10.0) # Added shorter timeout for delete
             response.raise_for_status()
             
             # Log success
@@ -1392,7 +1404,7 @@ async def generate_reading_comprehension_question(grade: int, subject: str, sub_
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1624,7 +1636,7 @@ async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity:
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1891,7 +1903,7 @@ async def generate_english_synonyms_langflow(grade: int, sub_activity: str, diff
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2048,7 +2060,7 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2286,7 +2298,7 @@ async def evaluate_grammar_correction_langflow(user_answer: str, correct_answer:
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2443,7 +2455,7 @@ async def evaluate_reading_comprehension_langflow(passage: str, question: str, u
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2546,7 +2558,7 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2691,7 +2703,7 @@ async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
             response.raise_for_status()
             
             # Parse the response

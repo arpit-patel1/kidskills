@@ -46,7 +46,7 @@ function App() {
 
   return (
     <div className="app">
-      <ConfettiEffect show={showConfetti} continuous={true} />
+      <ConfettiEffect show={showConfetti} />
       
       <header className="app-header">
         <h1><span className="pink-text">Kid</span><span className="blue-text">Skills</span> <i className="bi bi-stars"></i></h1>

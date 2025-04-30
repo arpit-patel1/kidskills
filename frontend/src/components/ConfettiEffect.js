@@ -11,7 +11,7 @@ const ConfettiEffect = ({ show, continuous = false }) => {
       <ReactConfetti
         width={window.innerWidth}
         height={window.innerHeight}
-        numberOfPieces={500}
+        numberOfPieces={250}
         recycle={continuous}
         tweenDuration={4000}
         gravity={0.05}
