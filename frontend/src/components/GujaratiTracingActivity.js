@@ -4,6 +4,18 @@ import { getGujaratiLetter, submitGujaratiTrace } from '../services/api'; // Ass
 import { Button, Row, Col, Card, Alert, Spinner } from 'react-bootstrap';
 import Confetti from 'react-confetti'; // Assuming react-confetti is installed
 
+// Kid-friendly color palette
+const TRACING_COLORS = [
+    '#FF6347', // Tomato
+    '#4682B4', // SteelBlue
+    '#32CD32', // LimeGreen
+    '#FFD700', // Gold
+    '#6A5ACD', // SlateBlue
+    '#FF69B4', // HotPink
+    '#20B2AA', // LightSeaGreen
+    '#FFA500', // Orange
+];
+
 const GujaratiTracingActivity = ({ playerId }) => {
     const [targetLetter, setTargetLetter] = useState(null);
     const [feedback, setFeedback] = useState(null);
@@ -12,6 +24,7 @@ const GujaratiTracingActivity = ({ playerId }) => {
     const [error, setError] = useState(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const [canvasReady, setCanvasReady] = useState(false);
+    const [currentColorIndex, setCurrentColorIndex] = useState(0); // State for color index
     const canvasRef = useRef(null); // Ref to access TracingCanvas methods
 
     // --- Fetching Letter --- 
@@ -19,6 +32,10 @@ const GujaratiTracingActivity = ({ playerId }) => {
         setIsLoading(true);
         setError(null);
         setFeedback(null);
+        setShowConfetti(false); // Hide confetti for new letter
+        // Cycle through colors
+        setCurrentColorIndex(prevIndex => (prevIndex + 1) % TRACING_COLORS.length);
+
         try {
             console.log("Fetching new Gujarati letter...");
             const data = await getGujaratiLetter();
@@ -159,6 +176,7 @@ const GujaratiTracingActivity = ({ playerId }) => {
                                     <div className="mx-auto px-2 tracing-canvas-container">
                                         <TracingCanvas 
                                             ref={canvasRef} 
+                                            lineColor={TRACING_COLORS[currentColorIndex]}
                                             style={{ border: '1px solid #ccc' }}
                                         />
                                     </div>
