@@ -124,8 +124,8 @@ class Progress(Base):
 - **Langflow Service Integration**: Interfaces with configured Langflow workflows via HTTP API calls for dynamic question generation and advanced feedback. Manages interaction with the Langflow instance (running separately).
 - **Fallback Question Service**: Provides pre-defined questions and basic feedback when Langflow is unavailable or fails.
 - **Question Generator**: Constructs prompts based on game settings (subject, grade, difficulty) and sends them to specific Langflow workflows via the Langflow Service Integration.
-- **Answer Validator**: Compares player answers to correct answers and determines correctness. For activities like Grammar Correction and Reading Comprehension, it leverages Langflow workflows via the Feedback Generator for evaluation.
-- **Feedback Generator**: Primarily relies on calling specific Langflow evaluation workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`) via the Langflow Service Integration to produce detailed, AI-powered feedback. Uses fallback logic otherwise.
+- **Answer Validator**: Compares player answers to correct answers and determines correctness. For activities requiring complex validation of direct user input, like Grammar Correction, it leverages Langflow workflows via the Feedback Generator for evaluation. Standard multiple-choice questions (including Reading Comprehension) use simple comparison against the known correct answer.
+- **Feedback Generator**: Primarily relies on calling specific Langflow evaluation workflows (e.g., `grammar-evaluation`) via the Langflow Service Integration to produce detailed, AI-powered feedback for activities like Grammar Correction. Uses fallback logic otherwise. Simple correct/incorrect feedback is generated directly for multiple-choice questions.
 
 ### AI Integration
 
@@ -138,11 +138,11 @@ The application uses the following AI components, primarily orchestrated via Lan
    - **Fallback**: If a Langflow workflow call fails or is not configured (checked via environment variables), the system falls back to pre-defined questions managed by the Fallback Question Service.
 
 2. **Advanced Feedback Mechanism**:
-   - **Langflow Evaluation Workflows**: Specific Langflow workflows (e.g., `grammar-evaluation`, `reading-comprehension-evaluation`, configured via environment variables like `LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION`) handle detailed feedback generation and answer evaluation.
-   - **Contextual Input**: The backend (`ai_service.py`) sends the original question, user's answer, correct answer, and correctness status to the appropriate Langflow evaluation workflow.
+   - **Langflow Evaluation Workflows**: Specific Langflow workflows (e.g., `grammar-evaluation`, configured via environment variables like `LANGFLOW_WORKFLOW_GRAMMAR_EVALUATION`) handle detailed feedback generation and answer evaluation primarily for direct-answer activities like Grammar Correction.
+   - **Contextual Input**: For evaluated activities, the backend (`ai_service.py`) sends the original question, user's answer, correct answer, and correctness status to the appropriate Langflow evaluation workflow.
    - **Tailored Feedback**: Langflow workflows generate AI-powered feedback customized for correctness and the specific activity (e.g., explaining grammar rules), returning structured JSON.
-   - **API Integration**: The evaluation logic is primarily triggered within the `POST /api/challenges/submit` endpoint, which calls the relevant Langflow evaluation workflows via `ai_service.py` (e.g., `evaluate_grammar_correction_langflow`, `evaluate_reading_comprehension_langflow`). The separate `POST /api/grammar/feedback` endpoint also exists but might be less central.
-   - **Fallback**: Simple, predefined feedback is used if the Langflow call fails.
+   - **API Integration**: The AI evaluation logic is triggered within the `POST /api/challenges/submit` endpoint, which calls the relevant Langflow evaluation workflows via `ai_service.py` (e.g., `evaluate_grammar_correction_langflow`) *only* when the activity type requires it (e.g., Grammar Correction). Standard multiple-choice feedback is handled directly within the endpoint. The separate `POST /api/grammar/feedback` endpoint also exists but might be less central.
+   - **Fallback**: Simple, predefined feedback is used if the Langflow call fails or for non-evaluated activities.
 
 3. **Error Handling**:
    - Robust error handling for Langflow API interactions (timeouts, HTTP errors, response parsing) within `ai_service.py`.

@@ -24,6 +24,8 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 ENABLE_MATH_TOOLS = os.getenv("ENABLE_MATH_TOOLS", "true").lower() == "true"
 
+HTTPX_TIMEOUT = 60.0
+
 # Initialize Ollama client with configured base URL
 ollama_async_client = AsyncClient(host=OLLAMA_BASE_URL)
 
@@ -660,7 +662,7 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
             
             # Make the API request using httpx
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+                response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
                 response.raise_for_status()
                 
                 # Parse the response
@@ -1155,7 +1157,7 @@ async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, 
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1404,7 +1406,7 @@ async def generate_reading_comprehension_question(grade: int, subject: str, sub_
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1636,7 +1638,7 @@ async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity:
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -1903,7 +1905,7 @@ async def generate_english_synonyms_langflow(grade: int, sub_activity: str, diff
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2060,7 +2062,7 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2298,7 +2300,7 @@ async def evaluate_grammar_correction_langflow(user_answer: str, correct_answer:
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2455,7 +2457,7 @@ async def evaluate_reading_comprehension_langflow(passage: str, question: str, u
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2558,7 +2560,7 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response
@@ -2703,7 +2705,7 @@ async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str
     try:
         # Make the API request using httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0) # Added timeout
+            response = await client.post(url, json=payload, headers=headers, timeout=HTTPX_TIMEOUT) # Added timeout
             response.raise_for_status()
             
             # Parse the response

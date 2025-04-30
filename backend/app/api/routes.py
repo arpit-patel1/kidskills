@@ -206,41 +206,7 @@ async def submit_answer(
             else:
                 feedback = f"Good try, {player_name}! The correct answer is: {correct_answer}"
     
-    # For reading comprehension, use AI evaluation
-    elif is_reading_comprehension:
-        try:
-            # Use AI to evaluate the reading comprehension answer
-            evaluation_result = await evaluate_reading_comprehension(
-                passage=question_data.get("passage", ""),
-                question=question_data.get("question", ""),
-                user_answer=user_answer,
-                correct_answer=correct_answer
-            )
-            
-            # Get the evaluation result
-            is_correct = evaluation_result.get('is_correct', False)
-            
-            # Set feedback based on AI evaluation
-            if is_correct:
-                feedback = "Correct! 🎉"
-            else:
-                feedback = f"Oops! The correct answer is: {correct_answer}"
-                
-            print(f"AI evaluation for reading comprehension - is_correct: {is_correct}, feedback: {evaluation_result.get('feedback', '')}")
-        except Exception as e:
-            print(f"Error during reading evaluation, falling back to string comparison: {str(e)}")
-            # Fall back to string comparison if AI evaluation fails
-            normalized_correct = correct_answer.strip().lower()
-            normalized_user = user_answer.strip().lower()
-            is_correct = normalized_correct == normalized_user or normalized_user in normalized_correct or normalized_correct in normalized_user
-            
-            # Create feedback message
-            if is_correct:
-                feedback = "Correct! 🎉"
-            else:
-                feedback = f"Oops! The correct answer is: {correct_answer}"
-    
-    else:
+    else:  # This 'else' should now handle reading comprehension too
         # Regular string comparison for other question types
         is_correct = user_answer == correct_answer
     
