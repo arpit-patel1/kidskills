@@ -40,7 +40,7 @@ from .constants import (
     NAMES, MATH_NAMES, READING_TOPICS, READING_LOCATIONS,
     MATH_OBJECTS, MATH_LOCATIONS, MATH_ACTIVITIES, MATH_WORD_PROBLEM_TEMPLATES,
     ENGLISH_TOPICS, ENGLISH_VERBS, ENGLISH_ADJECTIVES, ENGLISH_NOUNS,
-    ENGLISH_WORD_PATTERNS, ENGLISH_GRAMMAR_TEMPLATES,
+    ENGLISH_WORD_PATTERNS, ENGLISH_GRAMMAR_TEMPLATES, GRAMMAR_ERROR_TYPES,
     SCENARIOS, OBJECTS, LOCATIONS, TIME_EXPRESSIONS,
     MARIO_CHARACTERS, MARIO_ITEMS, MARIO_LOCATIONS, MARIO_ACTIVITIES
 )
@@ -2139,13 +2139,24 @@ def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
     random_seed = getRandomSeed()
     
     # Import constants for randomization
-    from app.services.constants import NAMES, SCENARIOS, LOCATIONS, OBJECTS, TIME_EXPRESSIONS, ENGLISH_TOPICS
+    from app.services.constants import NAMES, SCENARIOS, LOCATIONS, OBJECTS, TIME_EXPRESSIONS, ENGLISH_TOPICS, GRAMMAR_ERROR_TYPES # Ensure it's imported here too
     
-    # Define common variables
-    pronouns = ["I", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them"]
-    error_types = ["subject-verb agreement", "singular/plural nouns", "pronoun usage", "possessive nouns"]
-    
-    # Choose random elements for contextual variety
+    # Choose a specific grammar error type to focus on
+    if grade <= 2:  # Grades 1-2
+        # Simpler errors for younger students
+        # Focus on subject-verb, singular/plural, basic pronouns, basic possessives
+        possible_errors = [e for e in GRAMMAR_ERROR_TYPES if e in [
+            "subject-verb agreement", 
+            "singular/plural nouns", 
+            "pronoun usage",
+            "possessive nouns/pronouns"
+        ]]
+        error_type = random.choice(possible_errors)
+    else:  # Grade 3+
+        # Use the full range for older students
+        error_type = random.choice(GRAMMAR_ERROR_TYPES)
+
+    # Choose random context elements for variety
     person = random.choice(NAMES)
     person2 = random.choice([name for name in NAMES if name != person])
     scenario = random.choice(SCENARIOS)
@@ -2154,36 +2165,45 @@ def construct_grammar_correction_prompt(grade: int, difficulty: str) -> str:
     time_expression = random.choice(TIME_EXPRESSIONS)
     topic = random.choice(ENGLISH_TOPICS)
     
-    # Choose random elements
-    if grade <= 2:  # Grades 1-2
-        # Simpler options for younger students
-        error_type = random.choice(error_types[:2])  # Only basic errors
-        
-    else:  # Grade 3+
-        # Fuller range of error types for older students
-        error_type = random.choice(error_types)
+    # Build the focused prompt with the new two-step approach
+    prompt = f"""
+    **Goal:** Create a grammar correction question for a {difficulty.lower()} {grade}-grade student.
     
-    # Build the base prompt with contextual elements
-    prompt = f"""Create a {difficulty.lower()} {grade}-grade level English grammar correction question focusing on {error_type}.
-Write a sentence with ONE grammatical error. The error should be appropriate for {grade}-grade students to identify and fix.
-The question should be short and clear, and the answer should be the corrected sentence.
-
-Use the following contextual elements for creating the sentence:
-- Character name: {person}
-- Optional second character: {person2}
-- Activity/scenario: {scenario}
-- Location: {location}
-- Object: {object_name}
-- Time: {time_expression}
-- Topic: {topic}
-
-Examples of how you could use these elements:
-- "{person} were {scenario} at the {location} {time_expression}."
-- "The {object_name} belong on the table when {person} saw it."
-- "{person} and {person2} is learning about {topic} in school."
-
-Make sure the sentence sounds natural and engaging for elementary school students.
-"""
+    **Step 1: Formulate a Correct Sentence**
+    First, create a grammatically CORRECT and natural-sounding English sentence. Make it age-appropriate and engaging (use emojis!). 
+    Use some of these elements for context (optional): 
+        - Character(s): {person}, {person2}
+        - Activity/Scenario: {scenario}
+        - Location: {location}
+        - Object: {object_name}
+        - Time: {time_expression}
+        - Topic: {topic}
+    Let this correct sentence be the basis for the 'answer' field in the final JSON.
+    
+    **Step 2: Introduce ONE Specific Error**
+    Now, take the correct sentence you formulated and introduce EXACTLY ONE grammatical error of the type: **'{error_type}'**. 
+    This modified sentence (with the single error) will be the value for the 'question' field in the final JSON.
+    
+    **Output Format:** Return ONLY a valid JSON object containing the result of Step 2 (the incorrect sentence) and Step 1 (the correct sentence) with these EXACT keys:
+    {{
+      "question": "[The sentence modified in Step 2 with the ONE '{error_type}' error]",
+      "answer": "[The original CORRECT sentence formulated in Step 1]",
+      "type": "direct-answer"
+    }}
+    
+    **Example (if Step 1 sentence was "The cat jumps high." and error type was 'subject-verb agreement'):**
+    {{
+      "question": "The cat jump high. 🐈",
+      "answer": "The cat jumps high.",
+      "type": "direct-answer"
+    }}
+    
+    **CRITICAL:** 
+    - The 'question' field MUST contain the sentence with the specified grammatical error.
+    - The 'answer' field MUST contain the original, perfectly correct sentence.
+    - Only include the SINGLE specified error type.
+    - Ensure the final output is ONLY the JSON object, with no extra text before or after.
+    """
     
     # Log the randomization details
     logger.info(f"Grammar correction prompt generation - Error type: {error_type}, Grade: {grade}, Difficulty: {difficulty}, Seed: {random_seed}")

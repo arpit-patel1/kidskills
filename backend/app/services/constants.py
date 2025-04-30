@@ -695,4 +695,17 @@ MARIO_ACTIVITIES = [
     "jumping over obstacles", "finding hidden blocks", "entering warp pipes", "collecting 1-Ups", 
     "defeating bosses", "building with blocks", "exploring galaxies", "capturing enemies", 
     "finding hidden treasures", "avoiding Bullet Bills", "jumping through paintings"
+]
+
+# New constant for grammar error types
+GRAMMAR_ERROR_TYPES = [
+    "subject-verb agreement", 
+    "singular/plural nouns", 
+    "pronoun usage",  # e.g., incorrect case (me vs I), agreement (he/they)
+    "possessive nouns/pronouns", # e.g., its vs it's, dog's vs dogs
+    "verb tense consistency", # e.g., mixing past/present
+    "incorrect adjective/adverb usage", # e.g., slow vs slowly
+    "double negatives",
+    "incorrect preposition usage", # e.g., on vs in
+    "commonly confused words" # e.g., there/their/they're, to/too/two
 ] 
