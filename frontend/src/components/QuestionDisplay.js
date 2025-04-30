@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DirectAnswerInput from './DirectAnswerInput';
 import { QUESTIONS_PER_GAME } from '../hooks/useGameState';
 import LoadingAnimation from './animations/LoadingAnimation';
@@ -21,6 +21,7 @@ const QuestionDisplay = ({
   const [localSelectedChoice, setLocalSelectedChoice] = useState(null);
   const [localSubmitted, setLocalSubmitted] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const nextButtonRef = useRef(null);
   
   // Use either local submission state or the prop passed from parent
   const isSubmitted = submitted || localSubmitted;
@@ -41,6 +42,20 @@ const QuestionDisplay = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question?.id]); // Only depend on question ID to prevent unnecessary rerenders
+  
+  // Effect to focus the Next Question button when feedback appears
+  useEffect(() => {
+    if (isSubmitted && nextButtonRef.current) {
+      // Use setTimeout to defer focus until after the current render cycle
+      const timerId = setTimeout(() => {
+        if (nextButtonRef.current) {
+           console.log("Setting focus to Next Question button");
+           nextButtonRef.current.focus();
+        }
+      }, 0);
+      return () => clearTimeout(timerId); // Cleanup timeout
+    }
+  }, [isSubmitted]); // Run when submission state changes
   
   if (!question) {
     return null;
@@ -254,6 +269,7 @@ const QuestionDisplay = ({
                 </button>
               ) : (
                 <button 
+                  ref={nextButtonRef}
                   className={`btn btn-success btn-lg submit-btn ${loadingNextQuestion ? 'loading' : ''}`}
                   onClick={handleNextQuestion}
                   disabled={loading || loadingNextQuestion}

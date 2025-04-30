@@ -143,13 +143,11 @@ const GujaratiTracingActivity = ({ playerId }) => {
                             <Row className="justify-content-center align-items-stretch g-0" style={{ maxWidth: '800px' }}>
                                 <Col xs={12} md={6} className="text-center d-flex flex-column align-items-center">
                                     <h5>Trace this letter:</h5>
-                                    <div className="mx-auto px-2">
+                                    <div className="mx-auto px-2 target-letter-image">
                                         <img 
                                             src={targetLetter.image_url} 
                                             alt={`Gujarati letter ${targetLetter.letter_id}`} 
                                             style={{ 
-                                                width: '300px',
-                                                height: '300px',
                                                 objectFit: 'contain',
                                                 border: '1px solid #ccc'
                                             }} 
@@ -158,11 +156,9 @@ const GujaratiTracingActivity = ({ playerId }) => {
                                 </Col>
                                 <Col xs={12} md={6} className="text-center d-flex flex-column align-items-center">
                                     <h5>Your tracing:</h5>
-                                    <div className="mx-auto px-2">
+                                    <div className="mx-auto px-2 tracing-canvas-container">
                                         <TracingCanvas 
                                             ref={canvasRef} 
-                                            width={300} 
-                                            height={300} 
                                             style={{ border: '1px solid #ccc' }}
                                         />
                                     </div>

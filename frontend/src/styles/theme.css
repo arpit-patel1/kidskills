@@ -3271,7 +3271,8 @@ select.form-control:hover, select.form-control:focus {
 @media (max-width: 768px) {
   .app-layout {
     display: block;
-    padding: 0 0.5rem;
+    /* Add horizontal padding directly to the layout container */
+    padding: 0 1rem; 
   }
   
   /* Remove any remaining sidebar styling */
@@ -3284,9 +3285,11 @@ select.form-control:hover, select.form-control:focus {
     margin-bottom: 0.5rem;
   }
   
-  /* Make main content full width */
+  /* Make main content full width and remove conflicting margins/paddings */
   .main-content {
     width: 100%;
+    margin: 0; 
+    padding: 0; /* Remove padding if app-layout handles it */
   }
 }
 
@@ -3527,3 +3530,63 @@ select.form-control:hover, select.form-control:focus {
   position: relative;
   padding-bottom: 2rem;
 }
+
+/* Add styles for Gujarati Tracing Activity */
+.target-letter-image,
+.tracing-canvas-container {
+  width: 300px; /* Default size for larger screens */
+  height: 300px;
+  margin-bottom: 1rem; /* Add some space below */
+}
+
+.target-letter-image img,
+.tracing-canvas-container canvas {
+  display: block; /* Ensure block display */
+  width: 100%;   /* Fill container */
+  height: 100%;  /* Fill container */
+  object-fit: contain; /* For the image */
+  background-color: #fff; /* Ensure canvas has a background */
+}
+
+/* Responsive adjustments for Tracing Activity */
+@media (max-width: 768px) {
+  .target-letter-image,
+  .tracing-canvas-container {
+    width: 220px; /* Medium size for tablets */
+    height: 220px;
+  }
+
+  /* Reduce heading size */
+  .gujarati-tracing-activity h5 { /* Assuming a parent class might be needed, or target more specifically */
+      font-size: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .target-letter-image,
+  .tracing-canvas-container {
+    width: 180px; /* Smaller size for phones */
+    height: 180px;
+  }
+
+  /* Further reduce heading size */
+  .gujarati-tracing-activity h5 {
+      font-size: 0.9rem;
+  }
+  
+  /* Ensure buttons stack nicely and are full width if needed */
+  .gujarati-tracing-activity .mt-3.d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%; /* Make button container full width */
+    max-width: 180px; /* Match canvas width */
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .gujarati-tracing-activity .mt-3.d-flex .btn {
+    width: 100%; /* Make buttons full width within the container */
+    margin: 0 !important; /* Remove default button margins */
+  }
+}
+
+/* Append at the end of the file */
