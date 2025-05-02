@@ -7,6 +7,7 @@ import random
 import pathlib
 import base64 # For decoding image data
 import io # For handling image bytes
+from loguru import logger # Import logger
 
 # Image processing libraries - will need adding to requirements.txt
 from PIL import Image
@@ -88,7 +89,7 @@ async def get_challenge(
     # Clear previous questions for this player if it's a new game request or subject/activity changed
     if is_new_game or settings_changed:
         if settings_changed:
-            print(f"Settings changed from {previous_settings} to {{'subject': '{request.subject}', 'sub_activity': '{request.sub_activity}'}} - clearing previous questions")
+            logger.info(f"Settings changed from {previous_settings} to {{'subject': '{request.subject}', 'sub_activity': '{request.sub_activity}'}} - clearing previous questions")
         
         for key in player_keys:
             del ACTIVE_QUESTIONS[key]
@@ -127,7 +128,7 @@ async def submit_answer(
     db: Session = Depends(get_db)
 ):
     """Submit an answer to a challenge."""
-    print(f"Received answer submission: {request}")
+    logger.debug(f"Received answer submission: {request}")
     
     # Get player information
     player = db.query(Player).filter(Player.id == request.player_id).first()
@@ -141,7 +142,7 @@ async def submit_answer(
     if not question_data:
         raise HTTPException(status_code=404, detail=f"Question {request.question_id} not found")
     
-    print(f"Found question in memory: {question_data}")
+    logger.debug(f"Found question in memory: {question_data}")
     
     # Extract the user's answer from the request
     user_answer = request.answer
@@ -192,9 +193,9 @@ async def submit_answer(
                 # For incorrect answers, include the correct answer in the feedback
                 feedback = f"{ai_feedback}\n\nThe correct answer is: {correct_answer}"
                 
-            print(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {ai_feedback}")
+            logger.info(f"AI evaluation for grammar correction - is_correct: {is_correct}, feedback: {ai_feedback}")
         except Exception as e:
-            print(f"Error during AI evaluation, falling back to string comparison: {str(e)}")
+            logger.error(f"Error during AI evaluation, falling back to string comparison: {str(e)}")
             # Fall back to string comparison if AI evaluation fails
             normalized_correct = correct_answer.strip().lower()
             normalized_user = user_answer.strip().lower()
@@ -210,13 +211,13 @@ async def submit_answer(
         # Regular string comparison for other question types
         is_correct = user_answer == correct_answer
     
-        print(f"Answer is {'correct' if is_correct else 'incorrect'}")
-        
-        # Create feedback message
-        if is_correct:
-            feedback = "Correct! 🎉"
-        else:
-            feedback = f"Oops! The correct answer is: {correct_answer}"
+    logger.debug(f"Answer is {'correct' if is_correct else 'incorrect'}")
+    
+    # Create feedback message
+    if is_correct:
+        feedback = "Correct! ��"
+    else:
+        feedback = f"Oops! The correct answer is: {correct_answer}"
     
     # In a real implementation, would create a record of the answer
     # progress = Progress(...)
@@ -229,7 +230,7 @@ async def submit_answer(
         "feedback": feedback
     }
     
-    print(f"Sending response: {response}")
+    logger.debug(f"Sending response: {response}")
     return response
 
 
@@ -317,7 +318,7 @@ async def get_grammar_feedback(request: GrammarFeedbackRequest):
         
         return {"feedback": feedback}
     except Exception as e:
-        print(f"Error generating grammar feedback: {str(e)}")
+        logger.error(f"Error generating grammar feedback: {str(e)}")
         # Provide fallback feedback
         if request.is_correct:
             feedback = "Great job correcting the sentence! You identified the grammar mistake and fixed it correctly."
@@ -329,25 +330,25 @@ async def get_grammar_feedback(request: GrammarFeedbackRequest):
 async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluationRequest):
     """Evaluate a grammar correction answer using AI."""
     try:
-        print(f"Grammar correction evaluation request received: {request}")
+        logger.debug(f"Grammar correction evaluation request received: {request}")
         
         # Get player name if player_id is provided
         player_name = "student"
         if hasattr(request, "player_id") and request.player_id is not None:
             try:
-                print(f"Player ID found in request: {request.player_id}")
+                logger.debug(f"Player ID found in request: {request.player_id}")
                 # Get the database session
                 db = next(get_db())
                 player = db.query(Player).filter(Player.id == request.player_id).first()
                 if player:
                     player_name = player.name
-                    print(f"Found player name: {player_name}")
+                    logger.debug(f"Found player name: {player_name}")
                 else:
-                    print(f"No player found with ID: {request.player_id}")
+                    logger.warning(f"No player found with ID: {request.player_id}")
             except Exception as e:
-                print(f"Error getting player name from DB: {str(e)}")
+                logger.error(f"Error getting player name from DB: {str(e)}")
         else:
-            print("No player_id in request or player_id is None")
+            logger.warning("No player_id in request or player_id is None")
         
         # Check if the answer is correct
         user_lower = request.user_answer.lower().strip()
@@ -363,10 +364,10 @@ async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluation
             trace_id=str(time.time())
         )
         
-        print(f"Grammar evaluation result: {result}")
+        logger.info(f"Grammar evaluation result: {result}")
         return result
     except Exception as e:
-        print(f"Error in grammar evaluation route: {str(e)}")
+        logger.error(f"Error in grammar evaluation route: {str(e)}")
         # Provide fallback evaluation
         user_lower = request.user_answer.lower().strip()
         correct_lower = request.correct_answer.lower().strip()
@@ -394,7 +395,7 @@ async def evaluate_grammar_correction_route(request: GrammarCorrectionEvaluation
             "feedback": feedback
         }
         
-        print(f"Using fallback evaluation: {fallback}")
+        logger.warning(f"Using fallback evaluation: {fallback}")
         return fallback
 
 @router.post("/reading/evaluate", response_model=ReadingComprehensionEvaluationResponse)
@@ -411,7 +412,7 @@ async def evaluate_reading_comprehension_route(request: ReadingComprehensionEval
         
         return result
     except Exception as e:
-        print(f"Error evaluating reading comprehension: {str(e)}")
+        logger.error(f"Error evaluating reading comprehension: {str(e)}")
         # Provide fallback evaluation
         user_lower = request.user_answer.lower().strip()
         correct_lower = request.correct_answer.lower().strip()
@@ -436,14 +437,14 @@ async def get_random_gujarati_letter():
     """Get a random Gujarati letter image URL."""
     try:
         if not GUJARATI_LETTERS_DIR.is_dir():
-            print(f"Error: Directory not found at {GUJARATI_LETTERS_DIR}")
+            logger.error(f"Error: Directory not found at {GUJARATI_LETTERS_DIR}")
             raise HTTPException(status_code=500, detail="Gujarati letter image directory not found.")
 
         # List all PNG files in the directory
         letter_files = [f for f in os.listdir(GUJARATI_LETTERS_DIR) if f.lower().endswith('.png')]
 
         if not letter_files:
-            print(f"Error: No PNG files found in {GUJARATI_LETTERS_DIR}")
+            logger.error(f"Error: No PNG files found in {GUJARATI_LETTERS_DIR}")
             raise HTTPException(status_code=404, detail="No Gujarati letter images found.")
 
         # Select a random letter file
@@ -458,7 +459,7 @@ async def get_random_gujarati_letter():
             "image_url": image_url_path
         }
     except Exception as e:
-        print(f"Error getting random Gujarati letter: {e}")
+        logger.error(f"Error getting random Gujarati letter: {e}")
         raise HTTPException(status_code=500, detail="Internal server error retrieving letter image.")
 
 # --- End New Endpoint ---
@@ -479,13 +480,13 @@ async def submit_gujarati_trace(request: SubmitTraceRequest):
             image_bytes = base64.b64decode(encoded_data)
             submitted_image_pil = Image.open(io.BytesIO(image_bytes))
         except (base64.binascii.Error, IOError, ValueError) as decode_err:
-            print(f"Error decoding image data: {decode_err}")
+            logger.error(f"Error decoding image data: {decode_err}")
             raise HTTPException(status_code=400, detail="Invalid image data format.")
 
         # 2. Load the target letter image
         target_letter_path = GUJARATI_LETTERS_DIR / request.letter_id
         if not target_letter_path.is_file():
-            print(f"Error: Target letter image not found at {target_letter_path}")
+            logger.error(f"Error: Target letter image not found at {target_letter_path}")
             raise HTTPException(status_code=404, detail=f"Target letter '{request.letter_id}' not found.")
         
         target_image_pil = Image.open(target_letter_path)
@@ -540,7 +541,7 @@ async def submit_gujarati_trace(request: SubmitTraceRequest):
     except HTTPException as http_exc: # Re-raise HTTP exceptions
         raise http_exc
     except Exception as e:
-        print(f"Error processing trace submission: {e}")
+        logger.error(f"Error processing trace submission: {e}")
         raise HTTPException(status_code=500, detail="Internal server error processing trace.")
 
 # --- End New Endpoint --- 

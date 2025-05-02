@@ -1,6 +1,7 @@
 import random
-import logging
-logger = logging.getLogger(__name__)
+# import logging # Remove standard logging
+# logger = logging.getLogger(__name__) # Remove standard logger instantiation
+from loguru import logger # Import loguru logger
 
 from .constants import (
     NAMES, MATH_NAMES, READING_TOPICS, READING_LOCATIONS,
@@ -173,7 +174,7 @@ def construct_prompt(grade: int, subject: str, sub_activity: str, difficulty: st
         return construct_mario_english_prompt(grade, difficulty)
     
     # Proceed with standard prompts for other activities...
-    logger = logging.getLogger(__name__)
+    # logger = logging.getLogger(__name__) # Remove standard logger instantiation
     logger.info(f"Constructing prompt for: Grade {grade}, {subject}, {sub_activity}, {difficulty}")
     
     # Default base prompt

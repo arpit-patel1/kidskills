@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 httpx
 python-dotenv
@@ -7,4 +7,8 @@ pydantic
 aiosqlite
 Pillow
 numpy
-scikit-image 
+scikit-image
+requests
+aiohttp
+#langflow-base==0.0.67
+loguru

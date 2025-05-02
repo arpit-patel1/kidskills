@@ -7,7 +7,8 @@ import logging
 from typing import Dict, Any, Optional, List, Literal, Union, Callable, Tuple
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, validator, ValidationError, root_validator
-from ollama import AsyncClient
+from loguru import logger
+#from ollama import AsyncClient
 from .fallback_questions import get_fallback_question as get_fallback
 from .prompts import construct_prompt, construct_mario_english_prompt
 import math
@@ -15,24 +16,17 @@ import operator
 import httpx
 import uuid
 import asyncio
-
 # Load environment variables
 load_dotenv()
 
 # Get Ollama configuration from env
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 ENABLE_MATH_TOOLS = os.getenv("ENABLE_MATH_TOOLS", "true").lower() == "true"
 
 HTTPX_TIMEOUT = 60.0
 
 # Initialize Ollama client with configured base URL
-ollama_async_client = AsyncClient(host=OLLAMA_BASE_URL)
 
 # Log configuration settings
-logger = logging.getLogger(__name__)
-logger.info(f"OLLAMA_MODEL: {OLLAMA_MODEL}")
-logger.info(f"OLLAMA_BASE_URL: {OLLAMA_BASE_URL}")
 logger.info(f"ENABLE_MATH_TOOLS: {ENABLE_MATH_TOOLS}")
 
 # Import constants from constants.py
@@ -62,11 +56,9 @@ logging.basicConfig(
     ]
 )
 
-logger = logging.getLogger(__name__)
 logger.info(f"Logging to {log_file}")
 
 # Get Ollama model from env or use default
-logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
 
 # Define Pydantic models for structured output
 class MultipleChoiceQuestion(BaseModel):
@@ -105,49 +97,6 @@ class ReadingComprehensionQuestion(BaseModel):
         if hasattr(self, "model_dump"):
             return self.model_dump()
         return self.dict()  # Fallback for older Pydantic versions
-
-def clean_markdown_json(text: str) -> str:
-    """
-    Clean JSON from markdown code blocks and remove any extra text.
-    
-    Args:
-        text: Text that might contain markdown code blocks
-        
-    Returns:
-        Cleaned JSON string
-    """
-    # Remove leading/trailing whitespace
-    text = text.strip()
-    
-    # Handle markdown code blocks with language specifiers
-    if "```" in text:
-        # Find the first code block opening
-        start_idx = text.find("```")
-        # Find where the actual JSON content starts (skip language specifier if present)
-        content_start = text.find("\n", start_idx) + 1
-        
-        # Find the closing code block
-        end_idx = text.find("```", content_start)
-        if end_idx == -1:  # No closing code block found
-            # Just take everything after the opening code block
-            json_content = text[content_start:]
-        else:
-            # Extract the content between the code block markers
-            json_content = text[content_start:end_idx].strip()
-        
-        return json_content
-    
-    # Try to find JSON object boundaries if no code blocks
-    if text.strip().startswith("{") and "}" in text:
-        # Find first opening brace
-        start_idx = text.find("{")
-        # Find last closing brace
-        end_idx = text.rfind("}")
-        if end_idx > start_idx:
-            return text[start_idx:end_idx+1]
-    
-    # If no clear JSON markers, return the original (stripped)
-    return text
 
 async def generate_question(grade: int, subject: str, sub_activity: str, difficulty: str, question_type: str = "multiple-choice") -> Dict[str, Any]:
     """
@@ -219,10 +168,7 @@ async def generate_question(grade: int, subject: str, sub_activity: str, difficu
 
 async def generate_multiple_choice_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
     """
-    Generate a multiple choice question.
-    
-    For math and English activities, this uses the Langflow API.
-    For other subjects/activities, it uses the Ollama-based implementation.
+    Generate a multiple choice question using Langflow API or fallback.
     """
     logger.info(f"[{request_id}] Generating multiple-choice question")
     
@@ -240,108 +186,12 @@ async def generate_multiple_choice_question(grade: int, subject: str, sub_activi
     elif subject == "English" and sub_activity == "Nouns/Pronouns":
         return await generate_english_nouns_pronouns_langflow(grade, sub_activity, difficulty, request_id)
     
-    # For other subjects, use the existing implementation
-    temperature = 0.7  # default
-    logger.info(f"[{request_id}] Using temperature of {temperature} for {subject} {sub_activity}")
-    
-    # Construct prompt specifically for multiple choice
-    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "multiple-choice")
-    logger.info(f"[{request_id}] Constructed prompt: {prompt}")
-    
-    # Create system message with explicit format requirements
-    system_message = """You are an AI that generates educational multiple-choice questions for elementary school students.
-Your responses MUST be in valid JSON format with the following fields:
-1. 'question': The question text
-2. 'choices': An array of EXACTLY 4 possible answers
-3. 'answer': The correct answer (which must be one of the choices)
-4. 'type': Must be exactly "multiple-choice"
-
-Example format:
-{
-  "question": "What is 2 + 2? 🔢",
-  "choices": ["3", "4", "5", "6"],
-  "answer": "4",
-  "type": "multiple-choice"
-}
-
-IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always provide EXACTLY 4 choices for the multiple-choice question. No more, no less.
-IMPORTANT: Always add multiple emojis to the question text to make it more engaging for children. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🌍 What is the capital of France? This is a geography question! 🗼 🏙️"""
-    
-    try:
-        # Make API call
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        logger.info(f"[{request_id}] Using random seed: {random_seed}")
-        
-        ollama_response = await ollama_async_client.chat(
-            model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
-            ],
-            options={"temperature": temperature, "seed": random_seed},
-            stream=False
-        )
-        
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        
-        # Extract the content
-        content = ollama_response.message.content
-        logger.info(f"[{request_id}] Raw content: {content[:100]}...")
-        
-        # Parse the JSON response
-        json_data = json.loads(content)
-        
-        # Validate the response has the required fields
-        if not all(field in json_data for field in ["question", "choices", "answer"]):
-            logger.warning(f"[{request_id}] Incomplete JSON response: {json_data}")
-            return get_fallback_question(grade, subject, sub_activity, difficulty)
-        
-        # Ensure all choices and answer are strings
-        json_data["choices"] = [str(choice) for choice in json_data["choices"]]
-        json_data["answer"] = str(json_data["answer"])
-        
-        # Ensure we have exactly 4 choices
-        choices = json_data["choices"]
-        if len(choices) != 4:
-            logger.warning(f"[{request_id}] Wrong number of choices: {len(choices)}")
-            
-            # Fix the number of choices
-            if len(choices) < 4:
-                # Add placeholder choices if we don't have enough
-                while len(choices) < 4:
-                    new_choice = f"Option {len(choices) + 1}"
-                    choices.append(new_choice)
-                logger.info(f"[{request_id}] Added placeholder choices: {choices}")
-            else:
-                # Truncate to 4 choices if we have too many
-                choices = choices[:4]
-                logger.info(f"[{request_id}] Truncated to 4 choices: {choices}")
-            
-            json_data["choices"] = choices
-        
-        # Set the correct type
-        json_data["type"] = "multiple-choice"
-        
-        # Add subject info
-        json_data["subject"] = subject
-        json_data["sub_activity"] = sub_activity
-        json_data["difficulty"] = difficulty
-        
-        return json_data
-        
-    except Exception as e:
-        logger.error(f"[{request_id}] Error generating multiple-choice question: {str(e)}")
-        logger.exception(e)  # Log the full stack trace
-        return get_fallback_question(grade, subject, sub_activity, difficulty)
+    # For other subjects/activities not explicitly handled by Langflow, use fallback
+    logger.warning(f"[{request_id}] No specific Langflow generator found for {subject} - {sub_activity}. Using fallback.")
+    return get_fallback_question(str(grade), subject, sub_activity, difficulty)
 
 async def generate_direct_answer_question(grade: int, subject: str, sub_activity: str, difficulty: str, request_id: str) -> Dict[str, Any]:
-    """Generate a direct answer question."""
+    """Generate a direct answer question using Langflow API or fallback."""
     logger.info(f"[{request_id}] Generating direct-answer question")
     
     # If this is Grammar Correction, use Langflow API if available
@@ -353,83 +203,12 @@ async def generate_direct_answer_question(grade: int, subject: str, sub_activity
                 return await generate_grammar_correction_langflow(grade, difficulty, request_id)
         except Exception as e:
             logger.error(f"[{request_id}] Error using Langflow for Grammar Correction: {str(e)}")
-            logger.info(f"[{request_id}] Falling back to Ollama for Grammar Correction")
+            logger.info(f"[{request_id}] Falling back for Grammar Correction")
+            # Fall through to the general fallback mechanism
     
-    # Grammar correction uses higher temperature
-    temperature = 0.7 if sub_activity == "Grammar Correction" else 0.5
-    logger.info(f"[{request_id}] Using temperature of {temperature} for direct answer")
-    
-    # Construct prompt specifically for direct answer
-    prompt = construct_prompt(grade, subject, sub_activity, difficulty, "direct-answer")
-    logger.info(f"[{request_id}] Constructed prompt: {prompt[:100]}...")
-    
-   
-    # Create system message with explicit format requirements
-    system_message = """You are an AI that generates educational direct-answer questions for elementary school students.
-Your responses MUST be in valid JSON format with the following fields:
-1. 'question': The question text
-2. 'answer': The correct answer
-3. 'type': Must be exactly "direct-answer"
-
-Example format:
-{
-  "question": "What is the capital of France? 🗼",
-  "answer": "Paris",
-  "type": "direct-answer"
-}
-
-IMPORTANT: Always include all these fields exactly as shown.
-IMPORTANT: Always add multiple emojis to the question text to make it more engaging for children. Add emojis at the beginning, in the middle, and at the end of questions. For example: "🌍 What is the capital of France? This is a geography question! 🗼 🏙️"""
-    
-    if sub_activity == "Grammar Correction":
-        system_message += """ For Grammar Correction, provide a sentence with a grammatical error that the student needs to correct.
-
-Example for Grammar Correction:
-{
-  "question": "The dog run very fast.",
-  "answer": "The dog runs very fast.",
-  "type": "direct-answer"
-}
-"""
-    
-    try:
-
-        # Make API call
-        start_time = time.time()
-        
-        # Generate a random seed for variety
-        random_seed = getRandomSeed()
-        logger.info(f"[{request_id}] Using random seed: {random_seed} for direct answer")
-
-        ollama_response = await ollama_async_client.chat(model=os.getenv("OLLAMA_MODEL"),
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
-            ],
-            format=DirectAnswerQuestion.model_json_schema(),
-            options={"temperature": temperature, "seed": random_seed},
-        )
-
-        logger.info(f"[{request_id}] OLLAMA response: {ollama_response}")
-        api_time = time.time() - start_time
-        logger.info(f"[{request_id}] API call completed in {api_time:.2f}s")
-        
-        # Log the raw response content for debugging
-        content = ollama_response.message.content
-        logger.info(f"[{request_id}] Raw API response for direct-answer ({sub_activity}): {content[:500]}...")
-        
-        json_data = json.loads(content)
-        
-        # Log the parsed response
-        logger.info(f"[{request_id}] Parsed direct-answer response: {json.dumps(json_data, indent=2)}")
-        
-        return json_data
-        
-    except Exception as e:
-        logger.error(f"[{request_id}] Error generating direct-answer question: {str(e)}")
-        logger.exception(e)  # Log the full stack trace
-        return get_fallback_question(str(grade), subject, sub_activity, difficulty)
-
+    # If not Grammar Correction or Langflow failed, use fallback
+    logger.warning(f"[{request_id}] No specific Langflow generator used for direct answer {subject} - {sub_activity}. Using fallback.")
+    return get_fallback_question(str(grade), subject, sub_activity, difficulty)
 
 def get_fallback_question(grade: str, subject: str, sub_activity: str, difficulty: str) -> Dict[str, Any]:
     """
@@ -447,136 +226,6 @@ def get_fallback_question(grade: str, subject: str, sub_activity: str, difficult
     # Use the simplified fallback question function from the fallback_questions module
     # that only depends on subject and sub_activity
     return get_fallback(subject, sub_activity)
-
-def repair_malformed_json(json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Repair malformed JSON responses from the AI model.
-    
-    Some models return nested structures or incorrect schema. This function
-    attempts to extract the correct data structure from various malformed responses.
-    
-    Args:
-        json_data: The parsed JSON data from the API response
-        
-    Returns:
-        A corrected JSON structure that should match our expected schema
-    """
-    logger.info(f"Checking and repairing malformed JSON if needed: {str(json_data)[:100]}...")
-    
-    # Handle Grammar Correction questions - these must be direct-answer type
-    if "question" in json_data and "answer" in json_data and "sub_activity" in json_data:
-        if json_data["sub_activity"] == "Grammar Correction":
-            # Grammar correction questions must be direct-answer type
-            logger.info(f"Grammar Correction activity detected in JSON, forcing direct-answer question type")
-            json_data["type"] = "direct-answer"
-            
-            # Remove any 'choices' property if it exists for Grammar Correction
-            if "choices" in json_data:
-                logger.info(f"Removing unexpected 'choices' from Grammar Correction question")
-                del json_data["choices"]
-                
-            return json_data
-    
-    # Case 1: Response has a "properties" wrapper (common with some models)
-    if "properties" in json_data and isinstance(json_data["properties"], dict):
-        properties = json_data["properties"]
-        # Try to extract the actual question data
-        repaired = {}
-        
-        # Extract question
-        if "question" in properties:
-            if isinstance(properties["question"], dict):
-                if "description" in properties["question"]:
-                    repaired["question"] = properties["question"]["description"]
-                elif "title" in properties["question"]:
-                    repaired["question"] = properties["question"]["title"]
-            elif isinstance(properties["question"], str):
-                repaired["question"] = properties["question"]
-        
-        # Extract choices
-        if "choices" in properties:
-            if isinstance(properties["choices"], dict):
-                if "items" in properties["choices"]:
-                    repaired["choices"] = properties["choices"]["items"]
-                elif "enum" in properties["choices"]:
-                    repaired["choices"] = properties["choices"]["enum"]
-                elif "examples" in properties["choices"]:
-                    repaired["choices"] = properties["choices"]["examples"]
-                elif "description" in properties["choices"] and "[" in properties["choices"]["description"]:
-                    # Try to parse a string representation of an array
-                    try:
-                        choices_str = properties["choices"]["description"]
-                        # Extract text between square brackets
-                        match = re.search(r'\[(.*)\]', choices_str)
-                        if match:
-                            items_str = match.group(1)
-                            # Split by commas and clean up
-                            items = [item.strip(' "\'') for item in items_str.split(',')]
-                            repaired["choices"] = items
-                    except Exception as e:
-                        logger.error(f"Failed to parse choices from string: {str(e)}")
-            elif isinstance(properties["choices"], list):
-                repaired["choices"] = properties["choices"]
-        
-        # Extract answer
-        if "answer" in properties:
-            if isinstance(properties["answer"], dict):
-                if "description" in properties["answer"]:
-                    repaired["answer"] = properties["answer"]["description"]
-                elif "example" in properties["answer"]:
-                    repaired["answer"] = properties["answer"]["example"]
-            elif isinstance(properties["answer"], str):
-                repaired["answer"] = properties["answer"]
-        
-        # Set the correct type
-        repaired["type"] = "multiple-choice"
-        
-        logger.info(f"Repaired nested 'properties' JSON: {str(repaired)[:100]}...")
-        return repaired
-    
-    # Case 2: Response has "correct_answer" instead of "answer"
-    if "question" in json_data and "choices" in json_data and "correct_answer" in json_data and "answer" not in json_data:
-        json_data["answer"] = json_data["correct_answer"]
-        logger.info(f"Renamed 'correct_answer' to 'answer' in JSON response")
-        # Fix or add the type field
-        if "type" not in json_data:
-            json_data["type"] = "multiple-choice"
-        return json_data
-    
-    # Case 3: Response has all the right fields but wrong type value or missing type
-    if "question" in json_data and "choices" in json_data and "answer" in json_data:
-        # Fix or add the type field
-        json_data["type"] = "multiple-choice"
-        logger.info(f"Fixed 'type' field in JSON response")
-        return json_data
-    
-    # Case 4: Direct answer question format
-    if "question" in json_data and "answer" in json_data and "choices" not in json_data:
-        # Make sure type is set to direct-answer
-        json_data["type"] = "direct-answer"
-        logger.info(f"Set type to 'direct-answer' for question without choices")
-        
-        # If sub_activity is in the response but not a known key, handle it
-        if "sub_activity" in json_data and not isinstance(json_data["sub_activity"], str):
-            if isinstance(json_data["sub_activity"], dict) and "description" in json_data["sub_activity"]:
-                json_data["sub_activity"] = json_data["sub_activity"]["description"]
-        
-        # Remove any 'choices' property if it somehow exists
-        if "choices" in json_data:
-            logger.info(f"Removing unexpected 'choices' from direct-answer question")
-            del json_data["choices"]
-            
-        return json_data
-    
-    # Case 5: Reading comprehension format
-    if "passage" in json_data and "question" in json_data and "choices" in json_data and "answer" in json_data:
-        json_data["type"] = "reading-comprehension"
-        logger.info(f"Set type to 'reading-comprehension' for passage-based question")
-        return json_data
-    
-    # If we can't fix it, return the original (validation will fail and we'll use fallback)
-    logger.warning(f"Could not repair malformed JSON structure: {str(json_data)[:100]}...")
-    return json_data
 
 def remove_think_tags(text: str) -> str:
     """
@@ -621,7 +270,7 @@ async def generate_grammar_feedback(question: str, user_answer: str, correct_ans
             url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
             
             # Create a unique session ID
-            session_id = f"session_{str(uuid.uuid4())}"
+            session_id = f"kidskills_{str(uuid.uuid4())}"
             
             # Create a prompt based on whether the answer was correct or not
             if is_correct:
@@ -1133,11 +782,11 @@ async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, 
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for math questions
     custom_prompt = construct_math_multiple_choice_prompt(grade, sub_activity, difficulty)
-    print(f"Custom prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Custom Math Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -1162,7 +811,7 @@ async def generate_math_multiple_choice_langflow(grade: int, sub_activity: str, 
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Math Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -1382,11 +1031,11 @@ async def generate_reading_comprehension_question(grade: int, subject: str, sub_
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for reading comprehension questions
     custom_prompt = construct_reading_comprehension_prompt(grade, sub_activity, difficulty)
-    print(f"Reading Comprehension prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Reading Comprehension Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -1411,7 +1060,7 @@ async def generate_reading_comprehension_question(grade: int, subject: str, sub_
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Reading Comprehension Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -1614,11 +1263,11 @@ async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity:
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for opposites/antonyms questions
     custom_prompt = construct_opposites_antonyms_prompt(grade, difficulty)
-    print(f"Opposites/Antonyms prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Opposites/Antonyms Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -1643,7 +1292,7 @@ async def generate_english_opposites_antonyms_langflow(grade: int, sub_activity:
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Opposites/Antonyms Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -1881,11 +1530,11 @@ async def generate_english_synonyms_langflow(grade: int, sub_activity: str, diff
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for synonyms questions
     custom_prompt = construct_synonyms_prompt(grade, difficulty)
-    print(f"Synonyms prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Synonyms Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -1910,7 +1559,7 @@ async def generate_english_synonyms_langflow(grade: int, sub_activity: str, diff
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Synonyms Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -2038,11 +1687,11 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for grammar correction questions
     custom_prompt = construct_grammar_correction_prompt(grade, difficulty)
-    print(f"Grammar correction custom prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Grammar Correction Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -2067,7 +1716,7 @@ async def generate_grammar_correction_langflow(grade: int, difficulty: str, requ
             
             # Parse the response
             response_data = response.json()
-            print(f"Langflow response data for grammar correction: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Grammar Correction Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -2283,7 +1932,7 @@ async def evaluate_grammar_correction_langflow(user_answer: str, correct_answer:
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Prepare the evaluation prompt
     eval_prompt = f"""
@@ -2438,7 +2087,7 @@ async def evaluate_reading_comprehension_langflow(passage: str, question: str, u
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Prepare the evaluation prompt
     eval_prompt = f"""
@@ -2556,11 +2205,11 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for Mario English questions
     custom_prompt = construct_mario_english_prompt(grade, difficulty)
-    print(f"Mario English prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Mario English Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -2585,7 +2234,7 @@ async def generate_mario_english_langflow(grade: int, sub_activity: str, difficu
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Mario English Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
@@ -2701,11 +2350,11 @@ async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str
     url = f"{langflow_host}/api/v1/run/{langflow_workflow}"
     
     # Create a unique session ID
-    session_id = f"session_{str(uuid.uuid4())}"
+    session_id = f"kidskills_{str(uuid.uuid4())}"
     
     # Generate a custom prompt for nouns/pronouns questions
     custom_prompt = construct_nouns_pronouns_prompt(grade, difficulty)
-    print(f"Nouns/Pronouns prompt: {custom_prompt}")
+    logger.debug(f"[{request_id}] Nouns/Pronouns Prompt: {custom_prompt}")
     
     # Prepare the request payload
     payload = {
@@ -2730,7 +2379,7 @@ async def generate_english_nouns_pronouns_langflow(grade: int, sub_activity: str
             
             # Parse the response
             response_data = response.json()
-            print(f"Response data: {response_data}")
+            logger.debug(f"[{request_id}] Langflow Nouns/Pronouns Response: {response_data}")
             
             # Extract the question JSON string from the response
             question_json_str = extract_question_from_langflow_response(response_data, request_id)
